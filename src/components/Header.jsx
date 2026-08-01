@@ -67,16 +67,6 @@ export default function Header({ currentPhase, onPhaseChange }) {
         {/* Right Tools & User Profile */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           
-          {/* Back to Feedback Slide Link Button */}
-          <button 
-            onClick={() => alert("Redirecting to Feedback Slide...")}
-            className="btn btn-secondary"
-            style={{ fontSize: '11px', padding: '6px 12px' }}
-          >
-            <span>Back to Feedback Slide</span>
-            <ExternalLink style={{ width: '13px', height: '13px' }} />
-          </button>
-
           {/* Notifications Bell */}
           <div style={{ position: 'relative' }}>
             <button
