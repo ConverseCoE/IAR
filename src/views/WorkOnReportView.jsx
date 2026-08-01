@@ -91,7 +91,7 @@ export default function WorkOnReportView({ job, onClose }) {
 
   // Helper to render PDF HTML card for an issue
   const renderPdfIssueCard = (item) => (
-    <div key={item.id} style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+    <div key={item.id} style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '28px' }}>
       
       {/* Grid Box Metadata */}
       <div style={{
@@ -326,7 +326,7 @@ export default function WorkOnReportView({ job, onClose }) {
         
         {/* LEFT COLUMN: ISSUES TABLE & EXPANDABLE EDIT FORM */}
         <div style={{
-          width: '52%',
+          width: '50%',
           borderRight: '1px solid #CBD5E1',
           display: 'flex',
           flexDirection: 'column',
@@ -356,7 +356,7 @@ export default function WorkOnReportView({ job, onClose }) {
                   return (
                     <React.Fragment key={item.id}>
                       
-                      {/* Main Table Row - Height & Padding matched to Reporting Queue Table (padding: 14px 16px, ~62px row height) */}
+                      {/* Main Table Row */}
                       <tr style={{
                         borderBottom: '1px solid #E2E8F0',
                         backgroundColor: isExpanded ? '#FFF5F6' : 'transparent',
@@ -659,27 +659,30 @@ export default function WorkOnReportView({ job, onClose }) {
 
         </div>
 
-        {/* RIGHT COLUMN: LIVE HTML PDF-STYLE REPORT PREVIEW */}
+        {/* RIGHT COLUMN: LIVE HTML PDF-STYLE REPORT PREVIEW (Smooth Scrollable Container) */}
         <div style={{
-          flex: 1,
-          backgroundColor: '#71717A',
-          padding: '24px',
+          width: '50%',
+          backgroundColor: '#52525B',
+          padding: '28px 24px',
           overflowY: 'auto',
+          maxHeight: '100%',
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center'
+          alignItems: 'center',
+          boxSizing: 'border-box'
         }}>
           
           {/* Outer PDF Paper Container */}
           <div style={{
             width: '100%',
-            maxWidth: '820px',
+            maxWidth: '840px',
             backgroundColor: '#ffffff',
             borderRadius: '4px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.35)',
             display: 'flex',
             flexDirection: 'column',
-            overflow: 'hidden'
+            flexShrink: 0,
+            marginBottom: '40px'
           }}>
             
             {/* Red PDF Document Header Bar */}
@@ -689,7 +692,8 @@ export default function WorkOnReportView({ job, onClose }) {
               padding: '10px 20px',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between'
+              justifyContent: 'space-between',
+              flexShrink: 0
             }}>
               <span style={{ fontSize: '13px', fontWeight: '800', letterSpacing: '0.3px' }}>
                 {job?.fileName || "MedTech Suzhou - Orthopedics Plant_AuditReport"}
@@ -728,7 +732,7 @@ export default function WorkOnReportView({ job, onClose }) {
               </div>
 
               {/* Auditable Entity */}
-              <div style={{ fontSize: '14px', fontWeight: '800', color: '#000000', marginBottom: '16px' }}>
+              <div style={{ fontSize: '14px', fontWeight: '800', color: '#000000', marginBottom: '20px' }}>
                 Auditable Entity: <span style={{ fontWeight: '600' }}>{selectedIssue ? selectedIssue.auditableEntity : "MRC-002960-J&J Medical Austral"}</span>
               </div>
 
