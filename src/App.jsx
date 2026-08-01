@@ -177,22 +177,9 @@ export default function App() {
         }} 
       />
 
-      {/* 2. Sub-Header Title Banner for Fieldwork & Reporting Queue (Hidden when Work On Report studio is active) */}
-      {!activeWorkOnReportJob && currentPhase === 'fieldwork' && activeView === 'queue' && (
-        <div className="job-queue-title-banner">
-          <h2>Job Queue</h2>
-        </div>
-      )}
-
-      {!activeWorkOnReportJob && currentPhase === 'reporting' && activeView === 'queue' && (
-        <div className="job-queue-title-banner">
-          <h2>Reporting Queue</h2>
-        </div>
-      )}
-
-      {/* 3. Main Content View Switcher */}
+      {/* 2. Main Content View Switcher */}
       {activeWorkOnReportJob ? (
-        /* WORK ON REPORT INTERACTIVE STUDIO (Replaces main queue view below Header) */
+        /* WORK ON REPORT INTERACTIVE STUDIO (Takes 100% of height below Header) */
         <WorkOnReportView
           job={activeWorkOnReportJob}
           onClose={() => setActiveWorkOnReportJob(null)}
@@ -205,69 +192,86 @@ export default function App() {
           onOpenHistoryModal={handleOpenHistoryModal}
         />
       ) : (
-        <div className={`workspace-split-container ${isCurrentDrawerOpen ? 'drawer-is-open' : ''}`}>
+        /* QUEUE TABLE & DRAWER WORKSPACE (Rendered only when WorkOnReportView is NOT active) */
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           
-          {/* Left Content Area */}
-          <main className="main-container">
-            {currentPhase === 'fieldwork' ? (
-              <JobQueueView 
-                reports={reports}
-                selectedReportId={selectedReportId}
-                onSelectReport={handleSelectReport}
+          {currentPhase === 'fieldwork' && activeView === 'queue' && (
+            <div className="job-queue-title-banner">
+              <h2>Job Queue</h2>
+            </div>
+          )}
+
+          {currentPhase === 'reporting' && activeView === 'queue' && (
+            <div className="job-queue-title-banner">
+              <h2>Reporting Queue</h2>
+            </div>
+          )}
+
+          <div className={`workspace-split-container ${isCurrentDrawerOpen ? 'drawer-is-open' : ''}`}>
+            
+            {/* Left Content Area */}
+            <main className="main-container">
+              {currentPhase === 'fieldwork' ? (
+                <JobQueueView 
+                  reports={reports}
+                  selectedReportId={selectedReportId}
+                  onSelectReport={handleSelectReport}
+                  onOpenITModal={handleOpenITModal}
+                  onOpenFinOpsModal={handleOpenFinOpsModal}
+                  onOpenIssueModal={handleOpenIssueModal}
+                  isDrawerOpen={isDrawerOpen}
+                />
+              ) : currentPhase === 'pre-planning' ? (
+                <PrePlanningView />
+              ) : currentPhase === 'planning' ? (
+                <PlanningView />
+              ) : currentPhase === 'reporting' ? (
+                <ReportingQueueView 
+                  selectedJobId={selectedReportingJobId}
+                  onSelectJob={handleSelectReportingJob}
+                />
+              ) : currentPhase === 'wrap-up' ? (
+                <WrapUpView />
+              ) : currentPhase === 'dashboards' ? (
+                <DashboardsView />
+              ) : null}
+            </main>
+
+            {/* Right Audit Detail Drawer Panel (For Fieldwork phase) */}
+            {currentPhase === 'fieldwork' && isDrawerOpen && (
+              <AuditDetailDrawer 
+                isOpen={isDrawerOpen}
+                report={selectedReport}
+                onClose={handleCloseDrawer}
                 onOpenITModal={handleOpenITModal}
                 onOpenFinOpsModal={handleOpenFinOpsModal}
                 onOpenIssueModal={handleOpenIssueModal}
-                isDrawerOpen={isDrawerOpen}
+                onOpenWorkflowModal={handleOpenWorkflowModal}
+                onOpenHistoryModal={handleOpenHistoryModal}
+                onOpenDiscussionPointsView={handleOpenDiscussionPointsView}
               />
-            ) : currentPhase === 'pre-planning' ? (
-              <PrePlanningView />
-            ) : currentPhase === 'planning' ? (
-              <PlanningView />
-            ) : currentPhase === 'reporting' ? (
-              <ReportingQueueView 
-                selectedJobId={selectedReportingJobId}
-                onSelectJob={handleSelectReportingJob}
+            )}
+
+            {/* Right Reporting Detail Drawer Panel (For Reporting phase) */}
+            {currentPhase === 'reporting' && selectedReportingJob && (
+              <ReportingDetailDrawer
+                isOpen={!!selectedReportingJob}
+                job={selectedReportingJob}
+                onClose={handleCloseReportingDrawer}
+                onOpenDiscussionPoints={() => handleOpenDiscussionPointsView('All')}
+                onOpenWorkflow={(job) => handleOpenWorkflowModal({
+                  title: `${job.id} — Workflow Stages`,
+                  workflows: [
+                    { groupTitle: "Audit Report Workflow", status: job.auditReport.validationStatus, steps: [] },
+                    { groupTitle: "Executive Report Workflow", status: job.executiveSummaryReport.validationStatus, steps: [] }
+                  ]
+                })}
+                onOpenHistory={(job) => handleOpenHistoryModal({ id: job.id, header: job.engagement })}
+                onWorkOnReport={(job) => setActiveWorkOnReportJob(job)}
               />
-            ) : currentPhase === 'wrap-up' ? (
-              <WrapUpView />
-            ) : currentPhase === 'dashboards' ? (
-              <DashboardsView />
-            ) : null}
-          </main>
+            )}
 
-          {/* Right Audit Detail Drawer Panel (For Fieldwork phase) */}
-          {currentPhase === 'fieldwork' && isDrawerOpen && (
-            <AuditDetailDrawer 
-              isOpen={isDrawerOpen}
-              report={selectedReport}
-              onClose={handleCloseDrawer}
-              onOpenITModal={handleOpenITModal}
-              onOpenFinOpsModal={handleOpenFinOpsModal}
-              onOpenIssueModal={handleOpenIssueModal}
-              onOpenWorkflowModal={handleOpenWorkflowModal}
-              onOpenHistoryModal={handleOpenHistoryModal}
-              onOpenDiscussionPointsView={handleOpenDiscussionPointsView}
-            />
-          )}
-
-          {/* Right Reporting Detail Drawer Panel (For Reporting phase) */}
-          {currentPhase === 'reporting' && selectedReportingJob && (
-            <ReportingDetailDrawer
-              isOpen={!!selectedReportingJob}
-              job={selectedReportingJob}
-              onClose={handleCloseReportingDrawer}
-              onOpenDiscussionPoints={() => handleOpenDiscussionPointsView('All')}
-              onOpenWorkflow={(job) => handleOpenWorkflowModal({
-                title: `${job.id} — Workflow Stages`,
-                workflows: [
-                  { groupTitle: "Audit Report Workflow", status: job.auditReport.validationStatus, steps: [] },
-                  { groupTitle: "Executive Report Workflow", status: job.executiveSummaryReport.validationStatus, steps: [] }
-                ]
-              })}
-              onOpenHistory={(job) => handleOpenHistoryModal({ id: job.id, header: job.engagement })}
-              onWorkOnReport={(job) => setActiveWorkOnReportJob(job)}
-            />
-          )}
+          </div>
 
         </div>
       )}
