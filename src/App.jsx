@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Header from './components/Header';
 import JobQueueView from './components/JobQueueView';
 import AuditDetailDrawer from './components/AuditDetailDrawer';
+import ReportingDetailDrawer from './components/ReportingDetailDrawer';
 import DiscussionModal from './components/DiscussionModal';
 import IssueModal from './components/IssueModal';
 import WorkflowModal from './components/WorkflowModal';
@@ -9,6 +10,7 @@ import HistoryModal from './components/HistoryModal';
 import DiscussionPointsView from './views/DiscussionPointsView';
 import ReportingQueueView from './views/ReportingQueueView';
 import { initialReports } from './data/mockData';
+import { mockReportingJobs } from './data/reportingMockData';
 import { 
   PrePlanningView, 
   PlanningView, 
@@ -21,6 +23,10 @@ export default function App() {
   const [reports, setReports] = useState(initialReports);
   const [selectedReportId, setSelectedReportId] = useState("REP-2026-006"); // BiosenseWebster_Catheters_Audit as default
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  
+  // Reporting Module Drawer State
+  const [selectedReportingJobId, setSelectedReportingJobId] = useState(null);
+
   const [activeView, setActiveView] = useState('queue'); // 'queue' or 'discussion-points'
   const [discussionFuncFilter, setDiscussionFuncFilter] = useState('All');
 
@@ -48,6 +54,7 @@ export default function App() {
   });
 
   const selectedReport = reports.find(r => r.id === selectedReportId) || reports.find(r => r.id === "REP-2026-006") || reports[0];
+  const selectedReportingJob = mockReportingJobs.find(j => j.id === selectedReportingJobId) || null;
 
   const handleSelectReport = (reportId) => {
     setSelectedReportId(reportId);
@@ -57,6 +64,14 @@ export default function App() {
   const handleCloseDrawer = () => {
     setIsDrawerOpen(false);
     setSelectedReportId(null);
+  };
+
+  const handleSelectReportingJob = (jobId) => {
+    setSelectedReportingJobId(selectedReportingJobId === jobId ? null : jobId);
+  };
+
+  const handleCloseReportingDrawer = () => {
+    setSelectedReportingJobId(null);
   };
 
   // Open Full-Screen Discussion Points View
@@ -145,6 +160,8 @@ export default function App() {
     });
   };
 
+  const isCurrentDrawerOpen = (currentPhase === 'fieldwork' && isDrawerOpen) || (currentPhase === 'reporting' && !!selectedReportingJobId);
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--slate-50)' }}>
       
@@ -179,7 +196,7 @@ export default function App() {
           onOpenHistoryModal={handleOpenHistoryModal}
         />
       ) : (
-        <div className={`workspace-split-container ${isDrawerOpen ? 'drawer-is-open' : ''}`}>
+        <div className={`workspace-split-container ${isCurrentDrawerOpen ? 'drawer-is-open' : ''}`}>
           
           {/* Left Content Area */}
           <main className="main-container">
@@ -199,7 +216,8 @@ export default function App() {
               <PlanningView />
             ) : currentPhase === 'reporting' ? (
               <ReportingQueueView 
-                onOpenDiscussionPointsView={() => handleOpenDiscussionPointsView('All')}
+                selectedJobId={selectedReportingJobId}
+                onSelectJob={handleSelectReportingJob}
               />
             ) : currentPhase === 'wrap-up' ? (
               <WrapUpView />
@@ -220,6 +238,24 @@ export default function App() {
               onOpenWorkflowModal={handleOpenWorkflowModal}
               onOpenHistoryModal={handleOpenHistoryModal}
               onOpenDiscussionPointsView={handleOpenDiscussionPointsView}
+            />
+          )}
+
+          {/* Right Reporting Detail Drawer Panel (For Reporting phase) */}
+          {currentPhase === 'reporting' && selectedReportingJob && (
+            <ReportingDetailDrawer
+              isOpen={!!selectedReportingJob}
+              job={selectedReportingJob}
+              onClose={handleCloseReportingDrawer}
+              onOpenDiscussionPoints={() => handleOpenDiscussionPointsView('All')}
+              onOpenWorkflow={(job) => handleOpenWorkflowModal({
+                title: `${job.id} — Workflow Stages`,
+                workflows: [
+                  { groupTitle: "Audit Report Workflow", status: job.auditReport.validationStatus, steps: [] },
+                  { groupTitle: "Executive Report Workflow", status: job.executiveSummaryReport.validationStatus, steps: [] }
+                ]
+              })}
+              onOpenHistory={(job) => handleOpenHistoryModal({ id: job.id, header: job.engagement })}
             />
           )}
 
