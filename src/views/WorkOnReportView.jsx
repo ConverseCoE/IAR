@@ -7,7 +7,8 @@ import { mockAuditReportIssues } from '../data/reportIssuesData';
 
 export default function WorkOnReportView({ job, onClose }) {
   const [issues, setIssues] = useState(mockAuditReportIssues);
-  const [expandedIssueId, setExpandedIssueId] = useState(mockAuditReportIssues[0].id); // First issue expanded by default
+  // Default to null so NO row is selected initially and the full report (ALL issues) is displayed in PDF preview
+  const [expandedIssueId, setExpandedIssueId] = useState(null);
   const [isTrackChangesActive, setIsTrackChangesActive] = useState(false);
 
   // Active Issue Object for PDF Filter View
@@ -243,7 +244,7 @@ export default function WorkOnReportView({ job, onClose }) {
             Audit Report — {job?.fileName || job?.id || 'BiosenseWebster_Catheters_Audit'}
           </h1>
 
-          {/* Editing Pill Badge */}
+          {/* Editing Pill Badge (Shows only when an issue is selected) */}
           {selectedIssue && (
             <span style={{ fontSize: '12px', fontWeight: '700', color: '#D8001D', backgroundColor: '#FFF0F2', padding: '2px 10px', borderRadius: '9999px', border: '1px solid #FCA5A5' }}>
               Editing: {selectedIssue.id}
@@ -251,7 +252,7 @@ export default function WorkOnReportView({ job, onClose }) {
           )}
         </div>
 
-        {/* Top Right Job-Level Actions (NO CLOSE X BUTTON) */}
+        {/* Top Right Job-Level Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           
           {/* Generate Report Button */}
