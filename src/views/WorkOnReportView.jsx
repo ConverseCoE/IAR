@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   ArrowLeft, Plus, Minus, Download, Save, Send, GitBranch, History, 
   AlertOctagon, CheckCircle2, RefreshCw, FileText, ArrowUp, ArrowDown, Sparkles,
-  MoreVertical, Check, Layout, Columns, PanelLeft, Layers
+  MoreVertical, Check, Layout, Columns, PanelLeft, Layers, X
 } from 'lucide-react';
 import { mockAuditReportIssues } from '../data/reportIssuesData';
 
@@ -778,7 +778,7 @@ export default function WorkOnReportView({ job, onClose }) {
                       style={{
                         padding: '12px 14px',
                         borderRadius: '8px',
-                        backgroundColor: isSelected ? '#ffffff' : '#ffffff',
+                        backgroundColor: '#ffffff',
                         border: isSelected ? '2px solid #2563EB' : '1px solid #E2E8F0',
                         boxShadow: isSelected ? '0 4px 12px rgba(37,99,235,0.15)' : '0 1px 3px rgba(0,0,0,0.03)',
                         cursor: 'pointer',
@@ -819,7 +819,7 @@ export default function WorkOnReportView({ job, onClose }) {
                 </div>
               ) : (
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', fontSize: '13px', padding: '20px', textAlign: 'center' }}>
-                  👈 Click any issue on the Master List to view & edit its fields here while keeping live PDF preview open!
+                  👈 Click any issue on the Master List to view &amp; edit its fields here while keeping live PDF preview open!
                 </div>
               )}
             </div>
