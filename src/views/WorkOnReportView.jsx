@@ -440,28 +440,30 @@ export default function WorkOnReportView({ job, onClose }) {
                             
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                               
-                              {/* Issue-Level Action Toolbar (OUTSIDE White Form Card - On #FAFAFA Background Above Form) */}
+                              {/* Issue-Level Action Toolbar (Left: Mark Not an Issue / Exclude | Right: Reroute, Track Changes, Save, Submit) */}
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', paddingBottom: '4px' }}>
                                 
+                                {/* Left End: Mark Not an Issue & Mark Exclude Issue */}
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  {/* Save */}
+                                  {/* Mark Not an Issue */}
                                   <button
-                                    onClick={() => handleSaveIssue(item.id)}
-                                    style={{ padding: '7px 14px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#2563EB', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 1px 3px rgba(37,99,235,0.2)' }}
+                                    onClick={() => handleMarkNotAnIssue(item.id)}
+                                    style={{ padding: '7px 12px', fontSize: '11.5px', fontWeight: '800', color: '#047857', backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '6px', cursor: 'pointer' }}
                                   >
-                                    <Save style={{ width: '13.5px', height: '13.5px' }} />
-                                    <span>Save</span>
+                                    Mark Not an Issue
                                   </button>
 
-                                  {/* Submit */}
+                                  {/* Mark Exclude Issue */}
                                   <button
-                                    onClick={() => handleSubmitIssue(item.id)}
-                                    style={{ padding: '7px 14px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#059669', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 1px 3px rgba(5,150,105,0.2)' }}
+                                    onClick={() => handleMarkExcludeIssue(item.id)}
+                                    style={{ padding: '7px 12px', fontSize: '11.5px', fontWeight: '800', color: '#991B1B', backgroundColor: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '6px', cursor: 'pointer' }}
                                   >
-                                    <Send style={{ width: '13.5px', height: '13.5px' }} />
-                                    <span>Submit</span>
+                                    Mark Exclude Issue
                                   </button>
+                                </div>
 
+                                {/* Right End: Reroute, Track Changes, Save, Submit */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                   {/* Reroute */}
                                   <button
                                     onClick={() => handleRerouteIssue(item.id)}
@@ -479,23 +481,23 @@ export default function WorkOnReportView({ job, onClose }) {
                                     <History style={{ width: '13.5px', height: '13.5px' }} />
                                     <span>Track Changes</span>
                                   </button>
-                                </div>
 
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  {/* Mark Not an Issue */}
+                                  {/* Save */}
                                   <button
-                                    onClick={() => handleMarkNotAnIssue(item.id)}
-                                    style={{ padding: '7px 12px', fontSize: '11.5px', fontWeight: '800', color: '#047857', backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '6px', cursor: 'pointer' }}
+                                    onClick={() => handleSaveIssue(item.id)}
+                                    style={{ padding: '7px 14px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#2563EB', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 1px 3px rgba(37,99,235,0.2)' }}
                                   >
-                                    Mark Not an Issue
+                                    <Save style={{ width: '13.5px', height: '13.5px' }} />
+                                    <span>Save</span>
                                   </button>
 
-                                  {/* Mark Exclude Issue */}
+                                  {/* Submit */}
                                   <button
-                                    onClick={() => handleMarkExcludeIssue(item.id)}
-                                    style={{ padding: '7px 12px', fontSize: '11.5px', fontWeight: '800', color: '#991B1B', backgroundColor: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '6px', cursor: 'pointer' }}
+                                    onClick={() => handleSubmitIssue(item.id)}
+                                    style={{ padding: '7px 14px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#059669', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 1px 3px rgba(5,150,105,0.2)' }}
                                   >
-                                    Mark Exclude Issue
+                                    <Send style={{ width: '13.5px', height: '13.5px' }} />
+                                    <span>Submit</span>
                                   </button>
                                 </div>
 
