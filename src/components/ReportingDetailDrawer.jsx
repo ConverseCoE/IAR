@@ -80,7 +80,7 @@ export default function ReportingDetailDrawer({
         </div>
       </div>
 
-      {/* Segmented Tab Switcher Container (Exact Fieldwork Drawer Design) */}
+      {/* Segmented Tab Switcher Container */}
       <div style={{ padding: '16px 20px 0 20px', backgroundColor: '#ffffff', flexShrink: 0 }}>
         <div style={{
           display: 'flex',
@@ -157,38 +157,40 @@ export default function ReportingDetailDrawer({
               </h3>
             </div>
 
-            {/* Fields Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 14px', fontSize: '12px' }}>
-              <div>
-                <span style={{ color: '#64748B', display: 'block', fontSize: '11px', fontWeight: '600' }}>Gen AI Extraction Date Time</span>
-                <strong style={{ color: '#0F172A', fontSize: '12px' }}>{auditReport?.genAiExtractionDateTime || '-'}</strong>
+            {/* Single-Column Left Label & Right Value Rows */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Gen AI Extraction Date Time</span>
+                <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{auditReport?.genAiExtractionDateTime || '-'}</strong>
               </div>
 
-              <div>
-                <span style={{ color: '#64748B', display: 'block', fontSize: '11px', fontWeight: '600' }}>Execution Status</span>
-                <span style={{ fontSize: '11px', fontWeight: '700', color: '#047857', backgroundColor: '#ECFDF5', padding: '2px 8px', borderRadius: '4px', display: 'inline-block', marginTop: '2px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Execution Status</span>
+                <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#047857', backgroundColor: '#ECFDF5', padding: '2px 10px', borderRadius: '4px', border: '1px solid #A7F3D0' }}>
                   {auditReport?.executionStatus || 'Completed'}
                 </span>
               </div>
 
-              <div>
-                <span style={{ color: '#64748B', display: 'block', fontSize: '11px', fontWeight: '600' }}>Validation Start Date Time</span>
-                <strong style={{ color: '#0F172A', fontSize: '12px' }}>{auditReport?.validationStartDateTime || '-'}</strong>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Validation Start Date Time</span>
+                <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{auditReport?.validationStartDateTime || '-'}</strong>
               </div>
 
-              <div>
-                <span style={{ color: '#64748B', display: 'block', fontSize: '11px', fontWeight: '600' }}>Validation End Date Time</span>
-                <strong style={{ color: '#0F172A', fontSize: '12px' }}>{auditReport?.validationEndDateTime || '-'}</strong>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Validation End Date Time</span>
+                <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{auditReport?.validationEndDateTime || '-'}</strong>
               </div>
 
-              <div style={{ gridColumn: 'span 2' }}>
-                <span style={{ color: '#64748B', display: 'block', fontSize: '11px', fontWeight: '600' }}>Validation Status</span>
-                <strong style={{ color: '#2563EB', fontSize: '12.5px', fontWeight: '800' }}>{auditReport?.validationStatus || 'Validated'}</strong>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Validation Status</span>
+                <strong style={{ fontSize: '13px', fontWeight: '800', color: '#2563EB' }}>{auditReport?.validationStatus || 'Validated'}</strong>
               </div>
+
             </div>
 
             {/* Action Buttons */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', paddingTop: '10px', borderTop: '1px solid #E2E8F0' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', paddingTop: '12px', borderTop: '1px solid #E2E8F0' }}>
               <button
                 onClick={() => alert(`Initiating Work On Audit Report for ${job.id}`)}
                 style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '800', color: '#ffffff', backgroundColor: '#D8001D', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
@@ -244,38 +246,40 @@ export default function ReportingDetailDrawer({
               </h3>
             </div>
 
-            {/* Fields Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 14px', fontSize: '12px' }}>
-              <div>
-                <span style={{ color: '#64748B', display: 'block', fontSize: '11px', fontWeight: '600' }}>Gen AI Extraction Date Time</span>
-                <strong style={{ color: '#0F172A', fontSize: '12px' }}>{executiveSummaryReport?.genAiExtractionDateTime || '-'}</strong>
+            {/* Single-Column Left Label & Right Value Rows */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Gen AI Extraction Date Time</span>
+                <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{executiveSummaryReport?.genAiExtractionDateTime || '-'}</strong>
               </div>
 
-              <div>
-                <span style={{ color: '#64748B', display: 'block', fontSize: '11px', fontWeight: '600' }}>Execution Status</span>
-                <span style={{ fontSize: '11px', fontWeight: '700', color: '#047857', backgroundColor: '#ECFDF5', padding: '2px 8px', borderRadius: '4px', display: 'inline-block', marginTop: '2px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Execution Status</span>
+                <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#047857', backgroundColor: '#ECFDF5', padding: '2px 10px', borderRadius: '4px', border: '1px solid #A7F3D0' }}>
                   {executiveSummaryReport?.executionStatus || 'Completed'}
                 </span>
               </div>
 
-              <div>
-                <span style={{ color: '#64748B', display: 'block', fontSize: '11px', fontWeight: '600' }}>Validation Start Date Time</span>
-                <strong style={{ color: '#0F172A', fontSize: '12px' }}>{executiveSummaryReport?.validationStartDateTime || '-'}</strong>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Validation Start Date Time</span>
+                <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{executiveSummaryReport?.validationStartDateTime || '-'}</strong>
               </div>
 
-              <div>
-                <span style={{ color: '#64748B', display: 'block', fontSize: '11px', fontWeight: '600' }}>Validation End Date Time</span>
-                <strong style={{ color: '#0F172A', fontSize: '12px' }}>{executiveSummaryReport?.validationEndDateTime || '-'}</strong>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Validation End Date Time</span>
+                <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{executiveSummaryReport?.validationEndDateTime || '-'}</strong>
               </div>
 
-              <div style={{ gridColumn: 'span 2' }}>
-                <span style={{ color: '#64748B', display: 'block', fontSize: '11px', fontWeight: '600' }}>Validation Status</span>
-                <strong style={{ color: '#059669', fontSize: '12.5px', fontWeight: '800' }}>{executiveSummaryReport?.validationStatus || 'Validated'}</strong>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Validation Status</span>
+                <strong style={{ fontSize: '13px', fontWeight: '800', color: '#059669' }}>{executiveSummaryReport?.validationStatus || 'Validated'}</strong>
               </div>
+
             </div>
 
             {/* Action Buttons */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', paddingTop: '10px', borderTop: '1px solid #E2E8F0' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', paddingTop: '12px', borderTop: '1px solid #E2E8F0' }}>
               <button
                 onClick={() => alert(`Initiating Work On Executive Summary Report for ${job.id}`)}
                 style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '800', color: '#ffffff', backgroundColor: '#059669', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
@@ -331,24 +335,26 @@ export default function ReportingDetailDrawer({
               </h3>
             </div>
 
-            {/* Fields Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 14px', fontSize: '12px' }}>
-              <div>
-                <span style={{ color: '#64748B', display: 'block', fontSize: '11px', fontWeight: '600' }}>Start Date Time</span>
-                <strong style={{ color: '#0F172A', fontSize: '12px' }}>{discussionPoints?.startDateTime || '-'}</strong>
+            {/* Single-Column Left Label & Right Value Rows */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Start Date Time</span>
+                <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{discussionPoints?.startDateTime || '-'}</strong>
               </div>
 
-              <div>
-                <span style={{ color: '#64748B', display: 'block', fontSize: '11px', fontWeight: '600' }}>End Date Time</span>
-                <strong style={{ color: '#0F172A', fontSize: '12px' }}>{discussionPoints?.endDateTime || '-'}</strong>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>End Date Time</span>
+                <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{discussionPoints?.endDateTime || '-'}</strong>
               </div>
 
-              <div style={{ gridColumn: 'span 2' }}>
-                <span style={{ color: '#64748B', display: 'block', fontSize: '11px', fontWeight: '600' }}>Status</span>
-                <span style={{ fontSize: '11px', fontWeight: '700', color: '#047857', backgroundColor: '#ECFDF5', padding: '2px 8px', borderRadius: '4px', display: 'inline-block', marginTop: '2px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Status</span>
+                <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#047857', backgroundColor: '#ECFDF5', padding: '2px 10px', borderRadius: '4px', border: '1px solid #A7F3D0' }}>
                   {discussionPoints?.status || 'Active'}
                 </span>
               </div>
+
             </div>
 
             {/* Open Discussion Points Action Button */}
