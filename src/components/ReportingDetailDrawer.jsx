@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  X, FileText, Download, GitBranch, History, PlayCircle, 
+  X, ArrowLeft, FileText, Download, GitBranch, History, PlayCircle, 
   MessageSquare, Calendar, CheckCircle2, Clock, ShieldCheck, ArrowRight
 } from 'lucide-react';
 
@@ -38,38 +38,65 @@ export default function ReportingDetailDrawer({
       overflow: 'hidden'
     }}>
       
-      {/* Drawer Header */}
-      <div style={{
-        padding: '16px 20px',
-        borderBottom: '1px solid var(--slate-200)',
-        backgroundColor: '#0F172A',
-        color: '#ffffff',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between'
-      }}>
-        <div>
-          <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#FCA5A5', letterSpacing: '0.8px' }}>
-            Reporting Job Overview
-          </span>
-          <h2 style={{ fontSize: '16px', fontWeight: '800', margin: 0, marginTop: '2px', color: '#ffffff' }}>
-            {job.id} — <span style={{ fontWeight: '400', opacity: 0.9 }}>{job.fileName}</span>
-          </h2>
-        </div>
+      {/* Inset Dark Rectangle Title Card (Exact Fieldwork Drawer Header Design) */}
+      <div style={{ padding: '16px 20px 0 20px', backgroundColor: '#ffffff', flexShrink: 0 }}>
+        <div style={{
+          backgroundColor: '#0F172A',
+          color: '#ffffff',
+          padding: '12px 16px',
+          borderRadius: '10px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          boxShadow: '0 2px 6px rgba(15, 23, 42, 0.15)',
+          position: 'relative'
+        }}>
+          {/* Left Side: Back Arrow Button + Job ID & Name Title */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+            <button
+              onClick={onClose}
+              style={{
+                padding: '6px',
+                borderRadius: '6px',
+                border: '1px solid rgba(255,255,255,0.2)',
+                background: 'rgba(255,255,255,0.1)',
+                color: '#ffffff',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}
+              title="Close Drawer"
+            >
+              <ArrowLeft style={{ width: '16px', height: '16px', color: '#FCA5A5' }} />
+            </button>
 
-        <button
-          onClick={onClose}
-          style={{
-            padding: '6px',
-            borderRadius: '6px',
-            border: '1px solid rgba(255,255,255,0.2)',
-            background: 'rgba(255,255,255,0.1)',
-            color: '#ffffff',
-            cursor: 'pointer'
-          }}
-        >
-          <X style={{ width: '18px', height: '18px' }} />
-        </button>
+            <h2 style={{ fontSize: '14.5px', fontWeight: '800', color: '#ffffff', lineHeight: '1.3', margin: 0, wordBreak: 'break-word' }}>
+              {job.id} — {job.fileName}
+            </h2>
+          </div>
+
+          {/* Right Side: Close X Button */}
+          <button
+            onClick={onClose}
+            style={{
+              padding: '6px',
+              borderRadius: '6px',
+              border: '1px solid rgba(255,255,255,0.2)',
+              background: 'rgba(255,255,255,0.1)',
+              color: '#ffffff',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}
+          >
+            <X style={{ width: '16px', height: '16px' }} />
+          </button>
+        </div>
       </div>
 
       {/* Segmented Tab Switcher Container (Exact Fieldwork Drawer Design) */}
