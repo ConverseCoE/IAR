@@ -72,56 +72,58 @@ export default function ReportingDetailDrawer({
         </button>
       </div>
 
-      {/* Tabbed Navigation Bar (Fieldwork Drawer Style) */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        backgroundColor: '#F8FAFC',
-        borderBottom: '1px solid var(--slate-200)',
-        padding: '0 12px',
-        gap: '4px'
-      }}>
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                flex: 1,
-                padding: '12px 8px',
-                fontSize: '12px',
-                fontWeight: isActive ? '800' : '600',
-                color: isActive ? '#D8001D' : '#64748B',
-                border: 'none',
-                borderBottom: isActive ? '2.5px solid #D8001D' : '2.5px solid transparent',
-                backgroundColor: 'transparent',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <Icon style={{ width: '14px', height: '14px', color: isActive ? '#D8001D' : '#94A3B8' }} />
-              <span>{tab.label}</span>
-              {tab.count !== undefined && (
-                <span style={{
-                  fontSize: '10px',
-                  fontWeight: '800',
-                  padding: '1px 6px',
-                  borderRadius: '9999px',
-                  backgroundColor: isActive ? '#FFF0F2' : '#E2E8F0',
-                  color: isActive ? '#D8001D' : '#475569'
-                }}>
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          );
-        })}
+      {/* Segmented Tab Switcher Container (Exact Fieldwork Drawer Design) */}
+      <div style={{ padding: '16px 20px 0 20px', backgroundColor: '#ffffff', flexShrink: 0 }}>
+        <div style={{
+          display: 'flex',
+          backgroundColor: '#F1F5F9',
+          borderRadius: '8px',
+          padding: '4px',
+          gap: '4px'
+        }}>
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  flex: 1,
+                  padding: '9px 8px',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  borderRadius: '6px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  backgroundColor: isActive ? '#ffffff' : 'transparent',
+                  color: isActive ? '#D8001D' : '#64748B',
+                  boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '5px'
+                }}
+              >
+                <Icon style={{ width: '14px', height: '14px', color: isActive ? '#D8001D' : '#94A3B8' }} />
+                <span>{tab.label}</span>
+                {tab.count !== undefined && (
+                  <span style={{
+                    fontSize: '10px',
+                    fontWeight: '800',
+                    padding: '1px 5px',
+                    borderRadius: '9999px',
+                    backgroundColor: isActive ? '#FFF0F2' : '#E2E8F0',
+                    color: isActive ? '#D8001D' : '#475569'
+                  }}>
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Scrollable Tab Body Content */}
