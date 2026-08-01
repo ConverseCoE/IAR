@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  X, ArrowLeft, FileText, Download, GitBranch, History, PlayCircle, 
+  ArrowLeft, FileText, Download, GitBranch, History, PlayCircle, 
   MessageSquare, Calendar, CheckCircle2, Clock, ShieldCheck, ArrowRight
 } from 'lucide-react';
 
@@ -38,7 +38,7 @@ export default function ReportingDetailDrawer({
       overflow: 'hidden'
     }}>
       
-      {/* Inset Dark Rectangle Title Card (Exact Fieldwork Drawer Header Design) */}
+      {/* Inset Dark Rectangle Title Card */}
       <div style={{ padding: '16px 20px 0 20px', backgroundColor: '#ffffff', flexShrink: 0 }}>
         <div style={{
           backgroundColor: '#0F172A',
@@ -52,7 +52,7 @@ export default function ReportingDetailDrawer({
           boxShadow: '0 2px 6px rgba(15, 23, 42, 0.15)',
           position: 'relative'
         }}>
-          {/* Left Side: Back Arrow Button + Job ID & Name Title */}
+          {/* Back Arrow Button + Job ID & Name Title */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
             <button
               onClick={onClose}
@@ -68,7 +68,7 @@ export default function ReportingDetailDrawer({
                 justifyContent: 'center',
                 flexShrink: 0
               }}
-              title="Close Drawer"
+              title="Back to Full Table View"
             >
               <ArrowLeft style={{ width: '16px', height: '16px', color: '#FCA5A5' }} />
             </button>
@@ -77,25 +77,6 @@ export default function ReportingDetailDrawer({
               {job.id} — {job.fileName}
             </h2>
           </div>
-
-          {/* Right Side: Close X Button */}
-          <button
-            onClick={onClose}
-            style={{
-              padding: '6px',
-              borderRadius: '6px',
-              border: '1px solid rgba(255,255,255,0.2)',
-              background: 'rgba(255,255,255,0.1)',
-              color: '#ffffff',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0
-            }}
-          >
-            <X style={{ width: '16px', height: '16px' }} />
-          </button>
         </div>
       </div>
 
