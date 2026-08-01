@@ -21,7 +21,7 @@ export default function ReportingDetailDrawer({
   const tabs = [
     { id: 'audit-report', label: 'Audit Report', icon: FileText },
     { id: 'executive-report', label: 'Executive Report', icon: ShieldCheck },
-    { id: 'discussion-points', label: 'Discussion Points', icon: MessageSquare, count: discussionPoints?.count || 3 }
+    { id: 'discussion-points', label: 'Discussions', icon: MessageSquare, count: discussionPoints?.count || 3 }
   ];
 
   return (
@@ -303,7 +303,7 @@ export default function ReportingDetailDrawer({
           </div>
         )}
 
-        {/* TAB 3: DISCUSSION POINTS */}
+        {/* TAB 3: DISCUSSIONS */}
         {activeTab === 'discussion-points' && (
           <div style={{
             backgroundColor: '#ffffff',
@@ -319,7 +319,7 @@ export default function ReportingDetailDrawer({
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1.5px solid #D8001D', paddingBottom: '8px' }}>
               <MessageSquare style={{ width: '18px', height: '18px', color: '#D8001D' }} />
               <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#991B1B', margin: 0 }}>
-                Discussion Points Overview
+                Discussions Overview
               </h3>
             </div>
 
