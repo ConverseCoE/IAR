@@ -197,16 +197,14 @@ export default function WorkOnReportView({ job, onClose }) {
 
   return (
     <div style={{
-      position: 'fixed',
-      inset: 0,
-      backgroundColor: '#ffffff',
-      zIndex: 1000,
+      flex: 1,
       display: 'flex',
       flexDirection: 'column',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      backgroundColor: '#ffffff'
     }}>
       
-      {/* Top Application Header Bar */}
+      {/* Studio Toolbar (Sits directly under Application Header) */}
       <div style={{
         padding: '12px 24px',
         backgroundColor: '#ffffff',
