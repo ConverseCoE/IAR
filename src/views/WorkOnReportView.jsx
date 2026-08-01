@@ -433,50 +433,50 @@ export default function WorkOnReportView({ job, onClose }) {
 
                       </tr>
 
-                      {/* EXPANDED INLINE EDIT FORM */}
+                      {/* EXPANDED INLINE EDIT VIEW */}
                       {isExpanded && (
                         <tr>
                           <td colSpan="7" style={{ padding: '16px', backgroundColor: '#FAFAFA', borderBottom: '2px solid #CBD5E1' }}>
                             
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '8px', padding: '16px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                               
-                              {/* Issue-Level Action Toolbar (MOVED TO TOP OF EXPANDABLE VIEW) */}
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', borderBottom: '1px solid #E2E8F0', paddingBottom: '12px', marginBottom: '2px' }}>
+                              {/* Issue-Level Action Toolbar (OUTSIDE White Form Card - On #FAFAFA Background Above Form) */}
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', paddingBottom: '4px' }}>
                                 
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                   {/* Save */}
                                   <button
                                     onClick={() => handleSaveIssue(item.id)}
-                                    style={{ padding: '6px 12px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#2563EB', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                    style={{ padding: '7px 14px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#2563EB', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 1px 3px rgba(37,99,235,0.2)' }}
                                   >
-                                    <Save style={{ width: '13px', height: '13px' }} />
+                                    <Save style={{ width: '13.5px', height: '13.5px' }} />
                                     <span>Save</span>
                                   </button>
 
                                   {/* Submit */}
                                   <button
                                     onClick={() => handleSubmitIssue(item.id)}
-                                    style={{ padding: '6px 12px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#059669', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                    style={{ padding: '7px 14px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#059669', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 1px 3px rgba(5,150,105,0.2)' }}
                                   >
-                                    <Send style={{ width: '13px', height: '13px' }} />
+                                    <Send style={{ width: '13.5px', height: '13.5px' }} />
                                     <span>Submit</span>
                                   </button>
 
                                   {/* Reroute */}
                                   <button
                                     onClick={() => handleRerouteIssue(item.id)}
-                                    style={{ padding: '6px 12px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#7C3AED', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                    style={{ padding: '7px 14px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#7C3AED', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 1px 3px rgba(124,58,237,0.2)' }}
                                   >
-                                    <GitBranch style={{ width: '13px', height: '13px' }} />
+                                    <GitBranch style={{ width: '13.5px', height: '13.5px' }} />
                                     <span>Reroute</span>
                                   </button>
 
                                   {/* Track Changes */}
                                   <button
                                     onClick={() => setIsTrackChangesActive(!isTrackChangesActive)}
-                                    style={{ padding: '6px 12px', fontSize: '11.5px', fontWeight: '800', color: '#D8001D', backgroundColor: '#ffffff', border: '1px solid #D8001D', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                    style={{ padding: '7px 14px', fontSize: '11.5px', fontWeight: '800', color: '#D8001D', backgroundColor: '#ffffff', border: '1.5px solid #D8001D', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
                                   >
-                                    <History style={{ width: '13px', height: '13px' }} />
+                                    <History style={{ width: '13.5px', height: '13.5px' }} />
                                     <span>Track Changes</span>
                                   </button>
                                 </div>
@@ -485,7 +485,7 @@ export default function WorkOnReportView({ job, onClose }) {
                                   {/* Mark Not an Issue */}
                                   <button
                                     onClick={() => handleMarkNotAnIssue(item.id)}
-                                    style={{ padding: '6px 10px', fontSize: '11px', fontWeight: '800', color: '#047857', backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '6px', cursor: 'pointer' }}
+                                    style={{ padding: '7px 12px', fontSize: '11.5px', fontWeight: '800', color: '#047857', backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '6px', cursor: 'pointer' }}
                                   >
                                     Mark Not an Issue
                                   </button>
@@ -493,7 +493,7 @@ export default function WorkOnReportView({ job, onClose }) {
                                   {/* Mark Exclude Issue */}
                                   <button
                                     onClick={() => handleMarkExcludeIssue(item.id)}
-                                    style={{ padding: '6px 10px', fontSize: '11px', fontWeight: '800', color: '#991B1B', backgroundColor: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '6px', cursor: 'pointer' }}
+                                    style={{ padding: '7px 12px', fontSize: '11.5px', fontWeight: '800', color: '#991B1B', backgroundColor: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '6px', cursor: 'pointer' }}
                                   >
                                     Mark Exclude Issue
                                   </button>
@@ -501,134 +501,139 @@ export default function WorkOnReportView({ job, onClose }) {
 
                               </div>
 
-                              {/* Form Row 1: Issue Title */}
-                              <div>
-                                <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Issue Title</label>
-                                <input
-                                  type="text"
-                                  value={item.title}
-                                  onChange={(e) => handleIssueFieldChange(item.id, 'title', e.target.value)}
-                                  style={{ width: '100%', height: '34px', padding: '0 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none' }}
-                                />
-                              </div>
-
-                              {/* Form Row 2: Criticality, Function, Process Area */}
-                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                              {/* White Form Card Below Action Buttons */}
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '8px', padding: '16px' }}>
+                                
+                                {/* Form Row 1: Issue Title */}
                                 <div>
-                                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Criticality</label>
-                                  <select
-                                    value={item.criticality}
-                                    onChange={(e) => handleIssueFieldChange(item.id, 'criticality', e.target.value)}
-                                    style={{ width: '100%', height: '34px', padding: '0 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', backgroundColor: '#ffffff' }}
-                                  >
-                                    <option value="Critical">Critical</option>
-                                    <option value="Major">Major</option>
-                                    <option value="Minor">Minor</option>
-                                  </select>
-                                </div>
-
-                                <div>
-                                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Function</label>
-                                  <select
-                                    value={item.function}
-                                    onChange={(e) => handleIssueFieldChange(item.id, 'function', e.target.value)}
-                                    style={{ width: '100%', height: '34px', padding: '0 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', backgroundColor: '#ffffff' }}
-                                  >
-                                    <option value="IT">IT</option>
-                                    <option value="FinOps">FinOps</option>
-                                  </select>
-                                </div>
-
-                                <div>
-                                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Process Area</label>
+                                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Issue Title</label>
                                   <input
                                     type="text"
-                                    value={item.processArea}
-                                    onChange={(e) => handleIssueFieldChange(item.id, 'processArea', e.target.value)}
-                                    style={{ width: '100%', height: '34px', padding: '0 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1' }}
+                                    value={item.title}
+                                    onChange={(e) => handleIssueFieldChange(item.id, 'title', e.target.value)}
+                                    style={{ width: '100%', height: '34px', padding: '0 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none' }}
                                   />
                                 </div>
-                              </div>
 
-                              {/* Form Row 3: SOX Reportable, Repeat Finding, Issue Cause Type */}
-                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-                                <div>
-                                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>SOX Reportable</label>
-                                  <select
-                                    value={item.soxReportable}
-                                    onChange={(e) => handleIssueFieldChange(item.id, 'soxReportable', e.target.value)}
-                                    style={{ width: '100%', height: '34px', padding: '0 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', backgroundColor: '#ffffff' }}
-                                  >
-                                    <option value="No">No</option>
-                                    <option value="Yes">Yes</option>
-                                  </select>
+                                {/* Form Row 2: Criticality, Function, Process Area */}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                                  <div>
+                                    <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Criticality</label>
+                                    <select
+                                      value={item.criticality}
+                                      onChange={(e) => handleIssueFieldChange(item.id, 'criticality', e.target.value)}
+                                      style={{ width: '100%', height: '34px', padding: '0 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', backgroundColor: '#ffffff' }}
+                                    >
+                                      <option value="Critical">Critical</option>
+                                      <option value="Major">Major</option>
+                                      <option value="Minor">Minor</option>
+                                    </select>
+                                  </div>
+
+                                  <div>
+                                    <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Function</label>
+                                    <select
+                                      value={item.function}
+                                      onChange={(e) => handleIssueFieldChange(item.id, 'function', e.target.value)}
+                                      style={{ width: '100%', height: '34px', padding: '0 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', backgroundColor: '#ffffff' }}
+                                    >
+                                      <option value="IT">IT</option>
+                                      <option value="FinOps">FinOps</option>
+                                    </select>
+                                  </div>
+
+                                  <div>
+                                    <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Process Area</label>
+                                    <input
+                                      type="text"
+                                      value={item.processArea}
+                                      onChange={(e) => handleIssueFieldChange(item.id, 'processArea', e.target.value)}
+                                      style={{ width: '100%', height: '34px', padding: '0 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1' }}
+                                    />
+                                  </div>
                                 </div>
 
-                                <div>
-                                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Repeat Finding</label>
-                                  <select
-                                    value={item.repeatFinding}
-                                    onChange={(e) => handleIssueFieldChange(item.id, 'repeatFinding', e.target.value)}
-                                    style={{ width: '100%', height: '34px', padding: '0 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', backgroundColor: '#ffffff' }}
-                                  >
-                                    <option value="No">No</option>
-                                    <option value="Yes">Yes</option>
-                                  </select>
+                                {/* Form Row 3: SOX Reportable, Repeat Finding, Issue Cause Type */}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                                  <div>
+                                    <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>SOX Reportable</label>
+                                    <select
+                                      value={item.soxReportable}
+                                      onChange={(e) => handleIssueFieldChange(item.id, 'soxReportable', e.target.value)}
+                                      style={{ width: '100%', height: '34px', padding: '0 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', backgroundColor: '#ffffff' }}
+                                    >
+                                      <option value="No">No</option>
+                                      <option value="Yes">Yes</option>
+                                    </select>
+                                  </div>
+
+                                  <div>
+                                    <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Repeat Finding</label>
+                                    <select
+                                      value={item.repeatFinding}
+                                      onChange={(e) => handleIssueFieldChange(item.id, 'repeatFinding', e.target.value)}
+                                      style={{ width: '100%', height: '34px', padding: '0 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', backgroundColor: '#ffffff' }}
+                                    >
+                                      <option value="No">No</option>
+                                      <option value="Yes">Yes</option>
+                                    </select>
+                                  </div>
+
+                                  <div>
+                                    <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Issue Cause Type</label>
+                                    <input
+                                      type="text"
+                                      value={item.issueCauseType}
+                                      onChange={(e) => handleIssueFieldChange(item.id, 'issueCauseType', e.target.value)}
+                                      style={{ width: '100%', height: '34px', padding: '0 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1' }}
+                                    />
+                                  </div>
                                 </div>
 
+                                {/* Textarea 1: Issue Description */}
                                 <div>
-                                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Issue Cause Type</label>
-                                  <input
-                                    type="text"
-                                    value={item.issueCauseType}
-                                    onChange={(e) => handleIssueFieldChange(item.id, 'issueCauseType', e.target.value)}
-                                    style={{ width: '100%', height: '34px', padding: '0 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1' }}
+                                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Issue Description</label>
+                                  <textarea
+                                    rows={3}
+                                    value={item.issue}
+                                    onChange={(e) => handleIssueFieldChange(item.id, 'issue', e.target.value)}
+                                    style={{ width: '100%', padding: '8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontFamily: 'inherit', resize: 'vertical' }}
                                   />
                                 </div>
-                              </div>
 
-                              {/* Textarea 1: Issue Description */}
-                              <div>
-                                <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Issue Description</label>
-                                <textarea
-                                  rows={3}
-                                  value={item.issue}
-                                  onChange={(e) => handleIssueFieldChange(item.id, 'issue', e.target.value)}
-                                  style={{ width: '100%', padding: '8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontFamily: 'inherit', resize: 'vertical' }}
-                                />
-                              </div>
+                                {/* Textarea 2: Root Cause */}
+                                <div>
+                                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Root Cause</label>
+                                  <textarea
+                                    rows={3}
+                                    value={item.rootCause}
+                                    onChange={(e) => handleIssueFieldChange(item.id, 'rootCause', e.target.value)}
+                                    style={{ width: '100%', padding: '8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontFamily: 'inherit', resize: 'vertical' }}
+                                  />
+                                </div>
 
-                              {/* Textarea 2: Root Cause */}
-                              <div>
-                                <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Root Cause</label>
-                                <textarea
-                                  rows={3}
-                                  value={item.rootCause}
-                                  onChange={(e) => handleIssueFieldChange(item.id, 'rootCause', e.target.value)}
-                                  style={{ width: '100%', padding: '8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontFamily: 'inherit', resize: 'vertical' }}
-                                />
-                              </div>
+                                {/* Textarea 3: Impact */}
+                                <div>
+                                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Impact</label>
+                                  <textarea
+                                    rows={3}
+                                    value={item.impact}
+                                    onChange={(e) => handleIssueFieldChange(item.id, 'impact', e.target.value)}
+                                    style={{ width: '100%', padding: '8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontFamily: 'inherit', resize: 'vertical' }}
+                                  />
+                                </div>
 
-                              {/* Textarea 3: Impact */}
-                              <div>
-                                <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Impact</label>
-                                <textarea
-                                  rows={3}
-                                  value={item.impact}
-                                  onChange={(e) => handleIssueFieldChange(item.id, 'impact', e.target.value)}
-                                  style={{ width: '100%', padding: '8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontFamily: 'inherit', resize: 'vertical' }}
-                                />
-                              </div>
+                                {/* Textarea 4: Recommendation */}
+                                <div>
+                                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Recommendation</label>
+                                  <textarea
+                                    rows={3}
+                                    value={item.recommendation}
+                                    onChange={(e) => handleIssueFieldChange(item.id, 'recommendation', e.target.value)}
+                                    style={{ width: '100%', padding: '8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontFamily: 'inherit', resize: 'vertical' }}
+                                  />
+                                </div>
 
-                              {/* Textarea 4: Recommendation */}
-                              <div>
-                                <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Recommendation</label>
-                                <textarea
-                                  rows={3}
-                                  value={item.recommendation}
-                                  onChange={(e) => handleIssueFieldChange(item.id, 'recommendation', e.target.value)}
-                                  style={{ width: '100%', padding: '8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontFamily: 'inherit', resize: 'vertical' }}
-                                />
                               </div>
 
                             </div>
