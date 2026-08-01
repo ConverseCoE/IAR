@@ -27,550 +27,570 @@ export default function ReportingDetailDrawer({
   ];
 
   return (
-    <aside style={{
-      width: '480px',
-      maxWidth: '90vw',
-      height: '100%',
-      backgroundColor: '#ffffff',
-      borderLeft: '1px solid var(--slate-200)',
-      display: 'flex',
-      flexDirection: 'column',
-      boxShadow: '-6px 0 16px rgba(0,0,0,0.06)',
-      animation: 'slideInRight 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-      overflow: 'hidden',
-      position: 'relative'
-    }}>
-      
-      {/* Inset Dark Rectangle Title Card */}
-      <div style={{ padding: '16px 20px 0 20px', backgroundColor: '#ffffff', flexShrink: 0 }}>
-        <div style={{
-          backgroundColor: '#0F172A',
-          color: '#ffffff',
-          padding: '12px 16px',
-          borderRadius: '10px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '12px',
-          boxShadow: '0 2px 6px rgba(15, 23, 42, 0.15)',
-          position: 'relative'
-        }}>
-          {/* Back Arrow Button + Job ID & Name Title */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
-            <button
-              onClick={onClose}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#ffffff',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '4px',
-                borderRadius: '4px'
-              }}
-              title="Back to Reporting Queue"
-            >
-              <ArrowLeft style={{ width: '18px', height: '18px' }} />
-            </button>
-
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: '13px', fontWeight: '900', letterSpacing: '0.2px', textTransform: 'uppercase', color: '#38BDF8' }}>
-                {job.id} — <span style={{ color: '#ffffff' }}>{job.fileName}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Segmented Tab Switcher Toolbar */}
-      <div style={{ padding: '16px 20px 10px 20px', borderBottom: '1px solid #E2E8F0', flexShrink: 0 }}>
-        <div style={{
-          display: 'flex',
-          backgroundColor: '#F1F5F9',
-          borderRadius: '8px',
-          padding: '4px',
-          gap: '4px'
-        }}>
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
+    <>
+      <aside style={{
+        width: '480px',
+        maxWidth: '90vw',
+        height: '100%',
+        backgroundColor: '#ffffff',
+        borderLeft: '1px solid var(--slate-200)',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: '-6px 0 16px rgba(0,0,0,0.06)',
+        animation: 'slideInRight 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+        overflow: 'hidden',
+        position: 'relative'
+      }}>
+        
+        {/* Inset Dark Rectangle Title Card */}
+        <div style={{ padding: '16px 20px 0 20px', backgroundColor: '#ffffff', flexShrink: 0 }}>
+          <div style={{
+            backgroundColor: '#0F172A',
+            color: '#ffffff',
+            padding: '12px 16px',
+            borderRadius: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            boxShadow: '0 2px 6px rgba(15, 23, 42, 0.15)',
+            position: 'relative'
+          }}>
+            {/* Back Arrow Button + Job ID & Name Title */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
               <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={onClose}
                 style={{
-                  flex: 1,
-                  padding: '9px 8px',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  borderRadius: '6px',
+                  background: 'none',
                   border: 'none',
+                  color: '#ffffff',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  backgroundColor: isActive ? '#ffffff' : 'transparent',
-                  color: isActive ? '#D8001D' : '#64748B',
-                  boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '5px'
+                  padding: '4px',
+                  borderRadius: '4px'
                 }}
-              >
-                <Icon style={{ width: '14px', height: '14px', color: isActive ? '#D8001D' : '#94A3B8' }} />
-                <span>{tab.label}</span>
-                {tab.count !== undefined && (
-                  <span style={{
-                    fontSize: '10px',
-                    fontWeight: '800',
-                    padding: '1px 5px',
-                    borderRadius: '9999px',
-                    backgroundColor: isActive ? '#FFF0F2' : '#E2E8F0',
-                    color: isActive ? '#D8001D' : '#475569'
-                  }}>
-                    {tab.count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Scrollable Tab Body Content */}
-      <div style={{ padding: '20px', flex: 1, overflowY: 'auto' }}>
-        
-        {/* TAB 1: AUDIT REPORT */}
-        {activeTab === 'audit-report' && (
-          <div style={{
-            backgroundColor: '#ffffff',
-            border: '1px solid #CBD5E1',
-            borderRadius: '10px',
-            padding: '18px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '16px',
-            animation: 'fadeIn 0.2s ease-out'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1.5px solid #2563EB', paddingBottom: '8px' }}>
-              <FileText style={{ width: '18px', height: '18px', color: '#2563EB' }} />
-              <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#1E3A8A', margin: 0 }}>
-                Audit Report Details
-              </h3>
-            </div>
-
-            {/* Single-Column Left Label & Right Value Rows */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
-                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Gen AI Extraction Date Time</span>
-                <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{auditReport?.genAiExtractionDateTime || '-'}</strong>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
-                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Execution Status</span>
-                <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#047857', backgroundColor: '#ECFDF5', padding: '2px 10px', borderRadius: '4px', border: '1px solid #A7F3D0' }}>
-                  {auditReport?.executionStatus || 'Completed'}
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
-                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Validation Start Date Time</span>
-                <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{auditReport?.validationStartDateTime || '-'}</strong>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
-                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Validation End Date Time</span>
-                <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{auditReport?.validationEndDateTime || '-'}</strong>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
-                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Validation Status</span>
-                <strong style={{ fontSize: '13px', fontWeight: '800', color: '#2563EB' }}>{auditReport?.validationStatus || 'Validated'}</strong>
-              </div>
-
-            </div>
-
-            {/* Action Buttons */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', paddingTop: '12px', borderTop: '1px solid #E2E8F0' }}>
-              <button
-                onClick={() => onWorkOnReport && onWorkOnReport(job, 'audit')}
-                style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '800', color: '#ffffff', backgroundColor: '#D8001D', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-              >
-                <PlayCircle style={{ width: '15px', height: '15px' }} />
-                <span>Work On Report</span>
-              </button>
-
-              <button
-                onClick={() => alert(`Downloading Audit Report for ${job.id}`)}
-                style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '700', color: '#1E293B', backgroundColor: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-              >
-                <Download style={{ width: '15px', height: '15px', color: '#2563EB' }} />
-                <span>Download Report</span>
-              </button>
-
-              <button
-                onClick={() => onOpenWorkflow && onOpenWorkflow(job)}
-                style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '700', color: '#475569', backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-              >
-                <GitBranch style={{ width: '15px', height: '15px', color: '#059669' }} />
-                <span>View Workflow</span>
-              </button>
-
-              <button
-                onClick={() => onOpenHistory && onOpenHistory(job)}
-                style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '700', color: '#475569', backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-              >
-                <History style={{ width: '15px', height: '15px', color: '#6366F1' }} />
-                <span>View History</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 2: EXECUTIVE REPORT */}
-        {activeTab === 'executive-report' && (
-          <div style={{
-            backgroundColor: '#ffffff',
-            border: '1px solid #CBD5E1',
-            borderRadius: '10px',
-            padding: '18px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '16px',
-            animation: 'fadeIn 0.2s ease-out'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1.5px solid #059669', paddingBottom: '8px' }}>
-              <ShieldCheck style={{ width: '18px', height: '18px', color: '#059669' }} />
-              <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#065F46', margin: 0 }}>
-                Executive Summary Report
-              </h3>
-            </div>
-
-            {/* Single-Column Left Label & Right Value Rows */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
-                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Gen AI Extraction Date Time</span>
-                <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{executiveSummaryReport?.genAiExtractionDateTime || '-'}</strong>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
-                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Execution Status</span>
-                <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#047857', backgroundColor: '#ECFDF5', padding: '2px 10px', borderRadius: '4px', border: '1px solid #A7F3D0' }}>
-                  {executiveSummaryReport?.executionStatus || 'Completed'}
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
-                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Validation Start Date Time</span>
-                <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{executiveSummaryReport?.validationStartDateTime || '-'}</strong>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
-                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Validation End Date Time</span>
-                <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{executiveSummaryReport?.validationEndDateTime || '-'}</strong>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
-                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Validation Status</span>
-                <strong style={{ fontSize: '13px', fontWeight: '800', color: '#059669' }}>{executiveSummaryReport?.validationStatus || 'Validated'}</strong>
-              </div>
-
-            </div>
-
-            {/* Action Buttons */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', paddingTop: '12px', borderTop: '1px solid #E2E8F0' }}>
-              <button
-                onClick={() => onWorkOnReport && onWorkOnReport(job, 'executive')}
-                style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '800', color: '#ffffff', backgroundColor: '#059669', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-              >
-                <PlayCircle style={{ width: '15px', height: '15px' }} />
-                <span>Work On Report</span>
-              </button>
-
-              <button
-                onClick={() => alert(`Downloading Executive Summary Report for ${job.id}`)}
-                style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '700', color: '#1E293B', backgroundColor: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-              >
-                <Download style={{ width: '15px', height: '15px', color: '#059669' }} />
-                <span>Download Report</span>
-              </button>
-
-              {/* VIEW WORKFLOW BUTTON FOR EXECUTIVE REPORT -> OPENS OVERLAY DRAWER */}
-              <button
-                onClick={() => setIsExecWorkflowOpen(true)}
-                style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '700', color: '#475569', backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-              >
-                <GitBranch style={{ width: '15px', height: '15px', color: '#059669' }} />
-                <span>View Workflow</span>
-              </button>
-
-              <button
-                onClick={() => onOpenHistory && onOpenHistory(job)}
-                style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '700', color: '#475569', backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-              >
-                <History style={{ width: '15px', height: '15px', color: '#6366F1' }} />
-                <span>View History</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 3: DISCUSSIONS */}
-        {activeTab === 'discussion-points' && (
-          <div style={{
-            backgroundColor: '#ffffff',
-            border: '1px solid #CBD5E1',
-            borderRadius: '10px',
-            padding: '18px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '16px',
-            animation: 'fadeIn 0.2s ease-out'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1.5px solid #D8001D', paddingBottom: '8px' }}>
-              <MessageSquare style={{ width: '18px', height: '18px', color: '#D8001D' }} />
-              <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#991B1B', margin: 0 }}>
-                Discussions Overview
-              </h3>
-            </div>
-
-            {/* Single-Column Left Label & Right Value Rows */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1.5px solid #F1F5F9' }}>
-                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Start Date Time</span>
-                <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{discussionPoints?.startDateTime || '-'}</strong>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
-                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>End Date Time</span>
-                <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{discussionPoints?.endDateTime || '-'}</strong>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
-                <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Status</span>
-                <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#047857', backgroundColor: '#ECFDF5', padding: '2px 10px', borderRadius: '4px', border: '1px solid #A7F3D0' }}>
-                  {discussionPoints?.status || 'Active'}
-                </span>
-              </div>
-
-            </div>
-
-            {/* Open Discussion Points Action Button */}
-            <button
-              onClick={() => onOpenDiscussionPoints && onOpenDiscussionPoints(job)}
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                fontSize: '13px',
-                fontWeight: '800',
-                color: '#ffffff',
-                backgroundColor: '#D8001D',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                marginTop: '6px',
-                boxShadow: '0 2px 4px rgba(216, 0, 29, 0.2)'
-              }}
-            >
-              <MessageSquare style={{ width: '16px', height: '16px' }} />
-              <span>Open Discussions</span>
-            </button>
-          </div>
-        )}
-
-      </div>
-
-      {/* EXECUTIVE SUMMARY WORKFLOW OVERLAY DRAWER (Overlays on top of current drawer) */}
-      {isExecWorkflowOpen && (
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundColor: '#ffffff',
-          zIndex: 500,
-          display: 'flex',
-          flexDirection: 'column',
-          boxShadow: '-8px 0 24px rgba(0,0,0,0.2)',
-          animation: 'slideInRight 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
-          overflow: 'hidden'
-        }}>
-          {/* Dark Overlay Header */}
-          <div style={{ padding: '16px 20px', backgroundColor: '#0F172A', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <button
-                onClick={() => setIsExecWorkflowOpen(false)}
-                style={{ background: 'none', border: 'none', color: '#ffffff', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                title="Back"
+                title="Back to Reporting Queue"
               >
                 <ArrowLeft style={{ width: '18px', height: '18px' }} />
               </button>
-              <div>
-                <h3 style={{ fontSize: '14px', fontWeight: '800', margin: 0, color: '#38BDF8' }}>
-                  Executive Summary Workflow
-                </h3>
-                <span style={{ fontSize: '11px', color: '#94A3B8' }}>{job.fileName || job.id}</span>
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '13px', fontWeight: '900', letterSpacing: '0.2px', textTransform: 'uppercase', color: '#38BDF8' }}>
+                  {job.id} — <span style={{ color: '#ffffff' }}>{job.fileName}</span>
+                </div>
               </div>
             </div>
-
-            <button
-              onClick={() => setIsExecWorkflowOpen(false)}
-              style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer' }}
-              title="Close Workflow Overlay"
-            >
-              <X style={{ width: '18px', height: '18px' }} />
-            </button>
           </div>
+        </div>
 
-          {/* Workflow Diagram & Status Content */}
-          <div style={{ padding: '20px', flex: 1, overflowY: 'auto', backgroundColor: '#F8FAFC' }}>
-            
-            {/* Diagram Container matching attached screenshot */}
+        {/* Segmented Tab Switcher Toolbar */}
+        <div style={{ padding: '16px 20px 10px 20px', borderBottom: '1px solid #E2E8F0', flexShrink: 0 }}>
+          <div style={{
+            display: 'flex',
+            backgroundColor: '#F1F5F9',
+            borderRadius: '8px',
+            padding: '4px',
+            gap: '4px'
+          }}>
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  style={{
+                    flex: 1,
+                    padding: '9px 8px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    borderRadius: '6px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    backgroundColor: isActive ? '#ffffff' : 'transparent',
+                    color: isActive ? '#D8001D' : '#64748B',
+                    boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '5px'
+                  }}
+                >
+                  <Icon style={{ width: '14px', height: '14px', color: isActive ? '#D8001D' : '#94A3B8' }} />
+                  <span>{tab.label}</span>
+                  {tab.count !== undefined && (
+                    <span style={{
+                      fontSize: '10px',
+                      fontWeight: '800',
+                      padding: '1px 5px',
+                      borderRadius: '9999px',
+                      backgroundColor: isActive ? '#FFF0F2' : '#E2E8F0',
+                      color: isActive ? '#D8001D' : '#475569'
+                    }}>
+                      {tab.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Scrollable Tab Body Content */}
+        <div style={{ padding: '20px', flex: 1, overflowY: 'auto' }}>
+          
+          {/* TAB 1: AUDIT REPORT */}
+          {activeTab === 'audit-report' && (
             <div style={{
               backgroundColor: '#ffffff',
               border: '1px solid #CBD5E1',
-              borderRadius: '12px',
-              padding: '24px 18px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-              marginBottom: '20px'
+              borderRadius: '10px',
+              padding: '18px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              animation: 'fadeIn 0.2s ease-out'
             }}>
-              <div style={{ fontSize: '11.5px', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: '18px', letterSpacing: '0.3px' }}>
-                Executive Workflow Stage Graph
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1.5px solid #2563EB', paddingBottom: '8px' }}>
+                <FileText style={{ width: '18px', height: '18px', color: '#2563EB' }} />
+                <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#1E3A8A', margin: 0 }}>
+                  Audit Report Details
+                </h3>
               </div>
 
-              {/* Exact visual flowchart matching attached image */}
-              <div style={{ position: 'relative', width: '100%', minHeight: '200px', padding: '10px 0' }}>
-                <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-                  {/* Horizontal: TC (35) -> Audit Manager (155) */}
-                  <line x1="45" y1="35" x2="135" y2="35" stroke="#CBD5E1" strokeWidth="2" />
-                  
-                  {/* Horizontal: Audit Manager (155) -> Director (285) */}
-                  <line x1="210" y1="35" x2="265" y2="35" stroke="#CBD5E1" strokeWidth="2" />
-
-                  {/* Horizontal: Director (285) -> Final Report (380) */}
-                  <line x1="325" y1="35" x2="365" y2="35" stroke="#CBD5E1" strokeWidth="2" />
-
-                  {/* Path: Audit Manager down to Management Response */}
-                  <path d="M 160 50 L 160 130 L 265 130" fill="none" stroke="#CBD5E1" strokeWidth="2" />
-
-                  {/* Vertical: Director down to Management Response */}
-                  <line x1="290" y1="52" x2="290" y2="115" stroke="#CBD5E1" strokeWidth="2" />
-                </svg>
-
-                {/* Node 1: TC */}
-                <div style={{ position: 'absolute', left: '0px', top: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', border: '2.5px solid #22C55E', backgroundColor: '#DCFCE7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22C55E' }} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '12.5px', fontWeight: '800', color: '#0F172A' }}>TC</div>
-                    <div style={{ fontSize: '9.5px', fontWeight: '700', color: '#166534' }}>Completed</div>
-                  </div>
+              {/* Single-Column Left Label & Right Value Rows */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Gen AI Extraction Date Time</span>
+                  <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{auditReport?.genAiExtractionDateTime || '-'}</strong>
                 </div>
 
-                {/* Node 2: Audit Manager */}
-                <div style={{ position: 'absolute', left: '125px', top: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', border: '2.5px solid #22C55E', backgroundColor: '#DCFCE7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22C55E' }} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '12.5px', fontWeight: '800', color: '#0F172A' }}>Audit Manager</div>
-                    <div style={{ fontSize: '9.5px', fontWeight: '700', color: '#D8001D', textDecoration: 'underline' }}>Inprogress</div>
-                  </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Execution Status</span>
+                  <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#047857', backgroundColor: '#ECFDF5', padding: '2px 10px', borderRadius: '4px', border: '1px solid #A7F3D0' }}>
+                    {auditReport?.executionStatus || 'Completed'}
+                  </span>
                 </div>
 
-                {/* Node 3: Director */}
-                <div style={{ position: 'absolute', left: '265px', top: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', border: '2.5px solid #CBD5E1', backgroundColor: '#F1F5F9' }} />
-                  <div>
-                    <div style={{ fontSize: '12.5px', fontWeight: '800', color: '#64748B' }}>Director</div>
-                    <div style={{ fontSize: '9.5px', fontWeight: '600', color: '#94A3B8' }}>Not Started</div>
-                  </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Validation Start Date Time</span>
+                  <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{auditReport?.validationStartDateTime || '-'}</strong>
                 </div>
 
-                {/* Node 4: Final Report */}
-                <div style={{ position: 'absolute', left: '365px', top: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', border: '2.5px solid #CBD5E1', backgroundColor: '#F1F5F9' }} />
-                  <div>
-                    <div style={{ fontSize: '12.5px', fontWeight: '800', color: '#64748B' }}>Final Report</div>
-                    <div style={{ fontSize: '9.5px', fontWeight: '600', color: '#94A3B8' }}>Not Started</div>
-                  </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Validation End Date Time</span>
+                  <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{auditReport?.validationEndDateTime || '-'}</strong>
                 </div>
 
-                {/* Node 5: Management Response */}
-                <div style={{ position: 'absolute', left: '265px', top: '110px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', border: '2.5px solid #CBD5E1', backgroundColor: '#F1F5F9' }} />
-                  <div>
-                    <div style={{ fontSize: '12.5px', fontWeight: '800', color: '#64748B' }}>Management Response</div>
-                    <div style={{ fontSize: '9.5px', fontWeight: '600', color: '#94A3B8' }}>Not Started</div>
-                  </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Validation Status</span>
+                  <strong style={{ fontSize: '13px', fontWeight: '800', color: '#2563EB' }}>{auditReport?.validationStatus || 'Validated'}</strong>
                 </div>
 
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', paddingTop: '12px', borderTop: '1px solid #E2E8F0' }}>
+                <button
+                  onClick={() => onWorkOnReport && onWorkOnReport(job, 'audit')}
+                  style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '800', color: '#ffffff', backgroundColor: '#D8001D', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  <PlayCircle style={{ width: '15px', height: '15px' }} />
+                  <span>Work On Report</span>
+                </button>
+
+                <button
+                  onClick={() => alert(`Downloading Audit Report for ${job.id}`)}
+                  style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '700', color: '#1E293B', backgroundColor: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  <Download style={{ width: '15px', height: '15px', color: '#2563EB' }} />
+                  <span>Download Report</span>
+                </button>
+
+                <button
+                  onClick={() => onOpenWorkflow && onOpenWorkflow(job)}
+                  style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '700', color: '#475569', backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  <GitBranch style={{ width: '15px', height: '15px', color: '#059669' }} />
+                  <span>View Workflow</span>
+                </button>
+
+                <button
+                  onClick={() => onOpenHistory && onOpenHistory(job)}
+                  style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '700', color: '#475569', backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  <History style={{ width: '15px', height: '15px', color: '#6366F1' }} />
+                  <span>View History</span>
+                </button>
               </div>
             </div>
+          )}
 
-            {/* Detailed Stage Cards */}
-            <div style={{ backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-              <h4 style={{ fontSize: '12.5px', fontWeight: '800', color: '#0F172A', margin: '0 0 12px 0', borderBottom: '1px solid #F1F5F9', paddingBottom: '6px' }}>
-                Stage Details &amp; Assignees
-              </h4>
+          {/* TAB 2: EXECUTIVE REPORT */}
+          {activeTab === 'executive-report' && (
+            <div style={{
+              backgroundColor: '#ffffff',
+              border: '1px solid #CBD5E1',
+              borderRadius: '10px',
+              padding: '18px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              animation: 'fadeIn 0.2s ease-out'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1.5px solid #059669', paddingBottom: '8px' }}>
+                <ShieldCheck style={{ width: '18px', height: '18px', color: '#059669' }} />
+                <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#065F46', margin: 0 }}>
+                  Executive Summary Report
+                </h3>
+              </div>
+
+              {/* Single-Column Left Label & Right Value Rows */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Gen AI Extraction Date Time</span>
+                  <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{executiveSummaryReport?.genAiExtractionDateTime || '-'}</strong>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Execution Status</span>
+                  <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#047857', backgroundColor: '#ECFDF5', padding: '2px 10px', borderRadius: '4px', border: '1px solid #A7F3D0' }}>
+                    {executiveSummaryReport?.executionStatus || 'Completed'}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Validation Start Date Time</span>
+                  <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{executiveSummaryReport?.validationStartDateTime || '-'}</strong>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Validation End Date Time</span>
+                  <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{executiveSummaryReport?.validationEndDateTime || '-'}</strong>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Validation Status</span>
+                  <strong style={{ fontSize: '13px', fontWeight: '800', color: '#059669' }}>{executiveSummaryReport?.validationStatus || 'Validated'}</strong>
+                </div>
+
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', paddingTop: '12px', borderTop: '1px solid #E2E8F0' }}>
+                <button
+                  onClick={() => onWorkOnReport && onWorkOnReport(job, 'executive')}
+                  style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '800', color: '#ffffff', backgroundColor: '#059669', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  <PlayCircle style={{ width: '15px', height: '15px' }} />
+                  <span>Work On Report</span>
+                </button>
+
+                <button
+                  onClick={() => alert(`Downloading Executive Summary Report for ${job.id}`)}
+                  style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '700', color: '#1E293B', backgroundColor: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  <Download style={{ width: '15px', height: '15px', color: '#059669' }} />
+                  <span>Download Report</span>
+                </button>
+
+                {/* VIEW WORKFLOW BUTTON FOR EXECUTIVE REPORT -> OPENS FULL-PAGE OVERLAY DRAWER */}
+                <button
+                  onClick={() => setIsExecWorkflowOpen(true)}
+                  style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '700', color: '#475569', backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  <GitBranch style={{ width: '15px', height: '15px', color: '#059669' }} />
+                  <span>View Workflow</span>
+                </button>
+
+                <button
+                  onClick={() => onOpenHistory && onOpenHistory(job)}
+                  style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '700', color: '#475569', backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  <History style={{ width: '15px', height: '15px', color: '#6366F1' }} />
+                  <span>View History</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: DISCUSSIONS */}
+          {activeTab === 'discussion-points' && (
+            <div style={{
+              backgroundColor: '#ffffff',
+              border: '1px solid #CBD5E1',
+              borderRadius: '10px',
+              padding: '18px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              animation: 'fadeIn 0.2s ease-out'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1.5px solid #D8001D', paddingBottom: '8px' }}>
+                <MessageSquare style={{ width: '18px', height: '18px', color: '#D8001D' }} />
+                <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#991B1B', margin: 0 }}>
+                  Discussions Overview
+                </h3>
+              </div>
+
+              {/* Single-Column Left Label & Right Value Rows */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1.5px solid #F1F5F9' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Start Date Time</span>
+                  <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{discussionPoints?.startDateTime || '-'}</strong>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>End Date Time</span>
+                  <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{discussionPoints?.endDateTime || '-'}</strong>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Status</span>
+                  <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#047857', backgroundColor: '#ECFDF5', padding: '2px 10px', borderRadius: '4px', border: '1px solid #A7F3D0' }}>
+                    {discussionPoints?.status || 'Active'}
+                  </span>
+                </div>
+
+              </div>
+
+              {/* Open Discussion Points Action Button */}
+              <button
+                onClick={() => onOpenDiscussionPoints && onOpenDiscussionPoints(job)}
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  fontSize: '13px',
+                  fontWeight: '800',
+                  color: '#ffffff',
+                  backgroundColor: '#D8001D',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  marginTop: '6px',
+                  boxShadow: '0 2px 4px rgba(216, 0, 29, 0.2)'
+                }}
+              >
+                <MessageSquare style={{ width: '16px', height: '16px' }} />
+                <span>Open Discussions</span>
+              </button>
+            </div>
+          )}
+
+        </div>
+      </aside>
+
+      {/* EXECUTIVE SUMMARY WORKFLOW OVERLAY DRAWER (Full-Page Viewport Fixed Backdrop Overlay like History Modal) */}
+      {isExecWorkflowOpen && (
+        <div 
+          className="modal-overlay" 
+          style={{ 
+            position: 'fixed', 
+            inset: 0, 
+            backgroundColor: 'rgba(15, 23, 42, 0.45)', 
+            backdropFilter: 'blur(2px)',
+            display: 'flex', 
+            justifyContent: 'flex-end', 
+            zIndex: 1300 
+          }}
+          onClick={() => setIsExecWorkflowOpen(false)}
+        >
+          {/* Wide Right Overlay Drawer Panel (width: 640px) */}
+          <aside 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '640px',
+              maxWidth: '95vw',
+              height: '100vh',
+              backgroundColor: '#ffffff',
+              boxShadow: '-10px 0 30px rgba(0,0,0,0.25)',
+              display: 'flex',
+              flexDirection: 'column',
+              position: 'relative',
+              animation: 'slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Dark Overlay Header */}
+            <div style={{ padding: '18px 24px', backgroundColor: '#0F172A', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <button
+                  onClick={() => setIsExecWorkflowOpen(false)}
+                  style={{ background: 'none', border: 'none', color: '#ffffff', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                  title="Back to Detail Drawer"
+                >
+                  <ArrowLeft style={{ width: '20px', height: '20px' }} />
+                </button>
+                <div>
+                  <h3 style={{ fontSize: '15px', fontWeight: '800', margin: 0, color: '#38BDF8' }}>
+                    Executive Summary Workflow Stage Graph
+                  </h3>
+                  <span style={{ fontSize: '12px', color: '#94A3B8' }}>{job.fileName || job.id}</span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsExecWorkflowOpen(false)}
+                style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer' }}
+                title="Close Workflow Overlay"
+              >
+                <X style={{ width: '20px', height: '20px' }} />
+              </button>
+            </div>
+
+            {/* Workflow Diagram & Status Content */}
+            <div style={{ padding: '24px', flex: 1, overflowY: 'auto', backgroundColor: '#F8FAFC' }}>
               
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '11.5px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', backgroundColor: '#F0FDF4', borderRadius: '6px', border: '1px solid #BBF7D0' }}>
-                  <div>
-                    <div style={{ fontWeight: '800', color: '#166534' }}>1. TC Review (Completed)</div>
-                    <div style={{ fontSize: '10.5px', color: '#475569' }}>Assignee: Rachel Green (TC Auditor)</div>
-                  </div>
-                  <span style={{ fontSize: '10.5px', fontWeight: '700', color: '#166534' }}>2026-08-01 10:15 AM</span>
+              {/* Diagram Container matching attached screenshot */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid #CBD5E1',
+                borderRadius: '12px',
+                padding: '28px 24px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+                marginBottom: '24px'
+              }}>
+                <div style={{ fontSize: '12px', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: '22px', letterSpacing: '0.4px' }}>
+                  Executive Workflow Stage Graph
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', backgroundColor: '#FFF5F6', borderRadius: '6px', border: '1px solid #FCA5A5' }}>
-                  <div>
-                    <div style={{ fontWeight: '800', color: '#D8001D' }}>2. Audit Manager Review (In Progress)</div>
-                    <div style={{ fontSize: '10.5px', color: '#475569' }}>Assignee: Kevin Zhang (Director)</div>
-                  </div>
-                  <span style={{ fontSize: '10.5px', fontWeight: '700', color: '#D8001D' }}>Active Now</span>
-                </div>
+                {/* Exact visual flowchart matching attached image with generous 640px width */}
+                <div style={{ position: 'relative', width: '100%', minHeight: '220px', padding: '10px 0' }}>
+                  <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+                    {/* Horizontal: TC (50) -> Audit Manager (210) */}
+                    <line x1="60" y1="40" x2="190" y2="40" stroke="#CBD5E1" strokeWidth="2.5" />
+                    
+                    {/* Horizontal: Audit Manager (210) -> Director (390) */}
+                    <line x1="270" y1="40" x2="365" y2="40" stroke="#CBD5E1" strokeWidth="2.5" />
 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', backgroundColor: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
-                  <div>
-                    <div style={{ fontWeight: '800', color: '#64748B' }}>3. Director Approval (Pending)</div>
-                    <div style={{ fontSize: '10.5px', color: '#94A3B8' }}>Awaiting Audit Manager sign-off</div>
-                  </div>
-                  <span style={{ fontSize: '10.5px', fontWeight: '600', color: '#94A3B8' }}>Not Started</span>
-                </div>
+                    {/* Horizontal: Director (390) -> Final Report (510) */}
+                    <line x1="440" y1="40" x2="495" y2="40" stroke="#CBD5E1" strokeWidth="2.5" />
 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', backgroundColor: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
-                  <div>
-                    <div style={{ fontWeight: '800', color: '#64748B' }}>4. Management Response (Pending)</div>
-                    <div style={{ fontSize: '10.5px', color: '#94A3B8' }}>Awaiting Business Owner input</div>
-                  </div>
-                  <span style={{ fontSize: '10.5px', fontWeight: '600', color: '#94A3B8' }}>Not Started</span>
-                </div>
+                    {/* Path: Audit Manager down to Management Response */}
+                    <path d="M 215 55 L 215 150 L 365 150" fill="none" stroke="#CBD5E1" strokeWidth="2.5" />
 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', backgroundColor: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
-                  <div>
-                    <div style={{ fontWeight: '800', color: '#64748B' }}>5. Final Report Publishing (Pending)</div>
-                    <div style={{ fontSize: '10.5px', color: '#94A3B8' }}>Final Executive Sign-off</div>
+                    {/* Vertical: Director down to Management Response */}
+                    <line x1="400" y1="58" x2="400" y2="135" stroke="#CBD5E1" strokeWidth="2.5" />
+                  </svg>
+
+                  {/* Node 1: TC */}
+                  <div style={{ position: 'absolute', left: '10px', top: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', border: '2.5px solid #22C55E', backgroundColor: '#DCFCE7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#22C55E' }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#0F172A' }}>TC</div>
+                      <div style={{ fontSize: '10.5px', fontWeight: '700', color: '#166534' }}>Completed</div>
+                    </div>
                   </div>
-                  <span style={{ fontSize: '10.5px', fontWeight: '600', color: '#94A3B8' }}>Not Started</span>
+
+                  {/* Node 2: Audit Manager */}
+                  <div style={{ position: 'absolute', left: '180px', top: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', border: '2.5px solid #22C55E', backgroundColor: '#DCFCE7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#22C55E' }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#0F172A' }}>Audit Manager</div>
+                      <div style={{ fontSize: '10.5px', fontWeight: '700', color: '#D8001D', textDecoration: 'underline' }}>Inprogress</div>
+                    </div>
+                  </div>
+
+                  {/* Node 3: Director */}
+                  <div style={{ position: 'absolute', left: '365px', top: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', border: '2.5px solid #CBD5E1', backgroundColor: '#F1F5F9' }} />
+                    <div>
+                      <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#64748B' }}>Director</div>
+                      <div style={{ fontSize: '10.5px', fontWeight: '600', color: '#94A3B8' }}>Not Started</div>
+                    </div>
+                  </div>
+
+                  {/* Node 4: Final Report */}
+                  <div style={{ position: 'absolute', left: '495px', top: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', border: '2.5px solid #CBD5E1', backgroundColor: '#F1F5F9' }} />
+                    <div>
+                      <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#64748B' }}>Final Report</div>
+                      <div style={{ fontSize: '10.5px', fontWeight: '600', color: '#94A3B8' }}>Not Started</div>
+                    </div>
+                  </div>
+
+                  {/* Node 5: Management Response */}
+                  <div style={{ position: 'absolute', left: '365px', top: '130px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', border: '2.5px solid #CBD5E1', backgroundColor: '#F1F5F9' }} />
+                    <div>
+                      <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#64748B' }}>Management Response</div>
+                      <div style={{ fontSize: '10.5px', fontWeight: '600', color: '#94A3B8' }}>Not Started</div>
+                    </div>
+                  </div>
+
                 </div>
               </div>
-            </div>
 
-          </div>
+              {/* Detailed Stage Cards */}
+              <div style={{ backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                <h4 style={{ fontSize: '13.5px', fontWeight: '800', color: '#0F172A', margin: '0 0 14px 0', borderBottom: '1px solid #F1F5F9', paddingBottom: '8px' }}>
+                  Stage Audit Log &amp; Responsible Parties
+                </h4>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#F0FDF4', borderRadius: '8px', border: '1px solid #BBF7D0' }}>
+                    <div>
+                      <div style={{ fontWeight: '800', color: '#166534', fontSize: '13px' }}>1. TC Review (Completed)</div>
+                      <div style={{ fontSize: '11px', color: '#475569', marginTop: '2px' }}>Assignee: Rachel Green (TC Auditor)</div>
+                    </div>
+                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#166534', backgroundColor: '#DCFCE7', padding: '2px 8px', borderRadius: '4px' }}>Completed: 2026-08-01 10:15 AM</span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#FFF5F6', borderRadius: '8px', border: '1px solid #FCA5A5' }}>
+                    <div>
+                      <div style={{ fontWeight: '800', color: '#D8001D', fontSize: '13px' }}>2. Audit Manager Review (In Progress)</div>
+                      <div style={{ fontSize: '11px', color: '#475569', marginTop: '2px' }}>Assignee: Kevin Zhang (Director)</div>
+                    </div>
+                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#D8001D', backgroundColor: '#FFF0F2', padding: '2px 8px', borderRadius: '4px' }}>Active Now</span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                    <div>
+                      <div style={{ fontWeight: '800', color: '#64748B', fontSize: '13px' }}>3. Director Approval (Pending)</div>
+                      <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>Awaiting Audit Manager sign-off</div>
+                    </div>
+                    <span style={{ fontSize: '11px', fontWeight: '600', color: '#94A3B8' }}>Not Started</span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                    <div>
+                      <div style={{ fontWeight: '800', color: '#64748B', fontSize: '13px' }}>4. Management Response (Pending)</div>
+                      <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>Awaiting Business Owner input</div>
+                    </div>
+                    <span style={{ fontSize: '11px', fontWeight: '600', color: '#94A3B8' }}>Not Started</span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                    <div>
+                      <div style={{ fontWeight: '800', color: '#64748B', fontSize: '13px' }}>5. Final Report Publishing (Pending)</div>
+                      <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>Final Executive Sign-off</div>
+                    </div>
+                    <span style={{ fontSize: '11px', fontWeight: '600', color: '#94A3B8' }}>Not Started</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </aside>
         </div>
       )}
-
-    </aside>
+    </>
   );
 }
