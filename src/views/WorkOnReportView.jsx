@@ -440,10 +440,66 @@ export default function WorkOnReportView({ job, onClose }) {
                             
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '8px', padding: '16px' }}>
                               
-                              <h4 style={{ fontSize: '13px', fontWeight: '800', color: '#1E40AF', margin: 0, borderBottom: '1px solid #93C5FD', paddingBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <Sparkles style={{ width: '15px', height: '15px', color: '#2563EB' }} />
-                                <span>Edit Issue Details & Live Sync PDF</span>
-                              </h4>
+                              {/* Issue-Level Action Toolbar (MOVED TO TOP OF EXPANDABLE VIEW) */}
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', borderBottom: '1px solid #E2E8F0', paddingBottom: '12px', marginBottom: '2px' }}>
+                                
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  {/* Save */}
+                                  <button
+                                    onClick={() => handleSaveIssue(item.id)}
+                                    style={{ padding: '6px 12px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#2563EB', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                  >
+                                    <Save style={{ width: '13px', height: '13px' }} />
+                                    <span>Save</span>
+                                  </button>
+
+                                  {/* Submit */}
+                                  <button
+                                    onClick={() => handleSubmitIssue(item.id)}
+                                    style={{ padding: '6px 12px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#059669', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                  >
+                                    <Send style={{ width: '13px', height: '13px' }} />
+                                    <span>Submit</span>
+                                  </button>
+
+                                  {/* Reroute */}
+                                  <button
+                                    onClick={() => handleRerouteIssue(item.id)}
+                                    style={{ padding: '6px 12px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#7C3AED', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                  >
+                                    <GitBranch style={{ width: '13px', height: '13px' }} />
+                                    <span>Reroute</span>
+                                  </button>
+
+                                  {/* Track Changes */}
+                                  <button
+                                    onClick={() => setIsTrackChangesActive(!isTrackChangesActive)}
+                                    style={{ padding: '6px 12px', fontSize: '11.5px', fontWeight: '800', color: '#D8001D', backgroundColor: '#ffffff', border: '1px solid #D8001D', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                  >
+                                    <History style={{ width: '13px', height: '13px' }} />
+                                    <span>Track Changes</span>
+                                  </button>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  {/* Mark Not an Issue */}
+                                  <button
+                                    onClick={() => handleMarkNotAnIssue(item.id)}
+                                    style={{ padding: '6px 10px', fontSize: '11px', fontWeight: '800', color: '#047857', backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '6px', cursor: 'pointer' }}
+                                  >
+                                    Mark Not an Issue
+                                  </button>
+
+                                  {/* Mark Exclude Issue */}
+                                  <button
+                                    onClick={() => handleMarkExcludeIssue(item.id)}
+                                    style={{ padding: '6px 10px', fontSize: '11px', fontWeight: '800', color: '#991B1B', backgroundColor: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '6px', cursor: 'pointer' }}
+                                  >
+                                    Mark Exclude Issue
+                                  </button>
+                                </div>
+
+                              </div>
 
                               {/* Form Row 1: Issue Title */}
                               <div>
@@ -575,67 +631,6 @@ export default function WorkOnReportView({ job, onClose }) {
                                 />
                               </div>
 
-                              {/* Issue-Level Action Toolbar (Save, Submit, Reroute, Track Changes, Mark Not an Issue, Mark Exclude Issue) */}
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', borderTop: '1px solid #CBD5E1', paddingTop: '12px', marginTop: '4px' }}>
-                                
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  {/* Save */}
-                                  <button
-                                    onClick={() => handleSaveIssue(item.id)}
-                                    style={{ padding: '6px 12px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#2563EB', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                  >
-                                    <Save style={{ width: '13px', height: '13px' }} />
-                                    <span>Save</span>
-                                  </button>
-
-                                  {/* Submit */}
-                                  <button
-                                    onClick={() => handleSubmitIssue(item.id)}
-                                    style={{ padding: '6px 12px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#059669', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                  >
-                                    <Send style={{ width: '13px', height: '13px' }} />
-                                    <span>Submit</span>
-                                  </button>
-
-                                  {/* Reroute */}
-                                  <button
-                                    onClick={() => handleRerouteIssue(item.id)}
-                                    style={{ padding: '6px 12px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#7C3AED', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                  >
-                                    <GitBranch style={{ width: '13px', height: '13px' }} />
-                                    <span>Reroute</span>
-                                  </button>
-
-                                  {/* Track Changes */}
-                                  <button
-                                    onClick={() => setIsTrackChangesActive(!isTrackChangesActive)}
-                                    style={{ padding: '6px 12px', fontSize: '11.5px', fontWeight: '800', color: '#D8001D', backgroundColor: '#ffffff', border: '1px solid #D8001D', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                  >
-                                    <History style={{ width: '13px', height: '13px' }} />
-                                    <span>Track Changes</span>
-                                  </button>
-                                </div>
-
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  {/* Mark Not an Issue */}
-                                  <button
-                                    onClick={() => handleMarkNotAnIssue(item.id)}
-                                    style={{ padding: '6px 10px', fontSize: '11px', fontWeight: '800', color: '#047857', backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '6px', cursor: 'pointer' }}
-                                  >
-                                    Mark Not an Issue
-                                  </button>
-
-                                  {/* Mark Exclude Issue */}
-                                  <button
-                                    onClick={() => handleMarkExcludeIssue(item.id)}
-                                    style={{ padding: '6px 10px', fontSize: '11px', fontWeight: '800', color: '#991B1B', backgroundColor: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '6px', cursor: 'pointer' }}
-                                  >
-                                    Mark Exclude Issue
-                                  </button>
-                                </div>
-
-                              </div>
-
                             </div>
 
                           </td>
@@ -659,7 +654,7 @@ export default function WorkOnReportView({ job, onClose }) {
 
         </div>
 
-        {/* RIGHT COLUMN: LIVE HTML PDF-STYLE REPORT PREVIEW (Smooth Scrollable Container) */}
+        {/* RIGHT COLUMN: LIVE HTML PDF-STYLE REPORT PREVIEW */}
         <div style={{
           width: '50%',
           backgroundColor: '#52525B',
