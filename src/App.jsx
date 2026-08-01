@@ -257,6 +257,20 @@ export default function App() {
                 onOpenWorkflowModal={handleOpenWorkflowModal}
                 onOpenHistoryModal={handleOpenHistoryModal}
                 onOpenDiscussionPointsView={handleOpenDiscussionPointsView}
+                onOpenWorkflowOverlay={(type) => handleOpenWorkflowOverlay(type, selectedReport)}
+                onWorkOnReport={(report, type = 'audit') => {
+                  const job = {
+                    id: report.id,
+                    fileName: report.fileName,
+                    engagement: report.engagement || report.fileName,
+                    status: report.status,
+                    currentQueue: report.currentQueue,
+                    auditReport: { executionStatus: 'Completed', genAiExtractionDateTime: '2026-08-01 09:30 AM', validationStatus: 'Validated' },
+                    executiveSummaryReport: { executionStatus: 'Completed', genAiExtractionDateTime: '2026-08-01 09:30 AM', validationStatus: 'Validated' },
+                    discussionPoints: { count: report.issueIndicator?.count || 3, status: 'Active' }
+                  };
+                  setActiveWorkOnReportJob({ job, type });
+                }}
               />
             )}
 

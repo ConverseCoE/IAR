@@ -13,7 +13,9 @@ export default function AuditDetailDrawer({
   onOpenIssueModal,
   onOpenWorkflowModal,
   onOpenHistoryModal,
-  onOpenDiscussionPointsView
+  onOpenDiscussionPointsView,
+  onOpenWorkflowOverlay,
+  onWorkOnReport
 }) {
   const [activeReportTab, setActiveReportTab] = useState('audit');
   const [activeAltTab, setActiveAltTab] = useState('reports');
@@ -376,7 +378,7 @@ export default function AuditDetailDrawer({
                   {/* Action Buttons: "Open Report" & "View Workflow" */}
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button
-                      onClick={() => alert(`Opening Audit Report Viewer for ${report.fileName}...`)}
+                      onClick={() => onWorkOnReport && onWorkOnReport(report, 'audit')}
                       style={{
                         flex: 1,
                         height: '38px',
@@ -660,7 +662,7 @@ export default function AuditDetailDrawer({
 
                   <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
                     <button
-                      onClick={() => alert(`Opening Executive Summary Viewer for ${report.fileName}...`)}
+                      onClick={() => onWorkOnReport && onWorkOnReport(report, 'executive')}
                       style={{
                         flex: 1,
                         height: '42px',
