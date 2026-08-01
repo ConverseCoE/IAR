@@ -301,7 +301,7 @@ export default function ReportingDetailDrawer({
                   <span>Download Report</span>
                 </button>
 
-                {/* VIEW WORKFLOW BUTTON FOR EXECUTIVE REPORT -> OPENS FULL-PAGE OVERLAY DRAWER */}
+                {/* VIEW WORKFLOW BUTTON FOR EXECUTIVE REPORT -> OPENS WIDE 780PX OVERLAY DRAWER */}
                 <button
                   onClick={() => setIsExecWorkflowOpen(true)}
                   style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '700', color: '#475569', backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
@@ -393,30 +393,30 @@ export default function ReportingDetailDrawer({
         </div>
       </aside>
 
-      {/* EXECUTIVE SUMMARY WORKFLOW OVERLAY DRAWER (Full-Page Viewport Fixed Backdrop Overlay like History Modal) */}
+      {/* EXECUTIVE SUMMARY WORKFLOW OVERLAY DRAWER (780px Wide Viewport Fixed Backdrop Overlay with Premium Node Cards) */}
       {isExecWorkflowOpen && (
         <div 
           className="modal-overlay" 
           style={{ 
             position: 'fixed', 
             inset: 0, 
-            backgroundColor: 'rgba(15, 23, 42, 0.45)', 
-            backdropFilter: 'blur(2px)',
+            backgroundColor: 'rgba(15, 23, 42, 0.5)', 
+            backdropFilter: 'blur(3px)',
             display: 'flex', 
             justifyContent: 'flex-end', 
             zIndex: 1300 
           }}
           onClick={() => setIsExecWorkflowOpen(false)}
         >
-          {/* Wide Right Overlay Drawer Panel (width: 640px) */}
+          {/* Extra-Wide 780px Right Overlay Drawer Panel */}
           <aside 
             onClick={(e) => e.stopPropagation()}
             style={{
-              width: '640px',
-              maxWidth: '95vw',
+              width: '780px',
+              maxWidth: '96vw',
               height: '100vh',
               backgroundColor: '#ffffff',
-              boxShadow: '-10px 0 30px rgba(0,0,0,0.25)',
+              boxShadow: '-12px 0 36px rgba(0,0,0,0.28)',
               display: 'flex',
               flexDirection: 'column',
               position: 'relative',
@@ -435,8 +435,8 @@ export default function ReportingDetailDrawer({
                   <ArrowLeft style={{ width: '20px', height: '20px' }} />
                 </button>
                 <div>
-                  <h3 style={{ fontSize: '15px', fontWeight: '800', margin: 0, color: '#38BDF8' }}>
-                    Executive Summary Workflow Stage Graph
+                  <h3 style={{ fontSize: '16px', fontWeight: '900', margin: 0, color: '#38BDF8', letterSpacing: '0.2px' }}>
+                    Executive Summary Workflow Pipeline
                   </h3>
                   <span style={{ fontSize: '12px', color: '#94A3B8' }}>{job.fileName || job.id}</span>
                 </div>
@@ -454,94 +454,181 @@ export default function ReportingDetailDrawer({
             {/* Workflow Diagram & Status Content */}
             <div style={{ padding: '24px', flex: 1, overflowY: 'auto', backgroundColor: '#F8FAFC' }}>
               
-              {/* Diagram Container matching attached screenshot */}
+              {/* Premium Executive Workflow Stage Graph Card */}
               <div style={{
                 backgroundColor: '#ffffff',
                 border: '1px solid #CBD5E1',
-                borderRadius: '12px',
-                padding: '28px 24px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+                borderRadius: '16px',
+                padding: '24px 22px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
                 marginBottom: '24px'
               }}>
-                <div style={{ fontSize: '12px', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: '22px', letterSpacing: '0.4px' }}>
-                  Executive Workflow Stage Graph
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', borderBottom: '1px solid #F1F5F9', paddingBottom: '12px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: '900', color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <GitBranch style={{ width: '18px', height: '18px', color: '#D8001D' }} />
+                    <span>Executive Workflow Stage Graph</span>
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: '800', color: '#D8001D', backgroundColor: '#FFF0F2', padding: '3px 10px', borderRadius: '9999px', border: '1px solid #FCA5A5' }}>
+                    Stage 2 of 5 Active
+                  </span>
                 </div>
 
-                {/* Exact visual flowchart matching attached image with generous 640px width */}
-                <div style={{ position: 'relative', width: '100%', minHeight: '220px', padding: '10px 0' }}>
+                {/* RESPONSIVE SVG & NODE PIPELINE CANVAS (Width 780px generous spacing) */}
+                <div style={{ position: 'relative', width: '100%', minHeight: '210px', padding: '10px 0' }}>
+                  
+                  {/* SVG Connector Lines */}
                   <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-                    {/* Horizontal: TC (50) -> Audit Manager (210) */}
-                    <line x1="60" y1="40" x2="190" y2="40" stroke="#CBD5E1" strokeWidth="2.5" />
-                    
-                    {/* Horizontal: Audit Manager (210) -> Director (390) */}
-                    <line x1="270" y1="40" x2="365" y2="40" stroke="#CBD5E1" strokeWidth="2.5" />
+                    <defs>
+                      <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#CBD5E1" />
+                      </marker>
+                      <marker id="arrowGreen" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#22C55E" />
+                      </marker>
+                    </defs>
 
-                    {/* Horizontal: Director (390) -> Final Report (510) */}
-                    <line x1="440" y1="40" x2="495" y2="40" stroke="#CBD5E1" strokeWidth="2.5" />
+                    {/* Connection 1: TC to Audit Manager (Solid Green) */}
+                    <line x1="80" y1="35" x2="190" y2="35" stroke="#22C55E" strokeWidth="3" markerEnd="url(#arrowGreen)" />
 
-                    {/* Path: Audit Manager down to Management Response */}
-                    <path d="M 215 55 L 215 150 L 365 150" fill="none" stroke="#CBD5E1" strokeWidth="2.5" />
+                    {/* Connection 2: Audit Manager to Director */}
+                    <line x1="330" y1="35" x2="420" y2="35" stroke="#CBD5E1" strokeWidth="2.5" strokeDasharray="5,5" markerEnd="url(#arrow)" />
 
-                    {/* Vertical: Director down to Management Response */}
-                    <line x1="400" y1="58" x2="400" y2="135" stroke="#CBD5E1" strokeWidth="2.5" />
+                    {/* Connection 3: Director to Final Report */}
+                    <line x1="510" y1="35" x2="575" y2="35" stroke="#CBD5E1" strokeWidth="2.5" strokeDasharray="5,5" markerEnd="url(#arrow)" />
+
+                    {/* Branch Path: Audit Manager down to Management Response */}
+                    <path d="M 260 55 L 260 135 L 420 135" fill="none" stroke="#CBD5E1" strokeWidth="2.5" strokeDasharray="5,5" markerEnd="url(#arrow)" />
+
+                    {/* Vertical Link: Director to Management Response */}
+                    <line x1="465" y1="58" x2="465" y2="120" stroke="#CBD5E1" strokeWidth="2" strokeDasharray="4,4" />
                   </svg>
 
-                  {/* Node 1: TC */}
-                  <div style={{ position: 'absolute', left: '10px', top: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', border: '2.5px solid #22C55E', backgroundColor: '#DCFCE7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#22C55E' }} />
+                  {/* HTML NODE MINI-CARDS WITH RESPONSIVE PERCENTAGE SPACING */}
+                  <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+                    
+                    {/* Node 1: TC */}
+                    <div style={{ position: 'absolute', left: '0%', top: '10px', pointerEvents: 'auto' }}>
+                      <div style={{
+                        backgroundColor: '#ffffff',
+                        border: '2px solid #22C55E',
+                        borderRadius: '10px',
+                        padding: '8px 12px',
+                        boxShadow: '0 4px 12px rgba(34,197,94,0.12)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        <div style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: '#DCFCE7', color: '#15803D', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <CheckCircle2 style={{ width: '15px', height: '15px' }} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: '900', color: '#0F172A' }}>TC</div>
+                          <div style={{ fontSize: '10px', fontWeight: '800', color: '#15803D' }}>Completed</div>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#0F172A' }}>TC</div>
-                      <div style={{ fontSize: '10.5px', fontWeight: '700', color: '#166534' }}>Completed</div>
-                    </div>
-                  </div>
 
-                  {/* Node 2: Audit Manager */}
-                  <div style={{ position: 'absolute', left: '180px', top: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', border: '2.5px solid #22C55E', backgroundColor: '#DCFCE7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#22C55E' }} />
+                    {/* Node 2: Audit Manager (ACTIVE FOCUS NODE) */}
+                    <div style={{ position: 'absolute', left: '26%', top: '8px', pointerEvents: 'auto' }}>
+                      <div style={{
+                        backgroundColor: '#ffffff',
+                        border: '2.5px solid #D8001D',
+                        borderRadius: '10px',
+                        padding: '8px 14px',
+                        boxShadow: '0 4px 16px rgba(216,0,29,0.25)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        <div style={{ width: '26px', height: '26px', borderRadius: '50%', backgroundColor: '#FFF0F2', color: '#D8001D', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Clock style={{ width: '16px', height: '16px' }} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: '900', color: '#0F172A' }}>Audit Manager</div>
+                          <span style={{ fontSize: '10px', fontWeight: '800', color: '#D8001D', backgroundColor: '#FFF0F2', padding: '1px 6px', borderRadius: '4px', border: '1px solid #FCA5A5' }}>
+                            In Progress
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#0F172A' }}>Audit Manager</div>
-                      <div style={{ fontSize: '10.5px', fontWeight: '700', color: '#D8001D', textDecoration: 'underline' }}>Inprogress</div>
-                    </div>
-                  </div>
 
-                  {/* Node 3: Director */}
-                  <div style={{ position: 'absolute', left: '365px', top: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', border: '2.5px solid #CBD5E1', backgroundColor: '#F1F5F9' }} />
-                    <div>
-                      <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#64748B' }}>Director</div>
-                      <div style={{ fontSize: '10.5px', fontWeight: '600', color: '#94A3B8' }}>Not Started</div>
+                    {/* Node 3: Director */}
+                    <div style={{ position: 'absolute', left: '57%', top: '10px', pointerEvents: 'auto' }}>
+                      <div style={{
+                        backgroundColor: '#F8FAFC',
+                        border: '1.5px solid #CBD5E1',
+                        borderRadius: '10px',
+                        padding: '8px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        <div style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: '#E2E8F0', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '800' }}>
+                          3
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '12.5px', fontWeight: '800', color: '#475569' }}>Director</div>
+                          <div style={{ fontSize: '10px', fontWeight: '600', color: '#94A3B8' }}>Not Started</div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Node 4: Final Report */}
-                  <div style={{ position: 'absolute', left: '495px', top: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', border: '2.5px solid #CBD5E1', backgroundColor: '#F1F5F9' }} />
-                    <div>
-                      <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#64748B' }}>Final Report</div>
-                      <div style={{ fontSize: '10.5px', fontWeight: '600', color: '#94A3B8' }}>Not Started</div>
+                    {/* Node 4: Final Report (FITS SAFELY INSIDE CARD CONTAINER WITH NO OVERFLOW!) */}
+                    <div style={{ position: 'absolute', right: '0%', top: '10px', pointerEvents: 'auto' }}>
+                      <div style={{
+                        backgroundColor: '#F8FAFC',
+                        border: '1.5px solid #CBD5E1',
+                        borderRadius: '10px',
+                        padding: '8px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        <div style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: '#E2E8F0', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '800' }}>
+                          5
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '12.5px', fontWeight: '800', color: '#475569' }}>Final Report</div>
+                          <div style={{ fontSize: '10px', fontWeight: '600', color: '#94A3B8' }}>Not Started</div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Node 5: Management Response */}
-                  <div style={{ position: 'absolute', left: '365px', top: '130px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', border: '2.5px solid #CBD5E1', backgroundColor: '#F1F5F9' }} />
-                    <div>
-                      <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#64748B' }}>Management Response</div>
-                      <div style={{ fontSize: '10.5px', fontWeight: '600', color: '#94A3B8' }}>Not Started</div>
+                    {/* Node 5: Management Response (Branched Below Director) */}
+                    <div style={{ position: 'absolute', left: '52%', top: '110px', pointerEvents: 'auto' }}>
+                      <div style={{
+                        backgroundColor: '#F8FAFC',
+                        border: '1.5px solid #CBD5E1',
+                        borderRadius: '10px',
+                        padding: '8px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        <div style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: '#E2E8F0', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '800' }}>
+                          4
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '12.5px', fontWeight: '800', color: '#475569' }}>Management Response</div>
+                          <div style={{ fontSize: '10px', fontWeight: '600', color: '#94A3B8' }}>Not Started</div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
 
+                  </div>
                 </div>
               </div>
 
-              {/* Detailed Stage Cards */}
-              <div style={{ backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                <h4 style={{ fontSize: '13.5px', fontWeight: '800', color: '#0F172A', margin: '0 0 14px 0', borderBottom: '1px solid #F1F5F9', paddingBottom: '8px' }}>
-                  Stage Audit Log &amp; Responsible Parties
+              {/* Detailed Stage Audit Log Cards */}
+              <div style={{ backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '14px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                <h4 style={{ fontSize: '13.5px', fontWeight: '900', color: '#0F172A', margin: '0 0 14px 0', borderBottom: '1px solid #F1F5F9', paddingBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ShieldCheck style={{ width: '16px', height: '16px', color: '#059669' }} />
+                  <span>Stage Audit Log &amp; Responsible Parties</span>
                 </h4>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '12px' }}>
@@ -550,15 +637,15 @@ export default function ReportingDetailDrawer({
                       <div style={{ fontWeight: '800', color: '#166534', fontSize: '13px' }}>1. TC Review (Completed)</div>
                       <div style={{ fontSize: '11px', color: '#475569', marginTop: '2px' }}>Assignee: Rachel Green (TC Auditor)</div>
                     </div>
-                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#166534', backgroundColor: '#DCFCE7', padding: '2px 8px', borderRadius: '4px' }}>Completed: 2026-08-01 10:15 AM</span>
+                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#166534', backgroundColor: '#DCFCE7', padding: '3px 10px', borderRadius: '6px' }}>Completed: 2026-08-01 10:15 AM</span>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#FFF5F6', borderRadius: '8px', border: '1px solid #FCA5A5' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#FFF5F6', borderRadius: '8px', border: '1.5px solid #FCA5A5' }}>
                     <div>
                       <div style={{ fontWeight: '800', color: '#D8001D', fontSize: '13px' }}>2. Audit Manager Review (In Progress)</div>
                       <div style={{ fontSize: '11px', color: '#475569', marginTop: '2px' }}>Assignee: Kevin Zhang (Director)</div>
                     </div>
-                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#D8001D', backgroundColor: '#FFF0F2', padding: '2px 8px', borderRadius: '4px' }}>Active Now</span>
+                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#D8001D', backgroundColor: '#FFF0F2', padding: '3px 10px', borderRadius: '6px', border: '1px solid #FCA5A5' }}>Active Now</span>
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
