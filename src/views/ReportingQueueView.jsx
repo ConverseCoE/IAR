@@ -68,14 +68,26 @@ export default function ReportingQueueView({
     setSearchQuery('');
   };
 
-  const renderStatusBadge = (status) => {
-    let bg = '#ECFDF5'; let text = '#047857'; let border = '#A7F3D0';
-    if (status === 'Under Review') { bg = '#FFFBEB'; text = '#B45309'; border = '#FDE68A'; }
-    else if (status === 'In Progress') { bg = '#EFF6FF'; text = '#2563EB'; border = '#BFDBFE'; }
+  const renderStatusPill = (statusText) => {
+    const s = statusText.toLowerCase();
+    let pillClass = "status-pill-not-started";
+    let dotClass = "status-dot-not-started";
+
+    if (s === 'completed' || s === 'approved') {
+      pillClass = "status-pill-completed";
+      dotClass = "status-dot-completed";
+    } else if (s === 'in progress') {
+      pillClass = "status-pill-in-progress";
+      dotClass = "status-dot-in-progress";
+    } else if (s === 'under review' || s === 'in review') {
+      pillClass = "status-pill-in-review";
+      dotClass = "status-dot-in-review";
+    }
 
     return (
-      <span style={{ fontSize: '11px', fontWeight: '700', padding: '3px 10px', borderRadius: '9999px', backgroundColor: bg, color: text, border: `1px solid ${border}` }}>
-        {status}
+      <span className={`status-pill ${pillClass}`}>
+        <span className={`status-dot ${dotClass}`}></span>
+        <span>{statusText}</span>
       </span>
     );
   };
@@ -87,7 +99,7 @@ export default function ReportingQueueView({
     else if (queue === 'Business Owner') { bg = '#ECFDF5'; text = '#065F46'; }
 
     return (
-      <span style={{ fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '4px', backgroundColor: bg, color: text, border: '1px solid #CBD5E1' }}>
+      <span style={{ fontSize: '11.5px', fontWeight: '700', padding: '3px 10px', borderRadius: '4px', backgroundColor: bg, color: text, border: '1px solid #CBD5E1', display: 'inline-block' }}>
         {queue}
       </span>
     );
@@ -169,7 +181,7 @@ export default function ReportingQueueView({
 
       </div>
 
-      {/* Borderless Table Container (Identical Structure to Fieldwork) */}
+      {/* Borderless Table Container (Identical Row Sizing & Padding to Fieldwork) */}
       <div className="table-card-container">
         <div className="table-scroll-body">
           <table>
@@ -217,12 +229,13 @@ export default function ReportingQueueView({
                     <ArrowUpDown className="th-sort-icon" />
                   </div>
                 </th>
+                <th style={{ width: '40px', padding: '16px 12px' }}></th>
               </tr>
             </thead>
             <tbody>
               {filteredJobs.length === 0 ? (
                 <tr>
-                  <td colSpan="7" style={{ padding: '48px', textAlign: 'center', color: '#64748B' }}>
+                  <td colSpan="8" style={{ padding: '48px', textAlign: 'center', color: '#64748B' }}>
                     <Filter style={{ width: '36px', height: '36px', color: '#CBD5E1', margin: '0 auto 8px' }} />
                     <p style={{ fontWeight: '600', color: '#334155' }}>No reporting jobs matched your filters</p>
                     <p style={{ fontSize: '11px', color: '#94A3B8' }}>Try clearing your search query or status filters.</p>
@@ -237,18 +250,26 @@ export default function ReportingQueueView({
                       onClick={() => onSelectJob(job.id)}
                       className={`table-row-interactive ${isSelected ? 'active-selected' : ''}`}
                     >
-                      {/* 1. Job ID */}
-                      <td style={{ fontWeight: '800', color: '#D8001D', fontSize: '13px' }}>
-                        {job.id}
+                      {/* 1. Job ID with File Icon Box */}
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div className="file-icon-box">
+                            <FileText style={{ width: '16px', height: '16px' }} />
+                          </div>
+                          <div>
+                            <p className="file-name-text" style={{ color: '#D8001D', fontWeight: '800' }}>{job.id}</p>
+                            <span style={{ fontSize: '11px', color: '#64748B' }}>{job.fileName}</span>
+                          </div>
+                        </div>
                       </td>
 
                       {/* 2. Engagement */}
-                      <td style={{ fontWeight: '700', color: '#0F172A', fontSize: '12.5px' }}>
+                      <td style={{ fontWeight: '700', color: '#0F172A', fontSize: '13px' }}>
                         {job.engagement}
                       </td>
 
                       {/* 3. Current Owner */}
-                      <td style={{ fontSize: '12.5px', color: '#1E293B', fontWeight: '600' }}>
+                      <td style={{ fontSize: '13px', color: '#1E293B', fontWeight: '600' }}>
                         {job.currentOwner}
                       </td>
 
@@ -258,19 +279,24 @@ export default function ReportingQueueView({
                       </td>
 
                       {/* 5. Last Updated Datetime */}
-                      <td style={{ fontSize: '12px', color: '#64748B' }}>
+                      <td style={{ fontSize: '12.5px', color: '#64748B' }}>
                         {job.lastUpdated}
                       </td>
 
-                      {/* 6. Status */}
+                      {/* 6. Status Pill (Identical Fieldwork Status Pill Styling) */}
                       <td>
-                        {renderStatusBadge(job.status)}
+                        {renderStatusPill(job.status)}
                       </td>
 
                       {/* 7. Aging */}
-                      <td style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <td style={{ fontSize: '12.5px', fontWeight: '700', color: '#334155', display: 'flex', alignItems: 'center', gap: '6px', paddingTop: '20px' }}>
                         <Clock style={{ width: '13px', height: '13px', color: '#D8001D' }} />
                         <span>{job.aging}</span>
+                      </td>
+
+                      {/* 8. Right Arrow Chevron Indicator (Identical Fieldwork Column) */}
+                      <td style={{ width: '40px', paddingRight: '16px', textAlign: 'right' }}>
+                        <ChevronRight className="row-chevron-icon" style={{ width: '16px', height: '16px', color: '#94A3B8' }} />
                       </td>
 
                     </tr>
