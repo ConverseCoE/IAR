@@ -10,7 +10,8 @@ export default function ReportingDetailDrawer({
   onClose,
   onOpenDiscussionPoints,
   onOpenWorkflow,
-  onOpenHistory
+  onOpenHistory,
+  onWorkOnReport
 }) {
   const [activeTab, setActiveTab] = useState('audit-report'); // 'audit-report', 'executive-report', 'discussion-points'
 
@@ -192,7 +193,7 @@ export default function ReportingDetailDrawer({
             {/* Action Buttons */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', paddingTop: '12px', borderTop: '1px solid #E2E8F0' }}>
               <button
-                onClick={() => alert(`Initiating Work On Audit Report for ${job.id}`)}
+                onClick={() => onWorkOnReport && onWorkOnReport(job)}
                 style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '800', color: '#ffffff', backgroundColor: '#D8001D', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
               >
                 <PlayCircle style={{ width: '15px', height: '15px' }} />
@@ -281,7 +282,7 @@ export default function ReportingDetailDrawer({
             {/* Action Buttons */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', paddingTop: '12px', borderTop: '1px solid #E2E8F0' }}>
               <button
-                onClick={() => alert(`Initiating Work On Executive Summary Report for ${job.id}`)}
+                onClick={() => onWorkOnReport && onWorkOnReport(job)}
                 style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '800', color: '#ffffff', backgroundColor: '#059669', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
               >
                 <PlayCircle style={{ width: '15px', height: '15px' }} />
@@ -338,7 +339,7 @@ export default function ReportingDetailDrawer({
             {/* Single-Column Left Label & Right Value Rows */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1.5px solid #F1F5F9' }}>
                 <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Start Date Time</span>
                 <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{discussionPoints?.startDateTime || '-'}</strong>
               </div>

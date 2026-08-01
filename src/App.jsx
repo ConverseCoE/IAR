@@ -9,6 +9,7 @@ import WorkflowModal from './components/WorkflowModal';
 import HistoryModal from './components/HistoryModal';
 import DiscussionPointsView from './views/DiscussionPointsView';
 import ReportingQueueView from './views/ReportingQueueView';
+import WorkOnReportView from './views/WorkOnReportView';
 import { initialReports } from './data/mockData';
 import { mockReportingJobs } from './data/reportingMockData';
 import { 
@@ -24,8 +25,9 @@ export default function App() {
   const [selectedReportId, setSelectedReportId] = useState("REP-2026-006"); // BiosenseWebster_Catheters_Audit as default
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   
-  // Reporting Module Drawer State
+  // Reporting Module Drawer & Work On Report Studio State
   const [selectedReportingJobId, setSelectedReportingJobId] = useState(null);
+  const [activeWorkOnReportJob, setActiveWorkOnReportJob] = useState(null);
 
   const [activeView, setActiveView] = useState('queue'); // 'queue' or 'discussion-points'
   const [discussionFuncFilter, setDiscussionFuncFilter] = useState('All');
@@ -256,10 +258,19 @@ export default function App() {
                 ]
               })}
               onOpenHistory={(job) => handleOpenHistoryModal({ id: job.id, header: job.engagement })}
+              onWorkOnReport={(job) => setActiveWorkOnReportJob(job)}
             />
           )}
 
         </div>
+      )}
+
+      {/* WORK ON REPORT INTERACTIVE STUDIO OVERLAY */}
+      {activeWorkOnReportJob && (
+        <WorkOnReportView
+          job={activeWorkOnReportJob}
+          onClose={() => setActiveWorkOnReportJob(null)}
+        />
       )}
 
       {/* Discussion Points Modal */}
