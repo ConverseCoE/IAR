@@ -440,7 +440,7 @@ export default function WorkOnReportView({ job, onClose }) {
                             
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                               
-                              {/* Issue-Level Action Toolbar (Left: Mark Not an Issue / Exclude | Right: Reroute, Track Changes, Save, Submit) */}
+                              {/* Issue-Level Action Toolbar (Left: Mark Not an Issue & Mark Exclude | Right: Track Changes, Reroute, Submit, Save [Reading Right-to-Left: Save -> Submit -> Reroute -> Track Changes]) */}
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', paddingBottom: '4px' }}>
                                 
                                 {/* Left End: Mark Not an Issue & Mark Exclude Issue */}
@@ -462,17 +462,8 @@ export default function WorkOnReportView({ job, onClose }) {
                                   </button>
                                 </div>
 
-                                {/* Right End: Reroute, Track Changes, Save, Submit */}
+                                {/* Right End: Track Changes -> Reroute -> Submit -> Save (Reading Right-to-Left: Save is rightmost) */}
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  {/* Reroute */}
-                                  <button
-                                    onClick={() => handleRerouteIssue(item.id)}
-                                    style={{ padding: '7px 14px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#7C3AED', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 1px 3px rgba(124,58,237,0.2)' }}
-                                  >
-                                    <GitBranch style={{ width: '13.5px', height: '13.5px' }} />
-                                    <span>Reroute</span>
-                                  </button>
-
                                   {/* Track Changes */}
                                   <button
                                     onClick={() => setIsTrackChangesActive(!isTrackChangesActive)}
@@ -482,13 +473,13 @@ export default function WorkOnReportView({ job, onClose }) {
                                     <span>Track Changes</span>
                                   </button>
 
-                                  {/* Save */}
+                                  {/* Reroute */}
                                   <button
-                                    onClick={() => handleSaveIssue(item.id)}
-                                    style={{ padding: '7px 14px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#2563EB', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 1px 3px rgba(37,99,235,0.2)' }}
+                                    onClick={() => handleRerouteIssue(item.id)}
+                                    style={{ padding: '7px 14px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#7C3AED', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 1px 3px rgba(124,58,237,0.2)' }}
                                   >
-                                    <Save style={{ width: '13.5px', height: '13.5px' }} />
-                                    <span>Save</span>
+                                    <GitBranch style={{ width: '13.5px', height: '13.5px' }} />
+                                    <span>Reroute</span>
                                   </button>
 
                                   {/* Submit */}
@@ -498,6 +489,15 @@ export default function WorkOnReportView({ job, onClose }) {
                                   >
                                     <Send style={{ width: '13.5px', height: '13.5px' }} />
                                     <span>Submit</span>
+                                  </button>
+
+                                  {/* Save */}
+                                  <button
+                                    onClick={() => handleSaveIssue(item.id)}
+                                    style={{ padding: '7px 14px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#2563EB', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 1px 3px rgba(37,99,235,0.2)' }}
+                                  >
+                                    <Save style={{ width: '13.5px', height: '13.5px' }} />
+                                    <span>Save</span>
                                   </button>
                                 </div>
 
