@@ -266,7 +266,21 @@ export default function App() {
                 isOpen={!!selectedReportingJob}
                 job={selectedReportingJob}
                 onClose={handleCloseReportingDrawer}
-                onOpenDiscussionPoints={() => handleOpenDiscussionPointsView('All')}
+                onOpenDiscussionPoints={(job) => {
+                  const matchingReport = reports.find(r => 
+                    r.id === job.id || 
+                    r.fileName === job.fileName || 
+                    r.engagement === job.engagement ||
+                    (r.fileName && job.fileName && r.fileName.toLowerCase() === job.fileName.toLowerCase())
+                  ) || reports.find(r => r.id === "REP-2026-006") || reports[0];
+
+                  setCurrentPhase('fieldwork');
+                  setSelectedReportingJobId(null);
+                  setActiveWorkOnReportJob(null);
+                  setActiveView('queue');
+                  setSelectedReportId(matchingReport.id);
+                  setIsDrawerOpen(true);
+                }}
                 onOpenWorkflow={(job) => handleOpenWorkflowModal({
                   title: `${job.id} — Workflow Stages`,
                   workflows: [
