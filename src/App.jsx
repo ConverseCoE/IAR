@@ -7,11 +7,11 @@ import IssueModal from './components/IssueModal';
 import WorkflowModal from './components/WorkflowModal';
 import HistoryModal from './components/HistoryModal';
 import DiscussionPointsView from './views/DiscussionPointsView';
+import ReportingQueueView from './views/ReportingQueueView';
 import { initialReports } from './data/mockData';
 import { 
   PrePlanningView, 
   PlanningView, 
-  ReportingView, 
   WrapUpView, 
   DashboardsView 
 } from './components/PhaseViews';
@@ -175,7 +175,7 @@ export default function App() {
       ) : (
         <div className={`workspace-split-container ${isDrawerOpen ? 'drawer-is-open' : ''}`}>
           
-          {/* Left Content Area (Single-Row Filters & Job Queue Table) */}
+          {/* Left Content Area */}
           <main className="main-container">
             {currentPhase === 'fieldwork' ? (
               <JobQueueView 
@@ -192,7 +192,9 @@ export default function App() {
             ) : currentPhase === 'planning' ? (
               <PlanningView />
             ) : currentPhase === 'reporting' ? (
-              <ReportingView />
+              <ReportingQueueView 
+                onOpenDiscussionPointsView={() => handleOpenDiscussionPointsView('All')}
+              />
             ) : currentPhase === 'wrap-up' ? (
               <WrapUpView />
             ) : currentPhase === 'dashboards' ? (
@@ -200,8 +202,8 @@ export default function App() {
             ) : null}
           </main>
 
-          {/* Right Audit Detail Drawer Panel */}
-          {isDrawerOpen && (
+          {/* Right Audit Detail Drawer Panel (For Fieldwork phase) */}
+          {currentPhase === 'fieldwork' && isDrawerOpen && (
             <AuditDetailDrawer 
               isOpen={isDrawerOpen}
               report={selectedReport}
