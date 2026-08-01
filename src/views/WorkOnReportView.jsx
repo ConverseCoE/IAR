@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  X, Plus, Minus, Download, Save, Send, GitBranch, History, 
+  ArrowLeft, Plus, Minus, Download, Save, Send, GitBranch, History, 
   AlertOctagon, CheckCircle2, RefreshCw, FileText, ArrowUp, ArrowDown, Sparkles
 } from 'lucide-react';
 import { mockAuditReportIssues } from '../data/reportIssuesData';
@@ -214,11 +214,36 @@ export default function WorkOnReportView({ job, onClose }) {
         justifyContent: 'space-between',
         flexShrink: 0
       }}>
-        {/* Title */}
+        {/* Left Side: Back Arrow Button + Title: Audit Report - [Job Name] + Editing Pill Badge */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <h1 style={{ fontSize: '20px', fontWeight: '900', color: '#0F172A', margin: 0 }}>
-            Issues
+          {/* Back Button */}
+          <button
+            onClick={onClose}
+            style={{
+              padding: '6px 10px',
+              borderRadius: '6px',
+              border: '1px solid #CBD5E1',
+              backgroundColor: '#F8FAFC',
+              color: '#475569',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '12px',
+              fontWeight: '700'
+            }}
+            title="Back to Reporting Queue"
+          >
+            <ArrowLeft style={{ width: '16px', height: '16px', color: '#D8001D' }} />
+            <span>Back</span>
+          </button>
+
+          {/* Title */}
+          <h1 style={{ fontSize: '18px', fontWeight: '900', color: '#0F172A', margin: 0 }}>
+            Audit Report — {job?.fileName || job?.id || 'BiosenseWebster_Catheters_Audit'}
           </h1>
+
+          {/* Editing Pill Badge */}
           {selectedIssue && (
             <span style={{ fontSize: '12px', fontWeight: '700', color: '#D8001D', backgroundColor: '#FFF0F2', padding: '2px 10px', borderRadius: '9999px', border: '1px solid #FCA5A5' }}>
               Editing: {selectedIssue.id}
@@ -226,7 +251,7 @@ export default function WorkOnReportView({ job, onClose }) {
           )}
         </div>
 
-        {/* Top Right Job-Level Actions */}
+        {/* Top Right Job-Level Actions (NO CLOSE X BUTTON) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           
           {/* Generate Report Button */}
@@ -290,21 +315,6 @@ export default function WorkOnReportView({ job, onClose }) {
           >
             <History style={{ width: '14px', height: '14px' }} />
             <span>{isTrackChangesActive ? "Track Changes (Active)" : "Track Changes"}</span>
-          </button>
-
-          {/* Close X Button */}
-          <button
-            onClick={onClose}
-            style={{
-              padding: '6px',
-              borderRadius: '6px',
-              border: '1px solid #CBD5E1',
-              backgroundColor: '#F8FAFC',
-              color: '#64748B',
-              cursor: 'pointer'
-            }}
-          >
-            <X style={{ width: '18px', height: '18px' }} />
           </button>
 
         </div>
