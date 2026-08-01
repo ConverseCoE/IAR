@@ -7,18 +7,17 @@ import DiscussionModal from './components/DiscussionModal';
 import IssueModal from './components/IssueModal';
 import WorkflowModal from './components/WorkflowModal';
 import HistoryModal from './components/HistoryModal';
-import WorkflowOverlayDrawer from './components/WorkflowOverlayDrawer';
 import DiscussionPointsView from './views/DiscussionPointsView';
 import ReportingQueueView from './views/ReportingQueueView';
 import WorkOnReportView from './views/WorkOnReportView';
 import WorkOnExecReportView from './views/WorkOnExecReportView';
 import { initialReports } from './data/mockData';
 import { mockReportingJobs } from './data/reportingMockData';
-import { 
-  PrePlanningView, 
-  PlanningView, 
-  WrapUpView, 
-  DashboardsView 
+import {
+  PrePlanningView,
+  PlanningView,
+  WrapUpView,
+  DashboardsView
 } from './components/PhaseViews';
 
 export default function App() {
@@ -26,7 +25,7 @@ export default function App() {
   const [reports, setReports] = useState(initialReports);
   const [selectedReportId, setSelectedReportId] = useState("REP-2026-006"); // BiosenseWebster_Catheters_Audit as default
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  
+
   // Reporting Module Drawer & Work On Report Studio State: { job, type: 'audit' | 'executive' }
   const [selectedReportingJobId, setSelectedReportingJobId] = useState(null);
   const [activeWorkOnReportJob, setActiveWorkOnReportJob] = useState(null);
@@ -57,135 +56,198 @@ export default function App() {
     report: null
   });
 
-  // Dedicated Full-Viewport Root Workflow Drawer Overlay state
-  const [workflowOverlay, setWorkflowOverlay] = useState({
-    isOpen: false,
-    type: 'audit',
-    report: null
-  });
-
   const selectedReport = reports.find(r => r.id === selectedReportId) || reports.find(r => r.id === "REP-2026-006") || reports[0];
   const selectedReportingJob = mockReportingJobs.find(j => j.id === selectedReportingJobId) || null;
 
-  const handleOpenITModal = (report) => setDiscussionModal({ isOpen: true, type: 'IT', report });
-  const handleOpenFinOpsModal = (report) => setDiscussionModal({ isOpen: true, type: 'FinOps', report });
-  const handleOpenIssueModal = (report) => setIssueModal({ isOpen: true, report });
-  const handleOpenWorkflowModal = (data) => setWorkflowModal({ isOpen: true, ...data });
-  const handleOpenHistoryModal = (report) => setHistoryModal({ isOpen: true, report });
-
-  const handleOpenWorkflowOverlay = (type, report) => {
-    setWorkflowOverlay({ isOpen: true, type, report });
+  const handleSelectReport = (reportId) => {
+    setSelectedReportId(reportId);
+    setIsDrawerOpen(true);
   };
 
-  const handleSaveDiscussion = (updatedReport) => {
-    setReports(prev => prev.map(r => r.id === updatedReport.id ? updatedReport : r));
+  const handleCloseDrawer = () => {
+    setIsDrawerOpen(false);
+    setSelectedReportId(null);
   };
 
-  const handleSaveIssues = (updatedReport) => {
-    setReports(prev => prev.map(r => r.id === updatedReport.id ? updatedReport : r));
+  const handleSelectReportingJob = (jobId) => {
+    setSelectedReportingJobId(selectedReportingJobId === jobId ? null : jobId);
   };
 
-  const handleOpenDiscussionPointsView = (filter = 'All') => {
-    setDiscussionFuncFilter(filter);
+  const handleCloseReportingDrawer = () => {
+    setSelectedReportingJobId(null);
+  };
+
+  // Open Full-Screen Discussion Points View
+  const handleOpenDiscussionPointsView = (funcType = 'All') => {
+    setDiscussionFuncFilter(funcType);
     setActiveView('discussion-points');
   };
 
-  const handleCloseDrawer = () => setIsDrawerOpen(false);
-  const handleCloseReportingDrawer = () => setSelectedReportingJobId(null);
-
-  const renderCurrentPhaseView = () => {
-    switch (currentPhase) {
-      case 'pre-planning':
-        return <PrePlanningView />;
-      case 'planning':
-        return <PlanningView />;
-      case 'wrap-up':
-        return <WrapUpView />;
-      case 'dashboards':
-        return <DashboardsView />;
-      case 'reporting':
-        return (
-          <ReportingQueueView 
-            onOpenJobDrawer={(job) => {
-              setSelectedReportingJobId(job.id);
-            }} 
-          />
-        );
-      case 'fieldwork':
-      default:
-        if (activeView === 'discussion-points') {
-          return (
-            <DiscussionPointsView 
-              funcFilter={discussionFuncFilter}
-              onBackToQueue={() => setActiveView('queue')}
-              onOpenModal={(type, report) => {
-                if (type === 'IT') handleOpenITModal(report);
-                else handleOpenFinOpsModal(report);
-              }}
-            />
-          );
-        }
-        return (
-          <JobQueueView 
-            reports={reports}
-            selectedReportId={selectedReportId}
-            onSelectReport={(id) => {
-              setSelectedReportId(id);
-              setIsDrawerOpen(true);
-            }}
-            onOpenDiscussionPointsView={handleOpenDiscussionPointsView}
-            onOpenIssueModal={handleOpenIssueModal}
-            onOpenWorkflowModal={handleOpenWorkflowModal}
-            onOpenHistoryModal={handleOpenHistoryModal}
-          />
-        );
-    }
+  const handleBackToQueue = () => {
+    setActiveView('queue');
   };
 
+  // Discussion Save Handler
+  const handleSaveDiscussion = (type, items) => {
+    setReports(prev => prev.map(r => {
+      if (selectedReport && r.id === selectedReport.id) {
+        if (type === 'IT') {
+          return {
+            ...r,
+            itDiscussion: {
+              ...r.itDiscussion,
+              items: items,
+              status: items.length > 0 ? "In Progress" : "Not started"
+            }
+          };
+        } else {
+          return {
+            ...r,
+            finOpsDiscussion: {
+              ...r.finOpsDiscussion,
+              items: items,
+              status: items.length > 0 ? "In Progress" : "Not started"
+            }
+          };
+        }
+      }
+      return r;
+    }));
+  };
+
+  // Issue Save Handler
+  const handleSaveIssues = (reportId, newIssues) => {
+    setReports(prev => prev.map(r => {
+      if (r.id === reportId) {
+        return {
+          ...r,
+          issueIndicator: {
+            count: newIssues.length,
+            critical: newIssues.filter(i => i.severity === 'Critical').length,
+            minor: newIssues.filter(i => i.severity === 'Minor').length,
+            issues: newIssues
+          }
+        };
+      }
+      return r;
+    }));
+  };
+
+  const handleOpenITModal = (reportObj) => {
+    handleOpenDiscussionPointsView('IT');
+  };
+
+  const handleOpenFinOpsModal = (reportObj) => {
+    handleOpenDiscussionPointsView('FinOps');
+  };
+
+  const handleOpenIssueModal = (reportObj) => {
+    setIssueModal({
+      isOpen: true,
+      report: reportObj || selectedReport
+    });
+  };
+
+  const handleOpenWorkflowModal = ({ title, workflows }) => {
+    setWorkflowModal({
+      isOpen: true,
+      title: title || "Workflow Stages",
+      workflows: workflows || []
+    });
+  };
+
+  const handleOpenHistoryModal = (reportObj) => {
+    setHistoryModal({
+      isOpen: true,
+      report: reportObj || selectedReport
+    });
+  };
+
+  const isCurrentDrawerOpen = (currentPhase === 'fieldwork' && isDrawerOpen) || (currentPhase === 'reporting' && !!selectedReportingJobId);
+
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      
-      {/* Top Application Header Navbar */}
-      <Header 
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--slate-50)', overflow: 'hidden' }}>
+
+      {/* 1. Top Application Header (54px) */}
+      <Header
         currentPhase={currentPhase}
         onPhaseChange={(phase) => {
           setCurrentPhase(phase);
-          if (phase !== 'fieldwork') {
-            setActiveView('queue');
-          }
-          if (phase !== 'reporting') {
-            setActiveWorkOnReportJob(null);
-          }
+          setActiveView('queue');
+          setActiveWorkOnReportJob(null);
         }}
       />
 
-      {/* Conditional Full-Screen Work On Report Studio or Normal View */}
-      {currentPhase === 'reporting' && activeWorkOnReportJob ? (
+      {/* 2. Main Content View Switcher */}
+      {activeWorkOnReportJob ? (
+        /* INTERACTIVE STUDIOS FOR AUDIT REPORT VS EXECUTIVE SUMMARY REPORT */
         activeWorkOnReportJob.type === 'executive' ? (
-          <WorkOnExecReportView 
+          <WorkOnExecReportView
             job={activeWorkOnReportJob.job}
-            onBack={() => setActiveWorkOnReportJob(null)}
+            onClose={() => setActiveWorkOnReportJob(null)}
           />
         ) : (
-          <WorkOnReportView 
+          <WorkOnReportView
             job={activeWorkOnReportJob.job}
-            onBack={() => setActiveWorkOnReportJob(null)}
+            onClose={() => setActiveWorkOnReportJob(null)}
           />
         )
+      ) : activeView === 'discussion-points' ? (
+        <DiscussionPointsView
+          report={selectedReport}
+          initialFunction={discussionFuncFilter}
+          onBackToQueue={handleBackToQueue}
+          onOpenHistoryModal={handleOpenHistoryModal}
+        />
       ) : (
-        <div className="workspace-split-container">
-          
-          {/* Main Content Area */}
-          <div style={{ flex: 1, minWidth: 0, height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-            {renderCurrentPhaseView()}
-          </div>
+        /* QUEUE TABLE & DRAWER WORKSPACE */
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-          {/* Right Slide-over Panels Container */}
-          <div style={{ height: '100%', display: 'flex', flexShrink: 0 }}>
-            
+          {currentPhase === 'fieldwork' && activeView === 'queue' && (
+            <div className="job-queue-title-banner">
+              <h2>Job Queue</h2>
+            </div>
+          )}
+
+          {currentPhase === 'reporting' && activeView === 'queue' && (
+            <div className="job-queue-title-banner">
+              <h2>Reporting Queue</h2>
+            </div>
+          )}
+
+          <div className={`workspace-split-container ${isCurrentDrawerOpen ? 'drawer-is-open' : ''}`}>
+
+            {/* Left Content Area */}
+            <main className="main-container">
+              {currentPhase === 'fieldwork' ? (
+                <JobQueueView
+                  reports={reports}
+                  selectedReportId={selectedReportId}
+                  onSelectReport={handleSelectReport}
+                  onOpenITModal={handleOpenITModal}
+                  onOpenFinOpsModal={handleOpenFinOpsModal}
+                  onOpenIssueModal={handleOpenIssueModal}
+                  isDrawerOpen={isDrawerOpen}
+                />
+              ) : currentPhase === 'pre-planning' ? (
+                <PrePlanningView />
+              ) : currentPhase === 'planning' ? (
+                <PlanningView />
+              ) : currentPhase === 'reporting' ? (
+                <ReportingQueueView
+                  selectedJobId={selectedReportingJobId}
+                  onSelectJob={handleSelectReportingJob}
+                />
+              ) : currentPhase === 'wrap-up' ? (
+                <WrapUpView />
+              ) : currentPhase === 'dashboards' ? (
+                <DashboardsView />
+              ) : null}
+            </main>
+
             {/* Right Audit Detail Drawer Panel (For Fieldwork phase) */}
             {currentPhase === 'fieldwork' && isDrawerOpen && (
-              <AuditDetailDrawer 
+              <AuditDetailDrawer
                 isOpen={isDrawerOpen}
                 report={selectedReport}
                 onClose={handleCloseDrawer}
@@ -195,7 +257,6 @@ export default function App() {
                 onOpenWorkflowModal={handleOpenWorkflowModal}
                 onOpenHistoryModal={handleOpenHistoryModal}
                 onOpenDiscussionPointsView={handleOpenDiscussionPointsView}
-                onOpenWorkflowOverlay={(type) => handleOpenWorkflowOverlay(type, selectedReport)}
               />
             )}
 
@@ -206,9 +267,9 @@ export default function App() {
                 job={selectedReportingJob}
                 onClose={handleCloseReportingDrawer}
                 onOpenDiscussionPoints={(job) => {
-                  const matchingReport = reports.find(r => 
-                    r.id === job.id || 
-                    r.fileName === job.fileName || 
+                  const matchingReport = reports.find(r =>
+                    r.id === job.id ||
+                    r.fileName === job.fileName ||
                     r.engagement === job.engagement ||
                     (r.fileName && job.fileName && r.fileName.toLowerCase() === job.fileName.toLowerCase())
                   ) || reports.find(r => r.id === "REP-2026-006") || reports[0];
@@ -220,7 +281,13 @@ export default function App() {
                   setSelectedReportId(matchingReport.id);
                   setIsDrawerOpen(true);
                 }}
-                onOpenWorkflow={(job, type = 'audit') => handleOpenWorkflowOverlay(type, job)}
+                onOpenWorkflow={(job) => handleOpenWorkflowModal({
+                  title: `${job.id} — Workflow Stages`,
+                  workflows: [
+                    { groupTitle: "Audit Report Workflow", status: job.auditReport.validationStatus, steps: [] },
+                    { groupTitle: "Executive Report Workflow", status: job.executiveSummaryReport.validationStatus, steps: [] }
+                  ]
+                })}
                 onOpenHistory={(job) => handleOpenHistoryModal({ id: job.id, header: job.engagement })}
                 onWorkOnReport={(job, type = 'audit') => setActiveWorkOnReportJob({ job, type })}
               />
@@ -261,14 +328,6 @@ export default function App() {
         isOpen={historyModal.isOpen}
         report={historyModal.report}
         onClose={() => setHistoryModal({ isOpen: false, report: null })}
-      />
-
-      {/* Full Viewport Root Workflow Drawer Overlay (zIndex: 999999 - OVERLAYS OVER TOP HEADER BAR!) */}
-      <WorkflowOverlayDrawer
-        isOpen={workflowOverlay.isOpen}
-        type={workflowOverlay.type}
-        report={workflowOverlay.report}
-        onClose={() => setWorkflowOverlay({ isOpen: false, type: 'audit', report: null })}
       />
 
     </div>
