@@ -10,6 +10,7 @@ import HistoryModal from './components/HistoryModal';
 import DiscussionPointsView from './views/DiscussionPointsView';
 import ReportingQueueView from './views/ReportingQueueView';
 import WorkOnReportView from './views/WorkOnReportView';
+import WorkOnExecReportView from './views/WorkOnExecReportView';
 import { initialReports } from './data/mockData';
 import { mockReportingJobs } from './data/reportingMockData';
 import { 
@@ -25,7 +26,7 @@ export default function App() {
   const [selectedReportId, setSelectedReportId] = useState("REP-2026-006"); // BiosenseWebster_Catheters_Audit as default
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   
-  // Reporting Module Drawer & Work On Report Studio State
+  // Reporting Module Drawer & Work On Report Studio State: { job, type: 'audit' | 'executive' }
   const [selectedReportingJobId, setSelectedReportingJobId] = useState(null);
   const [activeWorkOnReportJob, setActiveWorkOnReportJob] = useState(null);
 
@@ -179,11 +180,18 @@ export default function App() {
 
       {/* 2. Main Content View Switcher */}
       {activeWorkOnReportJob ? (
-        /* WORK ON REPORT INTERACTIVE STUDIO (Takes 100% of height below Header) */
-        <WorkOnReportView
-          job={activeWorkOnReportJob}
-          onClose={() => setActiveWorkOnReportJob(null)}
-        />
+        /* INTERACTIVE STUDIOS FOR AUDIT REPORT VS EXECUTIVE SUMMARY REPORT */
+        activeWorkOnReportJob.type === 'executive' ? (
+          <WorkOnExecReportView
+            job={activeWorkOnReportJob.job}
+            onClose={() => setActiveWorkOnReportJob(null)}
+          />
+        ) : (
+          <WorkOnReportView
+            job={activeWorkOnReportJob.job}
+            onClose={() => setActiveWorkOnReportJob(null)}
+          />
+        )
       ) : activeView === 'discussion-points' ? (
         <DiscussionPointsView 
           report={selectedReport}
@@ -192,7 +200,7 @@ export default function App() {
           onOpenHistoryModal={handleOpenHistoryModal}
         />
       ) : (
-        /* QUEUE TABLE & DRAWER WORKSPACE (Rendered only when WorkOnReportView is NOT active) */
+        /* QUEUE TABLE & DRAWER WORKSPACE */
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           
           {currentPhase === 'fieldwork' && activeView === 'queue' && (
@@ -267,7 +275,7 @@ export default function App() {
                   ]
                 })}
                 onOpenHistory={(job) => handleOpenHistoryModal({ id: job.id, header: job.engagement })}
-                onWorkOnReport={(job) => setActiveWorkOnReportJob(job)}
+                onWorkOnReport={(job, type = 'audit') => setActiveWorkOnReportJob({ job, type })}
               />
             )}
 

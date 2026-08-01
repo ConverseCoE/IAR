@@ -193,7 +193,7 @@ export default function ReportingDetailDrawer({
             {/* Action Buttons */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', paddingTop: '12px', borderTop: '1px solid #E2E8F0' }}>
               <button
-                onClick={() => onWorkOnReport && onWorkOnReport(job)}
+                onClick={() => onWorkOnReport && onWorkOnReport(job, 'audit')}
                 style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '800', color: '#ffffff', backgroundColor: '#D8001D', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
               >
                 <PlayCircle style={{ width: '15px', height: '15px' }} />
@@ -282,7 +282,7 @@ export default function ReportingDetailDrawer({
             {/* Action Buttons */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', paddingTop: '12px', borderTop: '1px solid #E2E8F0' }}>
               <button
-                onClick={() => onWorkOnReport && onWorkOnReport(job)}
+                onClick={() => onWorkOnReport && onWorkOnReport(job, 'executive')}
                 style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '800', color: '#ffffff', backgroundColor: '#059669', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
               >
                 <PlayCircle style={{ width: '15px', height: '15px' }} />
