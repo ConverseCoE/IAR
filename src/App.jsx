@@ -157,10 +157,16 @@ export default function App() {
         }} 
       />
 
-      {/* 2. Full Viewport Width Sub-Header Banner (100% visible beneath App Header for Job Queue) */}
+      {/* 2. Full Viewport Width Sub-Header Banner (Identical styling for Fieldwork & Reporting) */}
       {currentPhase === 'fieldwork' && activeView === 'queue' && (
         <div className="job-queue-title-banner">
           <h2>Job Queue</h2>
+        </div>
+      )}
+
+      {currentPhase === 'reporting' && activeView === 'queue' && (
+        <div className="job-queue-title-banner">
+          <h2>Reporting Queue</h2>
         </div>
       )}
 

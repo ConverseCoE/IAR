@@ -105,19 +105,6 @@ export default function ReportingQueueView({ onOpenDiscussionPointsView }) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', backgroundColor: 'var(--slate-50)', position: 'relative' }}>
       
-      {/* Title Sub-Header Banner */}
-      <div className="job-queue-title-banner" style={{ padding: '14px 28px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <span className="banner-badge">Reporting Module</span>
-            <h2 className="banner-title">Reporting Queue</h2>
-          </div>
-          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.85)', fontWeight: '600' }}>
-            Active Jobs for Report Generation & Issue Management
-          </div>
-        </div>
-      </div>
-
       {/* Workspace Split Container (Horizontal Row Flex Layout for Table & Right Drawer) */}
       <div className={`workspace-split-container ${selectedJob ? 'drawer-is-open' : ''}`}>
         
