@@ -340,13 +340,13 @@ export default function WorkOnReportView({ job, onClose }) {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid #D8001D', color: '#D8001D', fontSize: '11.5px', textTransform: 'none' }}>
-                  <th style={{ width: '28px', padding: '8px 4px' }}></th>
-                  <th style={{ padding: '8px', fontWeight: '800' }}>Issue Title</th>
-                  <th style={{ padding: '8px', fontWeight: '800', width: '70px' }}>Function</th>
-                  <th style={{ padding: '8px', fontWeight: '800', width: '120px' }}>Process Area</th>
-                  <th style={{ padding: '8px', fontWeight: '800', width: '80px' }}>Criticality</th>
-                  <th style={{ padding: '8px', fontWeight: '800', width: '100px' }}>Status</th>
-                  <th style={{ padding: '8px', fontWeight: '800', width: '50px', textAlign: 'center' }}>Reorder</th>
+                  <th style={{ width: '36px', padding: '12px 8px', textAlign: 'center' }}></th>
+                  <th style={{ padding: '12px 16px', fontWeight: '800' }}>Issue Title</th>
+                  <th style={{ padding: '12px 16px', fontWeight: '800', width: '80px' }}>Function</th>
+                  <th style={{ padding: '12px 16px', fontWeight: '800', width: '130px' }}>Process Area</th>
+                  <th style={{ padding: '12px 16px', fontWeight: '800', width: '90px' }}>Criticality</th>
+                  <th style={{ padding: '12px 16px', fontWeight: '800', width: '110px' }}>Status</th>
+                  <th style={{ padding: '12px 16px', fontWeight: '800', width: '60px', textAlign: 'center' }}>Reorder</th>
                 </tr>
               </thead>
               <tbody>
@@ -356,7 +356,7 @@ export default function WorkOnReportView({ job, onClose }) {
                   return (
                     <React.Fragment key={item.id}>
                       
-                      {/* Main Table Row */}
+                      {/* Main Table Row - Height & Padding matched to Reporting Queue Table (padding: 14px 16px, ~62px row height) */}
                       <tr style={{
                         borderBottom: '1px solid #E2E8F0',
                         backgroundColor: isExpanded ? '#FFF5F6' : 'transparent',
@@ -364,7 +364,7 @@ export default function WorkOnReportView({ job, onClose }) {
                       }}>
                         
                         {/* Expand / Collapse Button */}
-                        <td style={{ padding: '8px 4px', textAlign: 'center' }}>
+                        <td style={{ padding: '14px 8px', textAlign: 'center' }}>
                           <button
                             onClick={() => setExpandedIssueId(isExpanded ? null : item.id)}
                             style={{
@@ -373,60 +373,60 @@ export default function WorkOnReportView({ job, onClose }) {
                               color: '#D8001D',
                               cursor: 'pointer',
                               fontWeight: '900',
-                              fontSize: '14px',
+                              fontSize: '15px',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center'
                             }}
                           >
-                            {isExpanded ? <Minus style={{ width: '14px', height: '14px' }} /> : <Plus style={{ width: '14px', height: '14px' }} />}
+                            {isExpanded ? <Minus style={{ width: '15px', height: '15px' }} /> : <Plus style={{ width: '15px', height: '15px' }} />}
                           </button>
                         </td>
 
                         {/* Title */}
                         <td 
                           onClick={() => setExpandedIssueId(isExpanded ? null : item.id)}
-                          style={{ padding: '8px', fontWeight: '700', color: isExpanded ? '#D8001D' : '#0F172A', cursor: 'pointer' }}
+                          style={{ padding: '14px 16px', fontWeight: '700', color: isExpanded ? '#D8001D' : '#0F172A', cursor: 'pointer', lineHeight: '1.4' }}
                         >
                           {item.title}
                         </td>
 
                         {/* Function */}
-                        <td style={{ padding: '8px', color: '#475569', fontWeight: '600' }}>
+                        <td style={{ padding: '14px 16px', color: '#475569', fontWeight: '600' }}>
                           {item.function}
                         </td>
 
                         {/* Process Area */}
-                        <td style={{ padding: '8px', color: '#475569' }}>
+                        <td style={{ padding: '14px 16px', color: '#475569' }}>
                           {item.processArea}
                         </td>
 
                         {/* Criticality */}
-                        <td style={{ padding: '8px' }}>
+                        <td style={{ padding: '14px 16px' }}>
                           {renderCriticalityBadge(item.criticality)}
                         </td>
 
                         {/* Status */}
-                        <td style={{ padding: '8px' }}>
+                        <td style={{ padding: '14px 16px' }}>
                           {renderStatusBadge(item.status)}
                         </td>
 
                         {/* Reorder Arrows */}
-                        <td style={{ padding: '8px', textAlign: 'center' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px' }}>
+                        <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                             <button
                               onClick={() => handleMoveIssue(idx, 'up')}
                               disabled={idx === 0}
                               style={{ border: 'none', background: 'none', cursor: idx === 0 ? 'default' : 'pointer', color: idx === 0 ? '#CBD5E1' : '#475569' }}
                             >
-                              <ArrowUp style={{ width: '13px', height: '13px' }} />
+                              <ArrowUp style={{ width: '14px', height: '14px' }} />
                             </button>
                             <button
                               onClick={() => handleMoveIssue(idx, 'down')}
                               disabled={idx === issues.length - 1}
                               style={{ border: 'none', background: 'none', cursor: idx === issues.length - 1 ? 'default' : 'pointer', color: idx === issues.length - 1 ? '#CBD5E1' : '#475569' }}
                             >
-                              <ArrowDown style={{ width: '13px', height: '13px' }} />
+                              <ArrowDown style={{ width: '14px', height: '14px' }} />
                             </button>
                           </div>
                         </td>
