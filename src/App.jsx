@@ -165,7 +165,7 @@ export default function App() {
   const isCurrentDrawerOpen = (currentPhase === 'fieldwork' && isDrawerOpen) || (currentPhase === 'reporting' && !!selectedReportingJobId);
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--slate-50)' }}>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--slate-50)', overflow: 'hidden' }}>
       
       {/* 1. Top Application Header (54px) */}
       <Header 
@@ -173,24 +173,31 @@ export default function App() {
         onPhaseChange={(phase) => {
           setCurrentPhase(phase);
           setActiveView('queue');
+          setActiveWorkOnReportJob(null);
         }} 
       />
 
-      {/* 2. Full Viewport Width Sub-Header Banner (Identical styling for Fieldwork & Reporting) */}
-      {currentPhase === 'fieldwork' && activeView === 'queue' && (
+      {/* 2. Sub-Header Title Banner for Fieldwork & Reporting Queue (Hidden when Work On Report studio is active) */}
+      {!activeWorkOnReportJob && currentPhase === 'fieldwork' && activeView === 'queue' && (
         <div className="job-queue-title-banner">
           <h2>Job Queue</h2>
         </div>
       )}
 
-      {currentPhase === 'reporting' && activeView === 'queue' && (
+      {!activeWorkOnReportJob && currentPhase === 'reporting' && activeView === 'queue' && (
         <div className="job-queue-title-banner">
           <h2>Reporting Queue</h2>
         </div>
       )}
 
-      {/* 3. Main Workspace Split Container or Full-Screen Discussion Points View */}
-      {activeView === 'discussion-points' ? (
+      {/* 3. Main Content View Switcher */}
+      {activeWorkOnReportJob ? (
+        /* WORK ON REPORT INTERACTIVE STUDIO (Replaces main queue view below Header) */
+        <WorkOnReportView
+          job={activeWorkOnReportJob}
+          onClose={() => setActiveWorkOnReportJob(null)}
+        />
+      ) : activeView === 'discussion-points' ? (
         <DiscussionPointsView 
           report={selectedReport}
           initialFunction={discussionFuncFilter}
@@ -263,14 +270,6 @@ export default function App() {
           )}
 
         </div>
-      )}
-
-      {/* WORK ON REPORT INTERACTIVE STUDIO OVERLAY */}
-      {activeWorkOnReportJob && (
-        <WorkOnReportView
-          job={activeWorkOnReportJob}
-          onClose={() => setActiveWorkOnReportJob(null)}
-        />
       )}
 
       {/* Discussion Points Modal */}
