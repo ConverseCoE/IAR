@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   ArrowLeft, FileText, Download, GitBranch, History, PlayCircle, 
-  MessageSquare, Calendar, CheckCircle2, Clock, ShieldCheck, ArrowRight
+  MessageSquare, Calendar, CheckCircle2, Clock, ShieldCheck, ArrowRight, X
 } from 'lucide-react';
 
 export default function ReportingDetailDrawer({
@@ -14,6 +14,7 @@ export default function ReportingDetailDrawer({
   onWorkOnReport
 }) {
   const [activeTab, setActiveTab] = useState('audit-report'); // 'audit-report', 'executive-report', 'discussion-points'
+  const [isExecWorkflowOpen, setIsExecWorkflowOpen] = useState(false);
 
   if (!isOpen || !job) return null;
 
@@ -36,7 +37,8 @@ export default function ReportingDetailDrawer({
       flexDirection: 'column',
       boxShadow: '-6px 0 16px rgba(0,0,0,0.06)',
       animation: 'slideInRight 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      position: 'relative'
     }}>
       
       {/* Inset Dark Rectangle Title Card */}
@@ -58,31 +60,32 @@ export default function ReportingDetailDrawer({
             <button
               onClick={onClose}
               style={{
-                padding: '6px',
-                borderRadius: '6px',
-                border: '1px solid rgba(255,255,255,0.2)',
-                background: 'rgba(255,255,255,0.1)',
+                background: 'none',
+                border: 'none',
                 color: '#ffffff',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                flexShrink: 0
+                padding: '4px',
+                borderRadius: '4px'
               }}
-              title="Back to Full Table View"
+              title="Back to Reporting Queue"
             >
-              <ArrowLeft style={{ width: '16px', height: '16px', color: '#FCA5A5' }} />
+              <ArrowLeft style={{ width: '18px', height: '18px' }} />
             </button>
 
-            <h2 style={{ fontSize: '14.5px', fontWeight: '800', color: '#ffffff', lineHeight: '1.3', margin: 0, wordBreak: 'break-word' }}>
-              {job.id} — {job.fileName}
-            </h2>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: '13px', fontWeight: '900', letterSpacing: '0.2px', textTransform: 'uppercase', color: '#38BDF8' }}>
+                {job.id} — <span style={{ color: '#ffffff' }}>{job.fileName}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Segmented Tab Switcher Container */}
-      <div style={{ padding: '16px 20px 0 20px', backgroundColor: '#ffffff', flexShrink: 0 }}>
+      {/* Segmented Tab Switcher Toolbar */}
+      <div style={{ padding: '16px 20px 10px 20px', borderBottom: '1px solid #E2E8F0', flexShrink: 0 }}>
         <div style={{
           display: 'flex',
           backgroundColor: '#F1F5F9',
@@ -297,8 +300,9 @@ export default function ReportingDetailDrawer({
                 <span>Download Report</span>
               </button>
 
+              {/* VIEW WORKFLOW BUTTON FOR EXECUTIVE REPORT -> OPENS OVERLAY DRAWER */}
               <button
-                onClick={() => onOpenWorkflow && onOpenWorkflow(job)}
+                onClick={() => setIsExecWorkflowOpen(true)}
                 style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '700', color: '#475569', backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
               >
                 <GitBranch style={{ width: '15px', height: '15px', color: '#059669' }} />
@@ -380,13 +384,192 @@ export default function ReportingDetailDrawer({
               }}
             >
               <MessageSquare style={{ width: '16px', height: '16px' }} />
-              <span>Open Discussion Points</span>
-              <ArrowRight style={{ width: '15px', height: '15px' }} />
+              <span>Open Discussions</span>
             </button>
           </div>
         )}
 
       </div>
+
+      {/* EXECUTIVE SUMMARY WORKFLOW OVERLAY DRAWER (Overlays on top of current drawer) */}
+      {isExecWorkflowOpen && (
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundColor: '#ffffff',
+          zIndex: 500,
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '-8px 0 24px rgba(0,0,0,0.2)',
+          animation: 'slideInRight 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
+          overflow: 'hidden'
+        }}>
+          {/* Dark Overlay Header */}
+          <div style={{ padding: '16px 20px', backgroundColor: '#0F172A', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button
+                onClick={() => setIsExecWorkflowOpen(false)}
+                style={{ background: 'none', border: 'none', color: '#ffffff', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                title="Back"
+              >
+                <ArrowLeft style={{ width: '18px', height: '18px' }} />
+              </button>
+              <div>
+                <h3 style={{ fontSize: '14px', fontWeight: '800', margin: 0, color: '#38BDF8' }}>
+                  Executive Summary Workflow
+                </h3>
+                <span style={{ fontSize: '11px', color: '#94A3B8' }}>{job.fileName || job.id}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsExecWorkflowOpen(false)}
+              style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer' }}
+              title="Close Workflow Overlay"
+            >
+              <X style={{ width: '18px', height: '18px' }} />
+            </button>
+          </div>
+
+          {/* Workflow Diagram & Status Content */}
+          <div style={{ padding: '20px', flex: 1, overflowY: 'auto', backgroundColor: '#F8FAFC' }}>
+            
+            {/* Diagram Container matching attached screenshot */}
+            <div style={{
+              backgroundColor: '#ffffff',
+              border: '1px solid #CBD5E1',
+              borderRadius: '12px',
+              padding: '24px 18px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+              marginBottom: '20px'
+            }}>
+              <div style={{ fontSize: '11.5px', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: '18px', letterSpacing: '0.3px' }}>
+                Executive Workflow Stage Graph
+              </div>
+
+              {/* Exact visual flowchart matching attached image */}
+              <div style={{ position: 'relative', width: '100%', minHeight: '200px', padding: '10px 0' }}>
+                <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+                  {/* Horizontal: TC (35) -> Audit Manager (155) */}
+                  <line x1="45" y1="35" x2="135" y2="35" stroke="#CBD5E1" strokeWidth="2" />
+                  
+                  {/* Horizontal: Audit Manager (155) -> Director (285) */}
+                  <line x1="210" y1="35" x2="265" y2="35" stroke="#CBD5E1" strokeWidth="2" />
+
+                  {/* Horizontal: Director (285) -> Final Report (380) */}
+                  <line x1="325" y1="35" x2="365" y2="35" stroke="#CBD5E1" strokeWidth="2" />
+
+                  {/* Path: Audit Manager down to Management Response */}
+                  <path d="M 160 50 L 160 130 L 265 130" fill="none" stroke="#CBD5E1" strokeWidth="2" />
+
+                  {/* Vertical: Director down to Management Response */}
+                  <line x1="290" y1="52" x2="290" y2="115" stroke="#CBD5E1" strokeWidth="2" />
+                </svg>
+
+                {/* Node 1: TC */}
+                <div style={{ position: 'absolute', left: '0px', top: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', border: '2.5px solid #22C55E', backgroundColor: '#DCFCE7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22C55E' }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '12.5px', fontWeight: '800', color: '#0F172A' }}>TC</div>
+                    <div style={{ fontSize: '9.5px', fontWeight: '700', color: '#166534' }}>Completed</div>
+                  </div>
+                </div>
+
+                {/* Node 2: Audit Manager */}
+                <div style={{ position: 'absolute', left: '125px', top: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', border: '2.5px solid #22C55E', backgroundColor: '#DCFCE7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22C55E' }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '12.5px', fontWeight: '800', color: '#0F172A' }}>Audit Manager</div>
+                    <div style={{ fontSize: '9.5px', fontWeight: '700', color: '#D8001D', textDecoration: 'underline' }}>Inprogress</div>
+                  </div>
+                </div>
+
+                {/* Node 3: Director */}
+                <div style={{ position: 'absolute', left: '265px', top: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', border: '2.5px solid #CBD5E1', backgroundColor: '#F1F5F9' }} />
+                  <div>
+                    <div style={{ fontSize: '12.5px', fontWeight: '800', color: '#64748B' }}>Director</div>
+                    <div style={{ fontSize: '9.5px', fontWeight: '600', color: '#94A3B8' }}>Not Started</div>
+                  </div>
+                </div>
+
+                {/* Node 4: Final Report */}
+                <div style={{ position: 'absolute', left: '365px', top: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', border: '2.5px solid #CBD5E1', backgroundColor: '#F1F5F9' }} />
+                  <div>
+                    <div style={{ fontSize: '12.5px', fontWeight: '800', color: '#64748B' }}>Final Report</div>
+                    <div style={{ fontSize: '9.5px', fontWeight: '600', color: '#94A3B8' }}>Not Started</div>
+                  </div>
+                </div>
+
+                {/* Node 5: Management Response */}
+                <div style={{ position: 'absolute', left: '265px', top: '110px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', border: '2.5px solid #CBD5E1', backgroundColor: '#F1F5F9' }} />
+                  <div>
+                    <div style={{ fontSize: '12.5px', fontWeight: '800', color: '#64748B' }}>Management Response</div>
+                    <div style={{ fontSize: '9.5px', fontWeight: '600', color: '#94A3B8' }}>Not Started</div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Detailed Stage Cards */}
+            <div style={{ backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+              <h4 style={{ fontSize: '12.5px', fontWeight: '800', color: '#0F172A', margin: '0 0 12px 0', borderBottom: '1px solid #F1F5F9', paddingBottom: '6px' }}>
+                Stage Details &amp; Assignees
+              </h4>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '11.5px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', backgroundColor: '#F0FDF4', borderRadius: '6px', border: '1px solid #BBF7D0' }}>
+                  <div>
+                    <div style={{ fontWeight: '800', color: '#166534' }}>1. TC Review (Completed)</div>
+                    <div style={{ fontSize: '10.5px', color: '#475569' }}>Assignee: Rachel Green (TC Auditor)</div>
+                  </div>
+                  <span style={{ fontSize: '10.5px', fontWeight: '700', color: '#166534' }}>2026-08-01 10:15 AM</span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', backgroundColor: '#FFF5F6', borderRadius: '6px', border: '1px solid #FCA5A5' }}>
+                  <div>
+                    <div style={{ fontWeight: '800', color: '#D8001D' }}>2. Audit Manager Review (In Progress)</div>
+                    <div style={{ fontSize: '10.5px', color: '#475569' }}>Assignee: Kevin Zhang (Director)</div>
+                  </div>
+                  <span style={{ fontSize: '10.5px', fontWeight: '700', color: '#D8001D' }}>Active Now</span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', backgroundColor: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                  <div>
+                    <div style={{ fontWeight: '800', color: '#64748B' }}>3. Director Approval (Pending)</div>
+                    <div style={{ fontSize: '10.5px', color: '#94A3B8' }}>Awaiting Audit Manager sign-off</div>
+                  </div>
+                  <span style={{ fontSize: '10.5px', fontWeight: '600', color: '#94A3B8' }}>Not Started</span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', backgroundColor: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                  <div>
+                    <div style={{ fontWeight: '800', color: '#64748B' }}>4. Management Response (Pending)</div>
+                    <div style={{ fontSize: '10.5px', color: '#94A3B8' }}>Awaiting Business Owner input</div>
+                  </div>
+                  <span style={{ fontSize: '10.5px', fontWeight: '600', color: '#94A3B8' }}>Not Started</span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', backgroundColor: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                  <div>
+                    <div style={{ fontWeight: '800', color: '#64748B' }}>5. Final Report Publishing (Pending)</div>
+                    <div style={{ fontSize: '10.5px', color: '#94A3B8' }}>Final Executive Sign-off</div>
+                  </div>
+                  <span style={{ fontSize: '10.5px', fontWeight: '600', color: '#94A3B8' }}>Not Started</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </aside>
   );
