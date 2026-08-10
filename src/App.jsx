@@ -288,12 +288,9 @@ export default function App() {
                     (r.fileName && job.fileName && r.fileName.toLowerCase() === job.fileName.toLowerCase())
                   ) || reports.find(r => r.id === "REP-2026-006") || reports[0];
 
-                  setCurrentPhase('fieldwork');
-                  setSelectedReportingJobId(null);
-                  setActiveWorkOnReportJob(null);
-                  setActiveView('queue');
                   setSelectedReportId(matchingReport.id);
-                  setIsDrawerOpen(true);
+                  setDiscussionFuncFilter('All');
+                  setActiveView('discussion-points');
                 }}
                 onOpenWorkflow={(job) => handleOpenWorkflowModal({
                   title: `${job.id} — Workflow Stages`,

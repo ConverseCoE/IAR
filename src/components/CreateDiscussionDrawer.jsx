@@ -252,7 +252,7 @@ export default function CreateDiscussionDrawer({
             color: '#ffffff'
           }}>
             <h2 style={{ fontSize: '17px', fontWeight: '800', margin: 0 }}>
-              {initialData ? "Edit Discussion Point" : "Add Discussion Point"}
+              {initialData ? "Edit Observation Point" : "Add Observation Point"}
             </h2>
 
             <button
@@ -1020,7 +1020,7 @@ export default function CreateDiscussionDrawer({
               className="btn btn-primary"
               style={{ height: '40px', padding: '0 24px', fontSize: '13px', fontWeight: '800' }}
             >
-              <span>{initialData ? "Update Discussion" : "Add Discussion"}</span>
+              <span>{initialData ? "Update Observation" : "Add Observation"}</span>
             </button>
           </div>
         )}

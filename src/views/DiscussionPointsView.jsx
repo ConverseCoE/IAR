@@ -180,7 +180,7 @@ export default function DiscussionPointsView({
           <div style={{ borderLeft: '1px solid rgba(255, 255, 255, 0.3)', height: '20px' }}></div>
 
           <h2 style={{ fontSize: '16px', fontWeight: '700', color: '#ffffff', margin: 0 }}>
-            Discussion Points — <span style={{ fontWeight: '400', opacity: 0.9 }}>{reportFileName}</span>
+            Observation Points — <span style={{ fontWeight: '400', opacity: 0.9 }}>{reportFileName}</span>
           </h2>
         </div>
       </div>
@@ -252,7 +252,7 @@ export default function DiscussionPointsView({
               <Search style={{ width: '14px', height: '14px', color: '#94A3B8', flexShrink: 0 }} />
               <input
                 type="text"
-                placeholder="Search discussion header or description..."
+                placeholder="Search observation header or description..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="search-field-input"
@@ -277,7 +277,7 @@ export default function DiscussionPointsView({
               style={{ height: '36px', padding: '0 14px', fontSize: '12px', fontWeight: '700' }}
             >
               <Plus style={{ width: '14px', height: '14px' }} />
-              <span>Create Discussion</span>
+              <span>Create Observation</span>
             </button>
 
           </div>
@@ -291,7 +291,7 @@ export default function DiscussionPointsView({
                     <th style={{ width: '50px', textAlign: 'center' }}>#</th>
                     <th onClick={() => handleSort('header')} style={{ cursor: 'pointer' }}>
                       <div className="th-content">
-                        <span>Discussion Header</span>
+                        <span>Observation Header</span>
                         <ArrowUpDown className="th-sort-icon" />
                       </div>
                     </th>
@@ -334,7 +334,7 @@ export default function DiscussionPointsView({
                     <tr>
                       <td colSpan="9" style={{ padding: '48px', textAlign: 'center', color: '#64748B' }}>
                         <Filter style={{ width: '36px', height: '36px', color: '#CBD5E1', margin: '0 auto 8px' }} />
-                        <p style={{ fontWeight: '600', color: '#334155' }}>No discussion points matched your filters</p>
+                        <p style={{ fontWeight: '600', color: '#334155' }}>No observation points matched your filters</p>
                         <p style={{ fontSize: '11px', color: '#94A3B8' }}>Try clearing your search query or function filters.</p>
                       </td>
                     </tr>
@@ -403,7 +403,7 @@ export default function DiscussionPointsView({
                                 fontSize: '11px',
                                 fontWeight: '600'
                               }}
-                              title="Edit Discussion Point in Side-by-Side View"
+                              title="Edit Observation Point in Side-by-Side View"
                             >
                               <Edit2 style={{ width: '12px', height: '12px', color: '#2563EB' }} />
                               <span>Edit</span>
