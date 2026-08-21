@@ -164,35 +164,9 @@ export default function ReportingNewQueueView({
   // Filter Jobs
   const filteredJobs = jobs.filter(job => {
     if (viewMode === 'issue-cards' && concept2TabFilter !== 'all') {
-      if (isAuditor) {
-        if (concept2TabFilter === 'my-in-progress') {
-          if (job.status !== 'In Progress') return false;
-          if (!(job.issuesList || []).some(iss => iss.createdBy === 'Rachel Green' || iss.lastEditedBy === 'Rachel Green')) return false;
-        } else if (concept2TabFilter === 'others-in-progress') {
-          if (job.status !== 'In Progress') return false;
-          if (!(job.issuesList || []).some(iss => iss.createdBy !== 'Rachel Green')) return false;
-        } else if (concept2TabFilter === 'my-completed') {
-          if (job.status !== 'Completed') return false;
-          if (!(job.issuesList || []).some(iss => iss.createdBy === 'Rachel Green' || iss.lastEditedBy === 'Rachel Green')) return false;
-        } else if (concept2TabFilter === 'others-completed') {
-          if (job.status !== 'Completed') return false;
-          if (!(job.issuesList || []).some(iss => iss.createdBy !== 'Rachel Green')) return false;
-        } else if (concept2TabFilter === 'not-started') {
-          if (job.status !== 'Not Started') return false;
-        }
-      } else {
-        // Manager & Above Roles
-        if (concept2TabFilter === 'pending-me') {
-          if (job.status !== 'In Progress') return false;
-          if (!(job.issuesList || []).some(iss => (iss.currentRoleTarget || '').toLowerCase() === userRole.toLowerCase() || (iss.currentLevel || '').toLowerCase().includes(userRole.toLowerCase()))) return false;
-        } else if (concept2TabFilter === 'in-progress') {
-          if (job.status !== 'In Progress') return false;
-        } else if (concept2TabFilter === 'completed') {
-          if (job.status !== 'Completed') return false;
-        } else if (concept2TabFilter === 'not-started') {
-          if (job.status !== 'Not Started') return false;
-        }
-      }
+      if (concept2TabFilter === 'in-progress' && job.status !== 'In Progress') return false;
+      if (concept2TabFilter === 'not-started' && job.status !== 'Not Started') return false;
+      if (concept2TabFilter === 'completed' && job.status !== 'Completed') return false;
     }
 
     if (selectedStatuses.length > 0 && !selectedStatuses.includes(job.status)) return false;
@@ -408,20 +382,12 @@ export default function ReportingNewQueueView({
           marginBottom: '14px',
           overflowX: 'auto'
         }}>
-          {(isAuditor ? [
-            { id: 'my-in-progress', label: 'My Contributed — In Progress', count: jobs.filter(j => j.status === 'In Progress' && (j.issuesList || []).some(iss => iss.createdBy === 'Rachel Green' || iss.lastEditedBy === 'Rachel Green')).length },
-            { id: 'others-in-progress', label: 'Others Contributed — In Progress', count: jobs.filter(j => j.status === 'In Progress' && (j.issuesList || []).some(iss => iss.createdBy !== 'Rachel Green')).length },
-            { id: 'my-completed', label: 'My Contributed — Completed', count: jobs.filter(j => j.status === 'Completed' && (j.issuesList || []).some(iss => iss.createdBy === 'Rachel Green' || iss.lastEditedBy === 'Rachel Green')).length },
-            { id: 'others-completed', label: 'Others Contributed — Completed', count: jobs.filter(j => j.status === 'Completed' && (j.issuesList || []).some(iss => iss.createdBy !== 'Rachel Green')).length },
-            { id: 'not-started', label: 'Allocated Audits — Not Started', count: jobs.filter(j => j.status === 'Not Started').length },
-            { id: 'all', label: 'All Audits', count: jobs.length }
-          ] : [
-            { id: 'pending-me', label: 'Pending With Me', count: jobs.filter(j => j.status === 'In Progress' && (j.issuesList || []).some(iss => (iss.currentRoleTarget || '').toLowerCase() === userRole.toLowerCase() || (iss.currentLevel || '').toLowerCase().includes(userRole.toLowerCase()))).length },
+          {[
             { id: 'in-progress', label: 'In Progress', count: jobs.filter(j => j.status === 'In Progress').length },
-            { id: 'completed', label: 'Completed', count: jobs.filter(j => j.status === 'Completed').length },
             { id: 'not-started', label: 'Not Started', count: jobs.filter(j => j.status === 'Not Started').length },
-            { id: 'all', label: 'All Audits', count: jobs.length }
-          ]).map(tab => {
+            { id: 'completed', label: 'Completed', count: jobs.filter(j => j.status === 'Completed').length },
+            { id: 'all', label: 'ALL', count: jobs.length }
+          ].map(tab => {
             const isActive = concept2TabFilter === tab.id;
             return (
               <button
