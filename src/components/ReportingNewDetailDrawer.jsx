@@ -1,38 +1,150 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   ArrowLeft, FileText, Download, GitBranch, History, PlayCircle,
   MessageSquare, Calendar, CheckCircle2, Clock, ShieldCheck, ArrowRight, X,
-  Cpu, TrendingUp, AlertOctagon
+  Cpu, TrendingUp, AlertOctagon, ChevronDown, Shield
 } from 'lucide-react';
 
-export default function ReportingDetailDrawer({
+const formatUSDateTime = (dateTimeStr) => {
+  if (!dateTimeStr) return '-';
+  const cleanStr = dateTimeStr.replace(' ', 'T');
+  const dateObj = new Date(cleanStr);
+  if (isNaN(dateObj.getTime())) return dateTimeStr;
+
+  const formattedDate = dateObj.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+  const formattedTime = dateObj.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+
+  return `${formattedDate}, ${formattedTime}`;
+};
+
+const renderPremiumStatusPill = (statusText) => {
+  const s = (statusText || '').toLowerCase();
+
+  if (s === 'completed') {
+    return (
+      <span style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '5px',
+        padding: '2.5px 8px',
+        borderRadius: '5px',
+        fontSize: '10.5px',
+        fontWeight: '700',
+        color: '#047857',
+        backgroundColor: '#ECFDF5',
+        border: '1px solid #A7F3D0',
+        boxShadow: '0 1px 2px rgba(16, 185, 129, 0.06)',
+        letterSpacing: '0.01em'
+      }}>
+        <span style={{ width: '5.5px', height: '5.5px', borderRadius: '50%', backgroundColor: '#10B981' }} />
+        <span>Completed</span>
+      </span>
+    );
+  }
+
+  if (s === 'in progress' || s === 'inprogress') {
+    return (
+      <span style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '5px',
+        padding: '2.5px 8px',
+        borderRadius: '5px',
+        fontSize: '10.5px',
+        fontWeight: '700',
+        color: '#1D4ED8',
+        backgroundColor: '#EFF6FF',
+        border: '1px solid #BFDBFE',
+        boxShadow: '0 1px 2px rgba(37, 99, 235, 0.06)',
+        letterSpacing: '0.01em'
+      }}>
+        <span style={{ width: '5.5px', height: '5.5px', borderRadius: '50%', backgroundColor: '#2563EB' }} />
+        <span>In Progress</span>
+      </span>
+    );
+  }
+
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '5px',
+      padding: '2.5px 8px',
+      borderRadius: '5px',
+      fontSize: '10.5px',
+      fontWeight: '700',
+      color: '#475569',
+      backgroundColor: '#F8FAFC',
+      border: '1px solid #E2E8F0',
+      boxShadow: '0 1px 2px rgba(100, 116, 139, 0.04)',
+      letterSpacing: '0.01em'
+    }}>
+      <span style={{ width: '5.5px', height: '5.5px', borderRadius: '50%', backgroundColor: '#94A3B8' }} />
+      <span>Not Started</span>
+    </span>
+  );
+};
+
+const getAuditReportPillStatus = (job) => {
+  if (job.status === 'Completed') return 'Completed';
+  if (['Audit Report Completed', 'Executive Report In Progress', 'Executive Report Completed'].includes(job.subStatus)) {
+    return 'Completed';
+  }
+  if (job.status === 'Not Started') return 'Not Started';
+  return 'In Progress';
+};
+
+const getExecReportPillStatus = (job) => {
+  if (job.status === 'Completed' || job.subStatus === 'Executive Report Completed') return 'Completed';
+  if (job.subStatus === 'Executive Report In Progress') return 'In Progress';
+  return 'Not Started';
+};
+
+export default function ReportingNewDetailDrawer({
   isOpen,
   job,
   userRole = 'manager',
   onClose,
   onOpenDiscussionPoints,
+  onOpenCreateIssue,
   onOpenWorkflow,
   onOpenHistory,
   onWorkOnReport
 }) {
   const isAuditor = userRole === 'auditor';
-  const [activeTab, setActiveTab] = useState(isAuditor ? 'discussion-points' : 'audit-report');
   const [isAuditWorkflowOpen, setIsAuditWorkflowOpen] = useState(false);
   const [isExecWorkflowOpen, setIsExecWorkflowOpen] = useState(false);
+
+  const [isAuditMenuOpen, setIsAuditMenuOpen] = useState(false);
+  const [isExecMenuOpen, setIsExecMenuOpen] = useState(false);
+
+  const auditMenuRef = useRef(null);
+  const execMenuRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (auditMenuRef.current && !auditMenuRef.current.contains(event.target)) {
+        setIsAuditMenuOpen(false);
+      }
+      if (execMenuRef.current && !execMenuRef.current.contains(event.target)) {
+        setIsExecMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   if (!isOpen || !job) return null;
 
   const { auditReport, executiveSummaryReport, discussionPoints } = job;
-
-  const allTabs = [
-    { id: 'audit-report', label: 'Audit Report', icon: FileText },
-    { id: 'executive-report', label: 'Executive Report', icon: ShieldCheck },
-    { id: 'discussion-points', label: 'Observations', icon: MessageSquare, count: discussionPoints?.count || 3 }
-  ];
-
-  const tabs = isAuditor 
-    ? allTabs.filter(t => t.id === 'discussion-points') 
-    : allTabs.filter(t => t.id !== 'discussion-points');
 
   return (
     <>
@@ -42,360 +154,592 @@ export default function ReportingDetailDrawer({
         height: '100%',
         backgroundColor: '#ffffff',
         borderLeft: '1px solid var(--slate-200)',
+        borderTop: 'none',
+        marginTop: 0,
+        paddingTop: 0,
         display: 'flex',
         flexDirection: 'column',
         boxShadow: '-6px 0 16px rgba(0,0,0,0.06)',
-        animation: 'slideInRight 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+        animation: 'slideInRight 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
         overflow: 'hidden',
         position: 'relative'
       }}>
 
-        {/* Inset Dark Rectangle Title Card */}
-        <div style={{ padding: '16px 20px 0 20px', backgroundColor: '#ffffff', flexShrink: 0 }}>
-          <div style={{
-            backgroundColor: '#0F172A',
-            color: '#ffffff',
-            padding: '12px 16px',
-            borderRadius: '10px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
-            boxShadow: '0 2px 6px rgba(15, 23, 42, 0.15)',
-            position: 'relative'
-          }}>
-            {/* Back Arrow Button + Job ID & Name Title */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
-              <button
-                onClick={onClose}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#ffffff',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '4px',
-                  borderRadius: '4px'
-                }}
-                title="Back to Reporting Queue"
-              >
-                <ArrowLeft style={{ width: '18px', height: '18px' }} />
-              </button>
+        {/* Full-Width Dark Header Bar starting at y = 0 */}
+        <div style={{
+          backgroundColor: '#0F172A',
+          color: '#ffffff',
+          padding: '16px 20px',
+          marginTop: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          boxShadow: '0 2px 8px rgba(15, 23, 42, 0.12)',
+          flexShrink: 0
+        }}>
+          {/* Back Arrow Button + Audit Name Title */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+            <button
+              onClick={onClose}
+              style={{
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: 'none',
+                color: '#ffffff',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '6px',
+                borderRadius: '6px',
+                transition: 'background-color 0.15s ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
+              title="Back to Audit Queue"
+            >
+              <ArrowLeft style={{ width: '18px', height: '18px' }} />
+            </button>
 
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '13px', fontWeight: '900', letterSpacing: '0.2px', textTransform: 'uppercase', color: '#38BDF8' }}>
-                  {job.id} — <span style={{ color: '#ffffff' }}>{job.fileName}</span>
-                </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: '14px', fontWeight: '800', letterSpacing: '0.2px', color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {job.fileName}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Segmented Tab Switcher Toolbar */}
-        <div style={{ padding: '16px 20px 10px 20px', borderBottom: '1px solid #E2E8F0', flexShrink: 0 }}>
-          <div style={{
-            display: 'flex',
-            backgroundColor: '#F1F5F9',
-            borderRadius: '8px',
-            padding: '4px',
-            gap: '4px'
-          }}>
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  style={{
-                    flex: 1,
-                    padding: '9px 8px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    borderRadius: '6px',
-                    border: 'none',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    backgroundColor: isActive ? '#ffffff' : 'transparent',
-                    color: isActive ? '#D8001D' : '#64748B',
-                    boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '5px'
-                  }}
-                >
-                  <Icon style={{ width: '14px', height: '14px', color: isActive ? '#D8001D' : '#94A3B8' }} />
-                  <span>{tab.label}</span>
-                  {tab.count !== undefined && (
-                    <span style={{
-                      fontSize: '10px',
+        {/* Scrollable Body Content (Stacked Sections) */}
+        <div style={{ padding: '22px 20px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+          {/* SECTION 1: ISSUES (Shown ONLY for Auditor role) */}
+          {isAuditor && (
+            <div style={{
+              backgroundColor: '#ffffff',
+              border: 'none',
+              borderRadius: '10px',
+              padding: '16px',
+              boxShadow: '0 6px 20px -2px rgba(15, 23, 42, 0.12), 0 2px 6px -1px rgba(15, 23, 42, 0.07)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px'
+            }}>
+              {/* Header Row: Title + Action Button Right-Aligned (Only when Started) */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                  <MessageSquare style={{ width: '17px', height: '17px', color: '#D8001D', flexShrink: 0 }} />
+                  <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#991B1B', margin: 0, whiteSpace: 'nowrap' }}>
+                    Issues
+                  </h3>
+                </div>
+
+                {/* Action Button Right-Aligned on Header Row (Only shown when In Progress or Completed) */}
+                {job.status !== 'Not Started' && (
+                  <button
+                    onClick={() => onOpenDiscussionPoints && onOpenDiscussionPoints(job)}
+                    style={{
+                      padding: '7px 12px',
+                      fontSize: '12px',
                       fontWeight: '800',
-                      padding: '1px 5px',
-                      borderRadius: '9999px',
-                      backgroundColor: isActive ? '#FFF0F2' : '#E2E8F0',
-                      color: isActive ? '#D8001D' : '#475569'
+                      color: '#1D4ED8',
+                      backgroundColor: '#EFF6FF',
+                      border: '1px solid #BFDBFE',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 1px 3px rgba(37, 99, 235, 0.08)',
+                      transition: 'all 0.15s ease',
+                      flexShrink: 0
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#DBEAFE'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#EFF6FF'}
+                  >
+                    <MessageSquare style={{ width: '14px', height: '14px' }} />
+                    <span>Open Issues ({discussionPoints?.count || 3})</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Details Content Below */}
+              {job.status === 'Not Started' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', paddingTop: '6px' }}>
+                  <p style={{ fontSize: '12px', color: '#64748B', margin: 0, lineHeight: '1.4' }}>
+                    No issues logged yet for this audit. Click below to add an issue.
+                  </p>
+                  <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+                    <button
+                      onClick={() => {
+                        if (isAuditor && job.status === 'Not Started' && onOpenCreateIssue) {
+                          onOpenCreateIssue(job);
+                        } else if (onOpenDiscussionPoints) {
+                          onOpenDiscussionPoints(job);
+                        }
+                      }}
+                      style={{
+                        padding: '9px 24px',
+                        width: '80%',
+                        fontSize: '12px',
+                        fontWeight: '800',
+                        color: '#1D4ED8',
+                        backgroundColor: '#EFF6FF',
+                        border: '1px solid #BFDBFE',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        boxShadow: '0 1px 3px rgba(37, 99, 235, 0.08)',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#DBEAFE'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#EFF6FF'}
+                    >
+                      <MessageSquare style={{ width: '14px', height: '14px' }} />
+                      <span>Start with Add Issue</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ backgroundColor: 'transparent', border: 'none', padding: '10px 0 0 0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '11.5px', fontWeight: '600', color: '#64748B' }}>Started On</span>
+                    <strong style={{ fontSize: '11.5px', fontWeight: '700', color: '#0F172A' }}>
+                      {formatUSDateTime(discussionPoints?.startDateTime)}
+                    </strong>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: 'none', paddingTop: '4px' }}>
+                    <span style={{ fontSize: '11.5px', fontWeight: '600', color: '#64748B' }}>Last Updated On</span>
+                    <strong style={{ fontSize: '11.5px', fontWeight: '700', color: '#0F172A' }}>
+                      {formatUSDateTime(discussionPoints?.endDateTime)}
+                    </strong>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: 'none', paddingTop: '4px' }}>
+                    <span style={{ fontSize: '11.5px', fontWeight: '600', color: '#64748B' }}>Last Updated By</span>
+                    <strong style={{ fontSize: '11.5px', fontWeight: '700', color: '#0F172A' }}>
+                      {job.currentOwner || "Rachel Green"}
+                    </strong>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SECTION 2: AUDIT REPORT (Hidden when status is Not Started or when Auditor role) */}
+
+          {/* SECTION 2: AUDIT REPORT (Hidden when status is Not Started or when Auditor role) */}
+          {job.status !== 'Not Started' && !isAuditor && (
+            <div style={{
+              backgroundColor: '#ffffff',
+              border: 'none',
+              borderRadius: '10px',
+              padding: '16px',
+              boxShadow: '0 6px 20px -2px rgba(15, 23, 42, 0.12), 0 2px 6px -1px rgba(15, 23, 42, 0.07)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px'
+            }}>
+              {/* Header Area: Title on Left, Action Button on Right */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                {/* Left: Icon + Title */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                  <FileText style={{ width: '17px', height: '17px', color: '#D8001D', flexShrink: 0 }} />
+                  <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#991B1B', margin: 0, whiteSpace: 'nowrap' }}>
+                    Audit Report
+                  </h3>
+                </div>
+
+                {/* Right: Action Button */}
+                <div ref={auditMenuRef} style={{ position: 'relative', display: 'flex', flexShrink: 0 }}>
+                  <button
+                    onClick={() => onWorkOnReport && onWorkOnReport(job, 'audit')}
+                    style={{
+                      padding: '7px 11px',
+                      fontSize: '12px',
+                      fontWeight: '800',
+                      color: '#1D4ED8',
+                      backgroundColor: '#EFF6FF',
+                      border: '1px solid #BFDBFE',
+                      borderRight: 'none',
+                      borderTopLeftRadius: '6px',
+                      borderBottomLeftRadius: '6px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 1px 3px rgba(37, 99, 235, 0.08)',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#DBEAFE'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#EFF6FF'}
+                  >
+                    <PlayCircle style={{ width: '14px', height: '14px' }} />
+                    <span>Work On Report</span>
+                  </button>
+
+                  <div style={{ width: '1px', backgroundColor: '#BFDBFE' }} />
+
+                  <button
+                    onClick={() => setIsAuditMenuOpen(!isAuditMenuOpen)}
+                    style={{
+                      padding: '7px 9px',
+                      backgroundColor: '#EFF6FF',
+                      border: '1px solid #BFDBFE',
+                      borderLeft: 'none',
+                      borderTopRightRadius: '6px',
+                      borderBottomRightRadius: '6px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#1D4ED8',
+                      boxShadow: '0 1px 3px rgba(37, 99, 235, 0.08)',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#DBEAFE'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#EFF6FF'}
+                    title="More Options"
+                  >
+                    <ChevronDown style={{
+                      width: '14px',
+                      height: '14px',
+                      transform: isAuditMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.15s ease'
+                    }} />
+                  </button>
+
+                  {isAuditMenuOpen && (
+                    <div style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 6px)',
+                      right: 0,
+                      zIndex: 100,
+                      minWidth: '190px',
+                      backgroundColor: '#ffffff',
+                      borderRadius: '8px',
+                      border: '1px solid #CBD5E1',
+                      boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.15)',
+                      padding: '6px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '2px',
+                      animation: 'fadeIn 0.15s ease-out'
                     }}>
-                      {tab.count}
-                    </span>
+                      <button
+                        onClick={() => {
+                          alert(`Downloading Audit Report for ${job.id}`);
+                          setIsAuditMenuOpen(false);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          width: '100%',
+                          padding: '9px 12px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          color: '#334155',
+                          backgroundColor: 'transparent',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          transition: 'background-color 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F1F5F9'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <Download style={{ width: '15px', height: '15px', color: '#2563EB' }} />
+                        <span>Download Report</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setIsAuditWorkflowOpen(true);
+                          setIsAuditMenuOpen(false);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          width: '100%',
+                          padding: '9px 12px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          color: '#334155',
+                          backgroundColor: 'transparent',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          transition: 'background-color 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F1F5F9'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <GitBranch style={{ width: '15px', height: '15px', color: '#2563EB' }} />
+                        <span>View Workflow</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          onOpenHistory && onOpenHistory(job);
+                          setIsAuditMenuOpen(false);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          width: '100%',
+                          padding: '9px 12px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          color: '#334155',
+                          backgroundColor: 'transparent',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          transition: 'background-color 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F1F5F9'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <History style={{ width: '15px', height: '15px', color: '#6366F1' }} />
+                        <span>View History</span>
+                      </button>
+                    </div>
                   )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Scrollable Tab Body Content */}
-        <div style={{ padding: '20px', flex: 1, overflowY: 'auto' }}>
-
-          {/* TAB 1: AUDIT REPORT */}
-          {activeTab === 'audit-report' && (
-            <div style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid #CBD5E1',
-              borderRadius: '10px',
-              padding: '18px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '16px',
-              animation: 'fadeIn 0.2s ease-out'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1.5px solid #2563EB', paddingBottom: '8px' }}>
-                <FileText style={{ width: '18px', height: '18px', color: '#2563EB' }} />
-                <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#1E3A8A', margin: 0 }}>
-                  Audit Report Details
-                </h3>
+                </div>
               </div>
 
-              {/* Single-Column Left Label & Right Value Rows */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Gen AI Extraction Date Time</span>
-                  <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{auditReport?.genAiExtractionDateTime || '-'}</strong>
+              {/* Transparent Details Container Below */}
+              <div style={{ backgroundColor: 'transparent', border: 'none', padding: '10px 0 0 0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '11.5px', fontWeight: '600', color: '#64748B' }}>Status</span>
+                  {renderPremiumStatusPill(getAuditReportPillStatus(job))}
                 </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Execution Status</span>
-                  <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#047857', backgroundColor: '#ECFDF5', padding: '2px 10px', borderRadius: '4px', border: '1px solid #A7F3D0' }}>
-                    {auditReport?.executionStatus || 'Completed'}
-                  </span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: 'none', paddingTop: '4px' }}>
+                  <span style={{ fontSize: '11.5px', fontWeight: '600', color: '#64748B' }}>Validation Started On</span>
+                  <strong style={{ fontSize: '11.5px', fontWeight: '700', color: '#0F172A' }}>{formatUSDateTime(auditReport?.validationStartDateTime)}</strong>
                 </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Validation Start Date Time</span>
-                  <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{auditReport?.validationStartDateTime || '-'}</strong>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: 'none', paddingTop: '4px' }}>
+                  <span style={{ fontSize: '11.5px', fontWeight: '600', color: '#64748B' }}>Validation Ended On</span>
+                  <strong style={{ fontSize: '11.5px', fontWeight: '700', color: '#0F172A' }}>{formatUSDateTime(auditReport?.validationEndDateTime)}</strong>
                 </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Validation End Date Time</span>
-                  <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{auditReport?.validationEndDateTime || '-'}</strong>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Validation Status</span>
-                  <strong style={{ fontSize: '13px', fontWeight: '800', color: '#2563EB' }}>{auditReport?.validationStatus || 'Validated'}</strong>
-                </div>
-
-              </div>
-
-              {/* Action Buttons */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', paddingTop: '12px', borderTop: '1px solid #E2E8F0' }}>
-                <button
-                  onClick={() => onWorkOnReport && onWorkOnReport(job, 'audit')}
-                  style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '800', color: '#ffffff', backgroundColor: '#D8001D', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                >
-                  <PlayCircle style={{ width: '15px', height: '15px' }} />
-                  <span>Work On Report</span>
-                </button>
-
-                <button
-                  onClick={() => alert(`Downloading Audit Report for ${job.id}`)}
-                  style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '700', color: '#1E293B', backgroundColor: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                >
-                  <Download style={{ width: '15px', height: '15px', color: '#2563EB' }} />
-                  <span>Download Report</span>
-                </button>
-
-                {/* VIEW WORKFLOW BUTTON FOR AUDIT REPORT -> OPENS AUDIT REPORT WORKFLOW OVERLAY DRAWER */}
-                <button
-                  onClick={() => setIsAuditWorkflowOpen(true)}
-                  style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '700', color: '#475569', backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                >
-                  <GitBranch style={{ width: '15px', height: '15px', color: '#2563EB' }} />
-                  <span>View Workflow</span>
-                </button>
-
-                <button
-                  onClick={() => onOpenHistory && onOpenHistory(job)}
-                  style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '700', color: '#475569', backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                >
-                  <History style={{ width: '15px', height: '15px', color: '#6366F1' }} />
-                  <span>View History</span>
-                </button>
               </div>
             </div>
           )}
 
-          {/* TAB 2: EXECUTIVE REPORT */}
-          {activeTab === 'executive-report' && (
+          {/* SECTION 3: EXECUTIVE REPORT (Visible only after Audit Report Completed subStatus) */}
+          {[
+            'Audit Report Completed',
+            'Executive Report In Progress',
+            'Executive Report Completed'
+          ].includes(job.subStatus || (job.status === 'Completed' ? 'Executive Report Completed' : '')) && !isAuditor && (
             <div style={{
               backgroundColor: '#ffffff',
-              border: '1px solid #CBD5E1',
+              border: 'none',
               borderRadius: '10px',
-              padding: '18px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              padding: '16px',
+              boxShadow: '0 6px 20px -2px rgba(15, 23, 42, 0.12), 0 2px 6px -1px rgba(15, 23, 42, 0.07)',
               display: 'flex',
               flexDirection: 'column',
-              gap: '16px',
-              animation: 'fadeIn 0.2s ease-out'
+              gap: '16px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1.5px solid #059669', paddingBottom: '8px' }}>
-                <ShieldCheck style={{ width: '18px', height: '18px', color: '#059669' }} />
-                <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#065F46', margin: 0 }}>
-                  Executive Summary Report
-                </h3>
+              {/* Header Area: Title on Left, Action Button on Right */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                {/* Left: Icon + Title */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                  <ShieldCheck style={{ width: '17px', height: '17px', color: '#D8001D', flexShrink: 0 }} />
+                  <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#991B1B', margin: 0, whiteSpace: 'nowrap' }}>
+                    Executive Report
+                  </h3>
+                </div>
+
+                {/* Right: Action Button */}
+                <div ref={execMenuRef} style={{ position: 'relative', display: 'flex', flexShrink: 0 }}>
+                  <button
+                    onClick={() => onWorkOnReport && onWorkOnReport(job, 'executive')}
+                    style={{
+                      padding: '7px 11px',
+                      fontSize: '12px',
+                      fontWeight: '800',
+                      color: '#1D4ED8',
+                      backgroundColor: '#EFF6FF',
+                      border: '1px solid #BFDBFE',
+                      borderRight: 'none',
+                      borderTopLeftRadius: '6px',
+                      borderBottomLeftRadius: '6px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 1px 3px rgba(37, 99, 235, 0.08)',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#DBEAFE'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#EFF6FF'}
+                  >
+                    <PlayCircle style={{ width: '14px', height: '14px' }} />
+                    <span>Work On Report</span>
+                  </button>
+
+                  <div style={{ width: '1px', backgroundColor: '#BFDBFE' }} />
+
+                  <button
+                    onClick={() => setIsExecMenuOpen(!isExecMenuOpen)}
+                    style={{
+                      padding: '7px 9px',
+                      backgroundColor: '#EFF6FF',
+                      border: '1px solid #BFDBFE',
+                      borderLeft: 'none',
+                      borderTopRightRadius: '6px',
+                      borderBottomRightRadius: '6px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#1D4ED8',
+                      boxShadow: '0 1px 3px rgba(37, 99, 235, 0.08)',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#DBEAFE'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#EFF6FF'}
+                    title="More Options"
+                  >
+                    <ChevronDown style={{
+                      width: '14px',
+                      height: '14px',
+                      transform: isExecMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.15s ease'
+                    }} />
+                  </button>
+
+                  {isExecMenuOpen && (
+                    <div style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 6px)',
+                      right: 0,
+                      zIndex: 100,
+                      minWidth: '190px',
+                      backgroundColor: '#ffffff',
+                      borderRadius: '8px',
+                      border: '1px solid #CBD5E1',
+                      boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.15)',
+                      padding: '6px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '2px',
+                      animation: 'fadeIn 0.15s ease-out'
+                    }}>
+                      <button
+                        onClick={() => {
+                          alert(`Downloading Executive Summary Report for ${job.id}`);
+                          setIsExecMenuOpen(false);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          width: '100%',
+                          padding: '9px 12px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          color: '#334155',
+                          backgroundColor: 'transparent',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          transition: 'background-color 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F1F5F9'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <Download style={{ width: '15px', height: '15px', color: '#059669' }} />
+                        <span>Download Report</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setIsExecWorkflowOpen(true);
+                          setIsExecMenuOpen(false);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          width: '100%',
+                          padding: '9px 12px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          color: '#334155',
+                          backgroundColor: 'transparent',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          transition: 'background-color 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F1F5F9'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <GitBranch style={{ width: '15px', height: '15px', color: '#059669' }} />
+                        <span>View Workflow</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          onOpenHistory && onOpenHistory(job);
+                          setIsExecMenuOpen(false);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          width: '100%',
+                          padding: '9px 12px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          color: '#334155',
+                          backgroundColor: 'transparent',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          transition: 'background-color 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F1F5F9'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <History style={{ width: '15px', height: '15px', color: '#6366F1' }} />
+                        <span>View History</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Single-Column Left Label & Right Value Rows */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Gen AI Extraction Date Time</span>
-                  <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{executiveSummaryReport?.genAiExtractionDateTime || '-'}</strong>
+              {/* Transparent Details Container Below */}
+              <div style={{ backgroundColor: 'transparent', border: 'none', padding: '10px 0 0 0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '11.5px', fontWeight: '600', color: '#64748B' }}>Status</span>
+                  {renderPremiumStatusPill(getExecReportPillStatus(job))}
                 </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Execution Status</span>
-                  <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#047857', backgroundColor: '#ECFDF5', padding: '2px 10px', borderRadius: '4px', border: '1px solid #A7F3D0' }}>
-                    {executiveSummaryReport?.executionStatus || 'Completed'}
-                  </span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: 'none', paddingTop: '4px' }}>
+                  <span style={{ fontSize: '11.5px', fontWeight: '600', color: '#64748B' }}>Validation Started On</span>
+                  <strong style={{ fontSize: '11.5px', fontWeight: '700', color: '#0F172A' }}>{formatUSDateTime(executiveSummaryReport?.validationStartDateTime)}</strong>
                 </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Validation Start Date Time</span>
-                  <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{executiveSummaryReport?.validationStartDateTime || '-'}</strong>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: 'none', paddingTop: '4px' }}>
+                  <span style={{ fontSize: '11.5px', fontWeight: '600', color: '#64748B' }}>Validation Ended On</span>
+                  <strong style={{ fontSize: '11.5px', fontWeight: '700', color: '#0F172A' }}>{formatUSDateTime(executiveSummaryReport?.validationEndDateTime)}</strong>
                 </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Validation End Date Time</span>
-                  <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{executiveSummaryReport?.validationEndDateTime || '-'}</strong>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Validation Status</span>
-                  <strong style={{ fontSize: '13px', fontWeight: '800', color: '#059669' }}>{executiveSummaryReport?.validationStatus || 'Validated'}</strong>
-                </div>
-
               </div>
-
-              {/* Action Buttons */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', paddingTop: '12px', borderTop: '1px solid #E2E8F0' }}>
-                <button
-                  onClick={() => onWorkOnReport && onWorkOnReport(job, 'executive')}
-                  style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '800', color: '#ffffff', backgroundColor: '#059669', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                >
-                  <PlayCircle style={{ width: '15px', height: '15px' }} />
-                  <span>Work On Report</span>
-                </button>
-
-                <button
-                  onClick={() => alert(`Downloading Executive Summary Report for ${job.id}`)}
-                  style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '700', color: '#1E293B', backgroundColor: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                >
-                  <Download style={{ width: '15px', height: '15px', color: '#059669' }} />
-                  <span>Download Report</span>
-                </button>
-
-                {/* VIEW WORKFLOW BUTTON FOR EXECUTIVE REPORT -> OPENS WIDE 780PX OVERLAY DRAWER */}
-                <button
-                  onClick={() => setIsExecWorkflowOpen(true)}
-                  style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '700', color: '#475569', backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                >
-                  <GitBranch style={{ width: '15px', height: '15px', color: '#059669' }} />
-                  <span>View Workflow</span>
-                </button>
-
-                <button
-                  onClick={() => onOpenHistory && onOpenHistory(job)}
-                  style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '700', color: '#475569', backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                >
-                  <History style={{ width: '15px', height: '15px', color: '#6366F1' }} />
-                  <span>View History</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: OBSERVATIONS */}
-          {activeTab === 'discussion-points' && (
-            <div style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid #CBD5E1',
-              borderRadius: '10px',
-              padding: '18px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '16px',
-              animation: 'fadeIn 0.2s ease-out'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1.5px solid #D8001D', paddingBottom: '8px' }}>
-                <MessageSquare style={{ width: '18px', height: '18px', color: '#D8001D' }} />
-                <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#991B1B', margin: 0 }}>
-                  Observations Overview
-                </h3>
-              </div>
-
-              {/* Single-Column Left Label & Right Value Rows */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1.5px solid #F1F5F9' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Start Date Time</span>
-                  <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{discussionPoints?.startDateTime || '-'}</strong>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>End Date Time</span>
-                  <strong style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>{discussionPoints?.endDateTime || '-'}</strong>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748B' }}>Status</span>
-                  <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#047857', backgroundColor: '#ECFDF5', padding: '2px 10px', borderRadius: '4px', border: '1px solid #A7F3D0' }}>
-                    {discussionPoints?.status || 'Active'}
-                  </span>
-                </div>
-
-              </div>
-
-              {/* Open Observation Points Action Button */}
-              <button
-                onClick={() => onOpenDiscussionPoints && onOpenDiscussionPoints(job)}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  fontSize: '13px',
-                  fontWeight: '800',
-                  color: '#ffffff',
-                  backgroundColor: '#D8001D',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  marginTop: '6px',
-                  boxShadow: '0 2px 4px rgba(216, 0, 29, 0.2)'
-                }}
-              >
-                <MessageSquare style={{ width: '16px', height: '16px' }} />
-                <span>Open Observations</span>
-              </button>
             </div>
           )}
 

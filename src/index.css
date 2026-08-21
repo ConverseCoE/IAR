@@ -65,11 +65,16 @@ html, body {
 }
 
 body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   background-color: var(--slate-50);
   color: var(--slate-800);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+table {
+  font-variant-numeric: tabular-nums;
 }
 
 /* App Root Layout - Fixed 100vh height */
@@ -138,7 +143,7 @@ body {
   cursor: pointer;
   color: var(--slate-600);
   transition: all 0.15s ease;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
 .top-nav-item:hover {
@@ -171,7 +176,7 @@ body {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  border-bottom: 1px solid var(--slate-200);
+  border-bottom: none;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
   display: flex;
   align-items: center;
@@ -304,6 +309,11 @@ body {
   box-shadow: 0 0 0 3px var(--jnj-red-glow);
 }
 
+.search-input-wrapper.search-subtle-focus:focus-within {
+  border-color: #94A3B8;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
 .search-field-input {
   width: 100%;
   font-size: 12px;
@@ -337,6 +347,18 @@ body {
   width: 100%;
 }
 
+/* Hide scrollbar visually while preserving full scroll functionality for Reporting (New) */
+.full-width-queue .table-scroll-body {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.full-width-queue .table-scroll-body::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 .table-scroll-body table {
   width: 100%;
   border-collapse: collapse;
@@ -362,6 +384,12 @@ body {
   padding: 16px 18px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
   user-select: none;
+}
+
+/* Reporting (New): Ensure red bottom accent line remains 100% visible on sticky th during scroll */
+.full-width-queue .table-scroll-body th {
+  box-shadow: inset 0 -2px 0 0 #D8001D, 0 2px 4px rgba(0, 0, 0, 0.04) !important;
+  border-bottom: none !important;
 }
 
 .th-content {
@@ -407,6 +435,12 @@ body {
 .table-row-interactive:hover .row-chevron-icon {
   color: #D8001D;
   transform: translateX(3px);
+}
+
+/* Reporting (New): On hover, match icon formatting to selected state */
+.full-width-queue .table-row-interactive:hover .file-icon-box {
+  background-color: #FFE0E3;
+  color: #D8001D;
 }
 
 /* OnSelect: Soft background (#FFF5F6) + Left accent line shape + highlighted filename & icon */
@@ -547,7 +581,7 @@ body {
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   height: 36px;
 }
 
@@ -612,6 +646,13 @@ body {
   animation: scaleIn 0.15s ease-out;
 }
 
+@keyframes ping {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -620,4 +661,15 @@ body {
 @keyframes scaleIn {
   from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(36px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }

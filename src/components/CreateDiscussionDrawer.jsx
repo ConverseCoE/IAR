@@ -1,8 +1,139 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, Sparkles, RefreshCw, MessageSquare, AlertCircle, 
-  CheckCircle2, Plus, ArrowRight, ShieldCheck, DollarSign, UserPlus, AlertOctagon, GitCompare, Check
+  CheckCircle2, Plus, ArrowRight, ShieldCheck, DollarSign, UserPlus, AlertOctagon, GitCompare, Check, ChevronDown
 } from 'lucide-react';
+
+// Custom Enterprise SaaS Form Select Dropdown with Micro-Interactions & Motion Animations
+function FormSelectDropdown({ label, required, value, onChange, options, placeholder = "Select option..." }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find(opt => (typeof opt === 'object' ? opt.value : opt) === value);
+  const selectedLabel = selectedOption ? (typeof selectedOption === 'object' ? selectedOption.label : selectedOption) : (value || placeholder);
+
+  return (
+    <div ref={dropdownRef} style={{ position: 'relative', width: '100%' }}>
+      {label && (
+        <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '5px' }}>
+          {label} {required && <span style={{ color: '#D8001D' }}>*</span>}
+        </label>
+      )}
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          width: '100%',
+          height: '38px',
+          padding: '0 12px',
+          fontSize: '12.5px',
+          fontWeight: '600',
+          color: value ? '#0F172A' : '#94A3B8',
+          backgroundColor: '#ffffff',
+          border: isOpen ? '1px solid #94A3B8' : '1px solid #CBD5E1',
+          borderRadius: '8px',
+          outline: 'none',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          boxShadow: isOpen ? '0 1px 3px rgba(0, 0, 0, 0.08)' : '0 1px 2px rgba(15, 23, 42, 0.04)',
+          transition: 'all 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
+        }}
+        onMouseEnter={(e) => {
+          if (!isOpen) {
+            e.currentTarget.style.borderColor = '#94A3B8';
+            e.currentTarget.style.boxShadow = '0 2px 6px rgba(15, 23, 42, 0.06)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isOpen) {
+            e.currentTarget.style.borderColor = '#CBD5E1';
+            e.currentTarget.style.boxShadow = '0 1px 2px rgba(15, 23, 42, 0.04)';
+          }
+        }}
+      >
+        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {selectedLabel}
+        </span>
+        <ChevronDown style={{
+          width: '15px',
+          height: '15px',
+          color: '#64748B',
+          flexShrink: 0,
+          transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+          transition: 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+        }} />
+      </button>
+
+      {isOpen && (
+        <div style={{
+          position: 'absolute',
+          top: 'calc(100% + 5px)',
+          left: 0,
+          right: 0,
+          zIndex: 250,
+          maxHeight: '220px',
+          overflowY: 'auto',
+          backgroundColor: '#ffffff',
+          borderRadius: '10px',
+          border: '1px solid #E2E8F0',
+          boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 4px 10px -2px rgba(15, 23, 42, 0.06)',
+          padding: '5px',
+          animation: 'fadeInScale 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
+        }}>
+          {options.map((opt) => {
+            const optVal = typeof opt === 'object' ? opt.value : opt;
+            const optLbl = typeof opt === 'object' ? opt.label : opt;
+            const isSelected = value === optVal;
+
+            return (
+              <div
+                key={optVal}
+                onClick={() => {
+                  onChange(optVal);
+                  setIsOpen(false);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: isSelected ? '700' : '500',
+                  color: isSelected ? '#0F172A' : '#334155',
+                  backgroundColor: isSelected ? '#F1F5F9' : 'transparent',
+                  transition: 'all 0.12s ease'
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSelected) e.currentTarget.style.backgroundColor = '#F8FAFC';
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                <span>{optLbl}</span>
+                {isSelected && <Check style={{ width: '13px', height: '13px', color: '#2563EB', strokeWidth: 2.5 }} />}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function CreateDiscussionDrawer({
   isOpen,
@@ -53,15 +184,6 @@ export default function CreateDiscussionDrawer({
 
   // AI Fields State
   const [aiData, setAiData] = useState({
-    rootCause: '',
-    updatedIssueHeader: '',
-    impact: '',
-    description: '',
-    recommendation: ''
-  });
-
-  // Remarks Modal/Input State
-  const [remarks, setRemarks] = useState({
     rootCause: '',
     updatedIssueHeader: '',
     impact: '',
@@ -141,42 +263,24 @@ export default function CreateDiscussionDrawer({
   };
 
   const handleGenerateAi = () => {
-    // If AI content already exists, snapshot current content as previousAiData before generating new version
     if (isAiGenerated && aiData.rootCause) {
       setPreviousAiData({ ...aiData });
     }
-
     setIsAiLoading(true);
 
     setTimeout(() => {
-      // Mock Smart AI Population with newly re-synthesized insights
-      const newAiVersion = {
-        rootCause: `[Re-generated Version] Systemic thermal feedback latency detected in ${formData.processArea}.\n\nOptic sensor array telemetry experienced gain calibration drift exceeding 4.2% tolerance threshold during continuous assembly.`,
-        
-        updatedIssueHeader: formData.issueHeader 
-          ? `[AI Refined v2] ${formData.issueHeader} - GxP Sensor Audit`
-          : `Optic Sensor Calibration Integrity Excursion - GxP Part 11 Audit`,
-        
-        impact: `[Re-generated Version] High financial scrap risk estimated at $145,000 across Line 3.\n\nPotential 48-hour release hold pending GxP electronic batch record verification.`,
-        
-        description: formData.issue 
-          ? `[Re-generated Version] ${formData.issue} (Audited under ${formData.accountableFunction} compliance framework).\n\nDetailed Findings: SHA-256 sensor checksum validation failed on batch run #12.`
-          : `Sensor telemetry log integrity checksum failed validation cycle #4 during high-speed electrophysiology catheter assembly.`,
-        
-        recommendation: `1. Re-calibrate optic sensor gain algorithms using FDA v4.2 standards.\n2. Enforce real-time telemetry threshold alerts on IT Monitoring Console.\n3. Implement mandatory dual MFA approval for sensor offset overrides.`
-      };
-
-      setAiData(newAiVersion);
-      setSelectedVersions({
-        updatedIssueHeader: 'current',
-        rootCause: 'current',
-        impact: 'current',
-        description: 'current',
-        recommendation: 'current'
-      });
       setIsAiLoading(false);
       setIsAiGenerated(true);
-    }, 1200);
+      if (!initialData) {
+        setAiData({
+          rootCause: `Root cause analysis indicates ${formData.issueCauseType || 'calibration drift'} within ${formData.processArea || 'the production line'}, stemming from legacy control parameter overrides.`,
+          updatedIssueHeader: formData.issueHeader ? `AI Refined: ${formData.issueHeader}` : `AI Refined Finding in ${formData.processArea}`,
+          impact: `Risk Rating: ${formData.riskRating}. Unmanaged escalation could lead to non-compliance audit findings and operational delays.`,
+          description: formData.issue || `Detailed AI synthesized observation for ${formData.processArea}.`,
+          recommendation: `1. Enforce strict change control validation for ${formData.issueCauseType}.\n2. Conduct quarterly compliance reviews for ${formData.accountableFunction} personnel.`
+        });
+      }
+    }, 900);
   };
 
   const handleSelectCardVersion = (fieldKey, versionType, contentText) => {
@@ -240,7 +344,7 @@ export default function CreateDiscussionDrawer({
         overflow: 'hidden'
       }}>
         
-        {/* Main Dark Drawer Header (HIDDEN IN COMPARISON MODE ALONE) */}
+        {/* Main Dark Drawer Header */}
         {!isComparing && (
           <div style={{
             padding: '16px 24px',
@@ -252,7 +356,7 @@ export default function CreateDiscussionDrawer({
             color: '#ffffff'
           }}>
             <h2 style={{ fontSize: '17px', fontWeight: '800', margin: 0 }}>
-              {initialData ? "Edit Observation Point" : "Add Observation Point"}
+              {initialData ? "Edit Issue" : "Add Issue"}
             </h2>
 
             <button
@@ -350,33 +454,22 @@ export default function CreateDiscussionDrawer({
                 {/* Row 3: Criticality & SOX Reportable */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                   <div>
-                    <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '5px' }}>
-                      Criticality
-                    </label>
-                    <select
+                    <FormSelectDropdown
+                      label="Criticality"
                       value={formData.criticality}
-                      onChange={(e) => handleChange('criticality', e.target.value)}
-                      style={{ width: '100%', height: '38px', padding: '0 12px', fontSize: '12.5px', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none', backgroundColor: '#ffffff' }}
-                    >
-                      <option value="Critical">Critical</option>
-                      <option value="High">High</option>
-                      <option value="Medium">Medium</option>
-                      <option value="Low">Low</option>
-                    </select>
+                      onChange={(val) => handleChange('criticality', val)}
+                      options={['Critical', 'High', 'Medium', 'Low']}
+                    />
                   </div>
 
                   <div>
-                    <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '5px' }}>
-                      SOX Reportable <span style={{ color: '#D8001D' }}>*</span>
-                    </label>
-                    <select
+                    <FormSelectDropdown
+                      label="SOX Reportable"
+                      required={true}
                       value={formData.soxReportable}
-                      onChange={(e) => handleChange('soxReportable', e.target.value)}
-                      style={{ width: '100%', height: '38px', padding: '0 12px', fontSize: '12.5px', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none', backgroundColor: '#ffffff' }}
-                    >
-                      <option value="No">No</option>
-                      <option value="Yes">Yes</option>
-                    </select>
+                      onChange={(val) => handleChange('soxReportable', val)}
+                      options={['No', 'Yes']}
+                    />
                   </div>
                 </div>
 
@@ -411,32 +504,30 @@ export default function CreateDiscussionDrawer({
                       )}
                     </div>
 
-                    <select
+                    <FormSelectDropdown
                       value={formData.primaryContact}
-                      onChange={(e) => handleChange('primaryContact', e.target.value)}
-                      style={{ width: '100%', height: '38px', padding: '0 12px', fontSize: '12.5px', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none', backgroundColor: '#ffffff' }}
-                    >
-                      <option value="Kevin Zhang (IT Lead)">Kevin Zhang (IT Lead)</option>
-                      <option value="Rachel Green (FinOps Lead)">Rachel Green (FinOps Lead)</option>
-                      <option value="Marcus Vance (Quality Audit)">Marcus Vance (Quality Audit)</option>
-                      <option value="Sarah Jenkins (Compliance)">Sarah Jenkins (Compliance)</option>
-                    </select>
+                      onChange={(val) => handleChange('primaryContact', val)}
+                      options={[
+                        'Kevin Zhang (IT Lead)',
+                        'Rachel Green (FinOps Lead)',
+                        'Marcus Vance (Quality Audit)',
+                        'Sarah Jenkins (Compliance)'
+                      ]}
+                    />
 
                     {isDelegating && (
                       <div style={{ marginTop: '8px', padding: '8px 10px', backgroundColor: '#EFF6FF', border: '1px dashed #60A5FA', borderRadius: '6px' }}>
-                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#1E40AF', display: 'block', marginBottom: '4px' }}>
-                          Delegate To (User Name / Email):
-                        </label>
-                        <select
+                        <FormSelectDropdown
+                          label="Delegate To (User Name / Email)"
                           value={delegatedTo}
-                          onChange={(e) => setDelegatedTo(e.target.value)}
-                          style={{ width: '100%', height: '32px', padding: '0 8px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid #93C5FD', outline: 'none', backgroundColor: '#ffffff' }}
-                        >
-                          <option value="">Select Delegation Target...</option>
-                          <option value="Dr. Alexander Wright (Compliance Director)">Dr. Alexander Wright (Compliance Director)</option>
-                          <option value="Elena Rostova (Lead Quality Auditor)">Elena Rostova (Lead Quality Auditor)</option>
-                          <option value="Michael Chang (VP FinOps)">Michael Chang (VP FinOps)</option>
-                        </select>
+                          onChange={(val) => setDelegatedTo(val)}
+                          options={[
+                            'Dr. Alexander Wright (Compliance Director)',
+                            'Elena Rostova (Lead Quality Auditor)',
+                            'Michael Chang (VP FinOps)'
+                          ]}
+                          placeholder="Select Delegation Target..."
+                        />
                       </div>
                     )}
 
@@ -448,105 +539,82 @@ export default function CreateDiscussionDrawer({
                   </div>
 
                   <div>
-                    <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '5px' }}>
-                      Secondary Business Contact
-                    </label>
-                    <select
+                    <FormSelectDropdown
+                      label="Secondary Business Contact"
                       value={formData.secondaryContact}
-                      onChange={(e) => handleChange('secondaryContact', e.target.value)}
-                      style={{ width: '100%', height: '38px', padding: '0 12px', fontSize: '12.5px', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none', backgroundColor: '#ffffff' }}
-                    >
-                      <option value="David Miller (IT Audit)">David Miller (IT Audit)</option>
-                      <option value="Amanda Palmer (FinOps Lead)">Amanda Palmer (FinOps Lead)</option>
-                      <option value="Brian Cox (Executive VP)">Brian Cox (Executive VP)</option>
-                      <option value="None">None</option>
-                    </select>
+                      onChange={(val) => handleChange('secondaryContact', val)}
+                      options={[
+                        'David Miller (IT Audit)',
+                        'Amanda Palmer (FinOps Lead)',
+                        'Brian Cox (Executive VP)',
+                        'None'
+                      ]}
+                    />
                   </div>
                 </div>
 
                 {/* Row 5: Accountable Function & Repeat Finding */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                   <div>
-                    <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '5px' }}>
-                      Accountable Function
-                    </label>
-                    <select
+                    <FormSelectDropdown
+                      label="Accountable Function"
                       value={formData.accountableFunction}
-                      onChange={(e) => handleChange('accountableFunction', e.target.value)}
-                      style={{ width: '100%', height: '38px', padding: '0 12px', fontSize: '12.5px', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none', backgroundColor: '#ffffff' }}
-                    >
-                      <option value="IT">IT</option>
-                      <option value="FinOps">FinOps</option>
-                    </select>
+                      onChange={(val) => handleChange('accountableFunction', val)}
+                      options={['IT', 'FinOps']}
+                    />
                   </div>
 
                   <div>
-                    <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '5px' }}>
-                      Repeat Finding
-                    </label>
-                    <select
+                    <FormSelectDropdown
+                      label="Repeat Finding"
                       value={formData.repeatFinding}
-                      onChange={(e) => handleChange('repeatFinding', e.target.value)}
-                      style={{ width: '100%', height: '38px', padding: '0 12px', fontSize: '12.5px', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none', backgroundColor: '#ffffff' }}
-                    >
-                      <option value="No">No</option>
-                      <option value="Yes">Yes</option>
-                    </select>
+                      onChange={(val) => handleChange('repeatFinding', val)}
+                      options={['No', 'Yes']}
+                    />
                   </div>
                 </div>
 
                 {/* Row 6: Issue Cause Type & Process Area */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                   <div>
-                    <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '5px' }}>
-                      Issue Cause Type
-                    </label>
-                    <select
+                    <FormSelectDropdown
+                      label="Issue Cause Type"
                       value={formData.issueCauseType}
-                      onChange={(e) => handleChange('issueCauseType', e.target.value)}
-                      style={{ width: '100%', height: '38px', padding: '0 12px', fontSize: '12.5px', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none', backgroundColor: '#ffffff' }}
-                    >
-                      <option value="Automated Sensor Calibration Drift">Automated Sensor Calibration Drift</option>
-                      <option value="Manual Data Entry Excursion">Manual Data Entry Excursion</option>
-                      <option value="Firmware Integrity Checksum Error">Firmware Integrity Checksum Error</option>
-                      <option value="Cleanroom HVAC Environmental Excursion">Cleanroom HVAC Environmental Excursion</option>
-                      <option value="System Access Control Failure">System Access Control Failure</option>
-                    </select>
+                      onChange={(val) => handleChange('issueCauseType', val)}
+                      options={[
+                        'Automated Sensor Calibration Drift',
+                        'Manual Data Entry Excursion',
+                        'Firmware Integrity Checksum Error',
+                        'Cleanroom HVAC Environmental Excursion',
+                        'System Access Control Failure'
+                      ]}
+                    />
                   </div>
 
                   <div>
-                    <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '5px' }}>
-                      Process Area
-                    </label>
-                    <select
+                    <FormSelectDropdown
+                      label="Process Area"
                       value={formData.processArea}
-                      onChange={(e) => handleChange('processArea', e.target.value)}
-                      style={{ width: '100%', height: '38px', padding: '0 12px', fontSize: '12.5px', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none', backgroundColor: '#ffffff' }}
-                    >
-                      <option value="Catheter Line 3 Electrophysiology">Catheter Line 3 Electrophysiology</option>
-                      <option value="Cleanroom HVAC Unit 4">Cleanroom HVAC Unit 4</option>
-                      <option value="Packaging & Sterilization Unit">Packaging & Sterilization Unit</option>
-                      <option value="Optic Sensor Calibration">Optic Sensor Calibration</option>
-                      <option value="GxP Software Access Control">GxP Software Access Control</option>
-                    </select>
+                      onChange={(val) => handleChange('processArea', val)}
+                      options={[
+                        'Catheter Line 3 Electrophysiology',
+                        'Cleanroom HVAC Unit 4',
+                        'Packaging & Sterilization Unit',
+                        'Optic Sensor Calibration',
+                        'GxP Software Access Control'
+                      ]}
+                    />
                   </div>
                 </div>
 
                 {/* Row 7: Risk Rating */}
                 <div>
-                  <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '5px' }}>
-                    Risk Rating
-                  </label>
-                  <select
+                  <FormSelectDropdown
+                    label="Risk Rating"
                     value={formData.riskRating}
-                    onChange={(e) => handleChange('riskRating', e.target.value)}
-                    style={{ width: '100%', height: '38px', padding: '0 12px', fontSize: '12.5px', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none', backgroundColor: '#ffffff' }}
-                  >
-                    <option value="Critical">Critical</option>
-                    <option value="High">High</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Low">Low</option>
-                  </select>
+                    onChange={(val) => handleChange('riskRating', val)}
+                    options={['Critical', 'High', 'Medium', 'Low']}
+                  />
                 </div>
 
                 {/* Row 8: Issue Textarea */}
