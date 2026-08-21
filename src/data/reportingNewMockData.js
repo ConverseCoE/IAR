@@ -34,22 +34,9 @@ export const mockReportingNewJobs = [
       startDateTime: "2026-08-04 10:00:00",
       endDateTime: "2026-08-05 09:15:00",
       status: "Active",
-      count: 1
+      count: 0
     },
-    issuesList: [
-      {
-        id: "ISSUE-101",
-        title: "Initial Robotics Control Log Discrepancy",
-        createdBy: "Rachel Green",
-        createdRole: "auditor",
-        lastEditedBy: "Rachel Green",
-        currentLevel: "Auditor Drafting",
-        currentRoleTarget: "auditor",
-        status: "Drafting",
-        severity: "Medium",
-        updatedOn: "2026-08-05 09:15 AM"
-      }
-    ],
+    issuesList: [],
     roster: [
       { role: "Auditor", name: "Rachel Green", avatar: "RG", status: "Drafting Issue #101" },
       { role: "Team Co-Ordinator", name: "Kevin Zhang", avatar: "KZ", status: "Assigned" },
@@ -89,18 +76,18 @@ export const mockReportingNewJobs = [
       startDateTime: "2026-08-01 08:30:00",
       endDateTime: "2026-08-04 14:30:00",
       status: "Active",
-      count: 2
+      count: 4
     },
     issuesList: [
       {
         id: "ISSUE-201",
         title: "Cleanroom Temperature Calibration Drift",
-        createdBy: "Carlos Mendez",
+        createdBy: "Rachel Green",
         createdRole: "auditor",
         lastEditedBy: "Rachel Green",
-        currentLevel: "Team Co-Ordinator Review",
-        currentRoleTarget: "team-coordinator",
-        status: "In Review",
+        currentLevel: "Manager Review",
+        currentRoleTarget: "manager",
+        status: "Manager Review",
         severity: "High",
         updatedOn: "2026-08-04 02:30 PM"
       },
@@ -110,11 +97,35 @@ export const mockReportingNewJobs = [
         createdBy: "Rachel Green",
         createdRole: "auditor",
         lastEditedBy: "Sarah Jenkins",
-        currentLevel: "Manager Approval",
+        currentLevel: "Manager Review",
         currentRoleTarget: "manager",
         status: "Pending Sign-Off",
         severity: "Critical",
         updatedOn: "2026-08-04 11:15 AM"
+      },
+      {
+        id: "ISSUE-203",
+        title: "Catheter Tensile Strength Sampling Deficit",
+        createdBy: "Carlos Mendez",
+        createdRole: "auditor",
+        lastEditedBy: "Carlos Mendez",
+        currentLevel: "TC Review",
+        currentRoleTarget: "team-coordinator",
+        status: "In Review",
+        severity: "Medium",
+        updatedOn: "2026-08-04 09:45 AM"
+      },
+      {
+        id: "ISSUE-204",
+        title: "HEPA Filter Differential Pressure Variance",
+        createdBy: "Carlos Mendez",
+        createdRole: "auditor",
+        lastEditedBy: "Elena Rostova",
+        currentLevel: "Completed & Signed Off",
+        currentRoleTarget: "completed",
+        status: "Completed",
+        severity: "Medium",
+        updatedOn: "2026-08-03 04:20 PM"
       }
     ],
     roster: [
@@ -332,6 +343,18 @@ export const mockReportingNewJobs = [
         status: "Completed",
         severity: "High",
         updatedOn: "2026-08-01 02:45 PM"
+      },
+      {
+        id: "ISSUE-503",
+        title: "Orthopedic Screw Micro-Thread Tolerance",
+        createdBy: "Rachel Green",
+        createdRole: "auditor",
+        lastEditedBy: "Elena Rostova",
+        currentLevel: "Completed & Signed Off",
+        currentRoleTarget: "completed",
+        status: "Completed",
+        severity: "High",
+        updatedOn: "2026-08-01 01:15 PM"
       }
     ],
     roster: [
@@ -375,7 +398,7 @@ export const mockReportingNewJobs = [
       startDateTime: "2026-07-20 07:30:00",
       endDateTime: "2026-07-31 16:20:00",
       status: "Completed",
-      count: 1
+      count: 2
     },
     issuesList: [
       {
@@ -389,6 +412,18 @@ export const mockReportingNewJobs = [
         status: "Completed",
         severity: "Critical",
         updatedOn: "2026-07-31 04:20 PM"
+      },
+      {
+        id: "ISSUE-602",
+        title: "Bluetooth Encryption Handshake Compliance",
+        createdBy: "Carlos Mendez",
+        createdRole: "auditor",
+        lastEditedBy: "Elena Rostova",
+        currentLevel: "Completed & Signed Off",
+        currentRoleTarget: "completed",
+        status: "Completed",
+        severity: "High",
+        updatedOn: "2026-07-31 02:15 PM"
       }
     ],
     roster: [
@@ -469,7 +504,7 @@ export const mockReportingNewJobs = [
       startDateTime: "2026-08-03 08:30:00",
       endDateTime: "2026-08-05 15:45:00",
       status: "Active",
-      count: 1
+      count: 3
     },
     issuesList: [
       {
@@ -483,6 +518,30 @@ export const mockReportingNewJobs = [
         status: "VP Review",
         severity: "Critical",
         updatedOn: "2026-08-05 03:45 PM"
+      },
+      {
+        id: "ISSUE-802",
+        title: "Silicone Shell Burst Test Record Discrepancy",
+        createdBy: "Rachel Green",
+        createdRole: "auditor",
+        lastEditedBy: "Rachel Green",
+        currentLevel: "Manager Review",
+        currentRoleTarget: "manager",
+        status: "Manager Review",
+        severity: "High",
+        updatedOn: "2026-08-05 01:20 PM"
+      },
+      {
+        id: "ISSUE-803",
+        title: "Biocompatibility Lab Testing Validation",
+        createdBy: "Rachel Green",
+        createdRole: "auditor",
+        lastEditedBy: "Sarah Jenkins",
+        currentLevel: "Completed & Signed Off",
+        currentRoleTarget: "completed",
+        status: "Completed",
+        severity: "Medium",
+        updatedOn: "2026-08-04 11:30 AM"
       }
     ],
     roster: [

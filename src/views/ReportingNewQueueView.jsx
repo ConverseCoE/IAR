@@ -49,6 +49,7 @@ export default function ReportingNewQueueView({
 
   // Concept 2 Granular Issue Lineage Tab Filter State
   const [concept2TabFilter, setConcept2TabFilter] = useState('all');
+  const [expandedInnerTabs, setExpandedInnerTabs] = useState({});
 
   // Direct Create Issue Drawer State for Auditor 'Not Started' Jobs
   const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
@@ -155,6 +156,84 @@ export default function ReportingNewQueueView({
       pendingIssues,
       myContributions
     };
+  };
+
+  // Concept 2 Metric Calculation Helpers
+  const getMyIssuesCount = (job) => {
+    return (job.issuesList || []).filter(iss => 
+      iss.createdBy === 'Rachel Green' || 
+      iss.lastEditedBy === 'Rachel Green' || 
+      iss.createdRole === 'auditor'
+    ).length;
+  };
+
+  const getOthersIssuesCount = (job) => {
+    return (job.issuesList || []).filter(iss => 
+      iss.createdBy !== 'Rachel Green' && 
+      iss.lastEditedBy !== 'Rachel Green'
+    ).length;
+  };
+
+  const getPendingWithMeCount = (job) => {
+    return (job.issuesList || []).filter(iss => 
+      (iss.currentRoleTarget || '').toLowerCase() === userRole.toLowerCase() || 
+      (iss.currentLevel || '').toLowerCase().includes(userRole.toLowerCase())
+    ).length;
+  };
+
+  const getExternalContributionsCount = (job) => {
+    return (job.issuesList || []).filter(iss => 
+      iss.createdRole === 'auditor' || 
+      iss.createdBy !== userRole
+    ).length;
+  };
+
+  const getCompletedMySideCount = (job) => {
+    return (job.issuesList || []).filter(iss => 
+      iss.lastEditedBy === userRole || 
+      (iss.currentLevel || '').toLowerCase().includes('signed off') || 
+      (iss.status === 'Completed' && (iss.lastEditedBy || '').toLowerCase() === userRole.toLowerCase())
+    ).length;
+  };
+
+  const getOverallCompletedCount = (job) => {
+    return (job.issuesList || []).filter(iss => iss.status === 'Completed').length;
+  };
+
+  const getFilteredIssuesForInnerTab = (job, innerTabKey) => {
+    const issues = job.issuesList || [];
+    if (innerTabKey === 'total' || !innerTabKey) return issues;
+
+    if (isAuditor) {
+      if (innerTabKey === 'my-contributed') {
+        return issues.filter(iss => iss.createdBy === 'Rachel Green' || iss.lastEditedBy === 'Rachel Green' || iss.createdRole === 'auditor');
+      }
+      if (innerTabKey === 'others-contributions') {
+        return issues.filter(iss => iss.createdBy !== 'Rachel Green' && iss.lastEditedBy !== 'Rachel Green');
+      }
+    } else {
+      if (innerTabKey === 'pending-me') {
+        return issues.filter(iss => 
+          (iss.currentRoleTarget || '').toLowerCase() === userRole.toLowerCase() || 
+          (iss.currentLevel || '').toLowerCase().includes(userRole.toLowerCase())
+        );
+      }
+      if (innerTabKey === 'external') {
+        return issues.filter(iss => iss.createdRole === 'auditor' || iss.createdBy !== userRole);
+      }
+      if (innerTabKey === 'completed-my-side') {
+        return issues.filter(iss => 
+          iss.lastEditedBy === userRole || 
+          (iss.currentLevel || '').toLowerCase().includes('signed off') || 
+          (iss.status === 'Completed' && (iss.lastEditedBy || '').toLowerCase() === userRole.toLowerCase())
+        );
+      }
+      if (innerTabKey === 'overall-completed') {
+        return issues.filter(iss => iss.status === 'Completed');
+      }
+    }
+
+    return issues;
   };
 
   // Counts for Persona Hub
@@ -360,7 +439,7 @@ export default function ReportingNewQueueView({
     if (viewMode === 'inline-action') return 5;
     if (viewMode === 'expand-action') return 5;
     if (viewMode === 'persona-lens') return 7;
-    if (viewMode === 'issue-cards') return 6;
+    if (viewMode === 'issue-cards') return isAuditor ? 7 : 9;
     if (viewMode === 'enhanced-lineage') return 7;
     if (viewMode === 'roster-matrix') return 7;
     return 6;
@@ -709,7 +788,7 @@ export default function ReportingNewQueueView({
             <thead>
               <tr>
                 {/* 1. Job ID */}
-                {['default', 'persona-lens', 'roster-matrix', 'enhanced-lineage'].includes(viewMode) && (
+                {['default', 'persona-lens', 'roster-matrix', 'enhanced-lineage', 'issue-cards'].includes(viewMode) && (
                   <th onClick={() => handleSort('id')} style={{ cursor: 'pointer' }}>
                     <div className="th-content">
                       <span>Job ID</span>
@@ -735,7 +814,7 @@ export default function ReportingNewQueueView({
                 </th>
 
                 {/* 4. Custom Middle Columns */}
-                {viewMode === 'with-substatus' && (
+                {(viewMode === 'with-substatus' || viewMode === 'issue-cards') && (
                   <th onClick={() => handleSort('subStatus')} style={{ cursor: 'pointer' }}>
                     <div className="th-content">
                       <span>Sub-Status</span>
@@ -750,7 +829,40 @@ export default function ReportingNewQueueView({
                   </th>
                 )}
 
-                {['issue-cards', 'enhanced-lineage'].includes(viewMode) && (
+                {viewMode === 'issue-cards' && (
+                  <>
+                    <th style={{ textAlign: 'center', padding: '12px 10px' }}>
+                      <span>Total Issues</span>
+                    </th>
+                    {isAuditor ? (
+                      <>
+                        <th style={{ textAlign: 'center', padding: '12px 10px' }}>
+                          <span>Issues Contributed</span>
+                        </th>
+                        <th style={{ textAlign: 'center', padding: '12px 10px' }}>
+                          <span>Others Contributions</span>
+                        </th>
+                      </>
+                    ) : (
+                      <>
+                        <th style={{ textAlign: 'center', padding: '12px 10px' }}>
+                          <span>Pending With Me</span>
+                        </th>
+                        <th style={{ textAlign: 'center', padding: '12px 10px' }}>
+                          <span>External Contributions</span>
+                        </th>
+                        <th style={{ textAlign: 'center', padding: '12px 10px' }}>
+                          <span>Completed My Side</span>
+                        </th>
+                        <th style={{ textAlign: 'center', padding: '12px 10px' }}>
+                          <span>Overall Completed</span>
+                        </th>
+                      </>
+                    )}
+                  </>
+                )}
+
+                {viewMode === 'enhanced-lineage' && (
                   <th style={{ minWidth: '240px' }}>
                     <span>Issue Lineage & Ownership</span>
                   </th>
@@ -763,20 +875,24 @@ export default function ReportingNewQueueView({
                 )}
 
                 {/* 5. Time in Queue */}
-                <th onClick={() => handleSort('aging')} style={{ cursor: 'pointer' }}>
-                  <div className="th-content">
-                    <span>Time in Queue</span>
-                    <ArrowUpDown className="th-sort-icon" />
-                  </div>
-                </th>
+                {viewMode !== 'issue-cards' && (
+                  <th onClick={() => handleSort('aging')} style={{ cursor: 'pointer' }}>
+                    <div className="th-content">
+                      <span>Time in Queue</span>
+                      <ArrowUpDown className="th-sort-icon" />
+                    </div>
+                  </th>
+                )}
 
                 {/* 6. Last Updated */}
-                <th onClick={() => handleSort('lastUpdated')} style={{ cursor: 'pointer' }}>
-                  <div className="th-content">
-                    <span>Last Updated</span>
-                    <ArrowUpDown className="th-sort-icon" />
-                  </div>
-                </th>
+                {viewMode !== 'issue-cards' && (
+                  <th onClick={() => handleSort('lastUpdated')} style={{ cursor: 'pointer' }}>
+                    <div className="th-content">
+                      <span>Last Updated</span>
+                      <ArrowUpDown className="th-sort-icon" />
+                    </div>
+                  </th>
+                )}
 
                 {/* 7. Action / Chevron Header */}
                 {['inline-action', 'persona-lens'].includes(viewMode) ? (
@@ -848,7 +964,7 @@ export default function ReportingNewQueueView({
                         </td>
 
                         {/* 4. Custom Mode Columns */}
-                        {viewMode === 'with-substatus' && (
+                        {(viewMode === 'with-substatus' || viewMode === 'issue-cards') && (
                           <td style={{ padding: '10px 18px' }}>
                             {renderSubStatusPill(job)}
                           </td>
@@ -896,7 +1012,54 @@ export default function ReportingNewQueueView({
                           </td>
                         )}
 
-                        {['issue-cards', 'enhanced-lineage'].includes(viewMode) && (
+                        {viewMode === 'issue-cards' && (
+                          <>
+                            <td style={{ textAlign: 'center', padding: '10px 14px' }}>
+                              <span style={{ padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '800', backgroundColor: '#F1F5F9', color: '#334155', border: '1px solid #CBD5E1', display: 'inline-block' }}>
+                                {(job.issuesList || []).length}
+                              </span>
+                            </td>
+                            {isAuditor ? (
+                              <>
+                                <td style={{ textAlign: 'center', padding: '10px 14px' }}>
+                                  <span style={{ padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '800', backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE', display: 'inline-block' }}>
+                                    {getMyIssuesCount(job)}
+                                  </span>
+                                </td>
+                                <td style={{ textAlign: 'center', padding: '10px 14px' }}>
+                                  <span style={{ padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '800', backgroundColor: '#FDF4FF', color: '#A21CAF', border: '1px solid #F0ABFC', display: 'inline-block' }}>
+                                    {getOthersIssuesCount(job)}
+                                  </span>
+                                </td>
+                              </>
+                            ) : (
+                              <>
+                                <td style={{ textAlign: 'center', padding: '10px 14px' }}>
+                                  <span style={{ padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '800', backgroundColor: getPendingWithMeCount(job) > 0 ? '#FEF2F2' : '#F8FAFC', color: getPendingWithMeCount(job) > 0 ? '#D8001D' : '#64748B', border: `1px solid ${getPendingWithMeCount(job) > 0 ? '#FECDD3' : '#E2E8F0'}`, display: 'inline-block' }}>
+                                    {getPendingWithMeCount(job)}
+                                  </span>
+                                </td>
+                                <td style={{ textAlign: 'center', padding: '10px 14px' }}>
+                                  <span style={{ padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '800', backgroundColor: '#FFFBEB', color: '#B45309', border: '1px solid #FDE68A', display: 'inline-block' }}>
+                                    {getExternalContributionsCount(job)}
+                                  </span>
+                                </td>
+                                <td style={{ textAlign: 'center', padding: '10px 14px' }}>
+                                  <span style={{ padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '800', backgroundColor: '#EEF2FF', color: '#4338CA', border: '1px solid #C7D2FE', display: 'inline-block' }}>
+                                    {getCompletedMySideCount(job)}
+                                  </span>
+                                </td>
+                                <td style={{ textAlign: 'center', padding: '10px 14px' }}>
+                                  <span style={{ padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '800', backgroundColor: '#F0FDF4', color: '#15803D', border: '1px solid #BBF2D0', display: 'inline-block' }}>
+                                    {getOverallCompletedCount(job)}
+                                  </span>
+                                </td>
+                              </>
+                            )}
+                          </>
+                        )}
+
+                        {viewMode === 'enhanced-lineage' && (
                           <td style={{ padding: '10px 18px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <Layers style={{ width: '15px', height: '15px', color: '#6366F1' }} />
@@ -944,17 +1107,21 @@ export default function ReportingNewQueueView({
                         )}
 
                         {/* 5. Time in Queue */}
-                        <td style={{ fontSize: '12.5px', padding: '10px 18px' }}>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#334155', fontWeight: '700' }}>
-                            <Clock style={{ width: '13px', height: '13px', color: '#D8001D' }} />
-                            <span>{job.aging}</span>
-                          </div>
-                        </td>
+                        {viewMode !== 'issue-cards' && (
+                          <td style={{ fontSize: '12.5px', padding: '10px 18px' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#334155', fontWeight: '700' }}>
+                              <Clock style={{ width: '13px', height: '13px', color: '#D8001D' }} />
+                              <span>{job.aging}</span>
+                            </div>
+                          </td>
+                        )}
 
                         {/* 6. Last Updated */}
-                        <td style={{ fontSize: '12.5px', color: '#64748B', padding: '10px 18px', whiteSpace: 'nowrap' }}>
-                          {formatUSDateTime(job.lastUpdated)}
-                        </td>
+                        {viewMode !== 'issue-cards' && (
+                          <td style={{ fontSize: '12.5px', color: '#64748B', padding: '10px 18px', whiteSpace: 'nowrap' }}>
+                            {formatUSDateTime(job.lastUpdated)}
+                          </td>
+                        )}
 
                         {/* 7. Action / Chevron Column */}
                         {['inline-action', 'persona-lens'].includes(viewMode) ? (
@@ -1071,79 +1238,398 @@ export default function ReportingNewQueueView({
                         )}
                       </tr>
 
-                      {/* Concept 2 EXPANDED ACCORDION FOR ISSUE CARDS */}
+                      {/* Concept 2 EXPANDED SCREEN-INSIDE-TABLE CONTAINER FOR ISSUE CARDS */}
                       {viewMode === 'issue-cards' && isExpanded && (
                         <tr style={{ backgroundColor: '#F8FAFC' }}>
-                          <td colSpan={getColSpanCount()} style={{ padding: '16px 20px', borderBottom: '1px solid #CBD5E1' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <h4 style={{ fontSize: '13px', fontWeight: '800', color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  <Layers style={{ width: '15px', height: '15px', color: '#6366F1' }} />
-                                  <span>Granular Issue Progression & Ownership Lineage for {job.fileName}</span>
-                                </h4>
+                          <td colSpan={getColSpanCount()} style={{ padding: '20px 24px', borderBottom: '2px solid #CBD5E1' }}>
+                            <div style={{
+                              backgroundColor: '#ffffff',
+                              borderRadius: '12px',
+                              border: '1px solid #E2E8F0',
+                              boxShadow: '0 4px 16px rgba(15, 23, 42, 0.08)',
+                              padding: '20px 22px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '18px'
+                            }}>
+                              
+                              {/* Header Bar inside Expanded Screen Container */}
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                paddingBottom: '4px'
+                              }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                  <div style={{
+                                    width: '42px',
+                                    height: '42px',
+                                    borderRadius: '10px',
+                                    backgroundColor: '#FEF2F2',
+                                    border: '1px solid #FECDD3',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                  }}>
+                                    <Layers style={{ width: '22px', height: '22px', color: '#D8001D' }} />
+                                  </div>
+                                  <div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                      <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
+                                        {job.fileName || job.engagement}
+                                      </h3>
+                                      {renderStatusPill(job.status)}
+                                    </div>
+                                    <span style={{ fontSize: '12px', color: '#64748B', marginTop: '2px', display: 'block' }}>
+                                      {job.engagement} • Queue Owner: <strong>{job.currentOwner}</strong> • Total Issues: <strong>{(job.issuesList || []).length}</strong>
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Header Action Buttons */}
+                                {isAuditor ? (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenCreateForJob(job);
+                                    }}
+                                    style={{
+                                      padding: '8px 18px',
+                                      fontSize: '12.5px',
+                                      fontWeight: '800',
+                                      color: '#ffffff',
+                                      backgroundColor: '#D8001D',
+                                      border: 'none',
+                                      borderRadius: '7px',
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '6px',
+                                      boxShadow: '0 2px 8px rgba(216, 0, 29, 0.25)',
+                                      transition: 'all 0.15s ease'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#B90018'}
+                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#D8001D'}
+                                  >
+                                    <Plus style={{ width: '15px', height: '15px' }} />
+                                    <span>+ Add Issue</span>
+                                  </button>
+                                ) : (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    {/* Audit Report Button */}
+                                    {job.status !== 'Not Started' && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onWorkOnReport && onWorkOnReport(job, 'audit');
+                                        }}
+                                        style={{
+                                          padding: '7px 14px',
+                                          fontSize: '12px',
+                                          fontWeight: '700',
+                                          color: '#1D4ED8',
+                                          backgroundColor: '#EFF6FF',
+                                          border: '1px solid #BFDBFE',
+                                          borderRadius: '7px',
+                                          cursor: 'pointer',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '6px',
+                                          boxShadow: '0 1px 4px rgba(29, 78, 216, 0.1)'
+                                        }}
+                                      >
+                                        <PlayCircle style={{ width: '14px', height: '14px', color: '#1D4ED8' }} />
+                                        <span>Audit Report</span>
+                                      </button>
+                                    )}
+
+                                    {/* Executive Summary Report Button */}
+                                    {isExecEligible && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onWorkOnReport && onWorkOnReport(job, 'executive');
+                                        }}
+                                        style={{
+                                          padding: '7px 14px',
+                                          fontSize: '12px',
+                                          fontWeight: '700',
+                                          color: '#4338CA',
+                                          backgroundColor: '#EEF2FF',
+                                          border: '1px solid #C7D2FE',
+                                          borderRadius: '7px',
+                                          cursor: 'pointer',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '6px',
+                                          boxShadow: '0 1px 4px rgba(67, 56, 202, 0.1)'
+                                        }}
+                                      >
+                                        <ExternalLink style={{ width: '14px', height: '14px', color: '#4338CA' }} />
+                                        <span>Executive Summary Report</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
                               </div>
 
-                              {(job.issuesList || []).map((issue) => (
-                                <div key={issue.id} style={{
-                                  backgroundColor: '#ffffff',
-                                  borderRadius: '8px',
-                                  padding: '14px 16px',
-                                  border: '1px solid #E2E8F0',
-                                  boxShadow: '0 2px 6px rgba(15, 23, 42, 0.05)',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'space-between',
-                                  gap: '16px'
-                                }}>
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                      <span style={{ fontSize: '11px', fontWeight: '800', color: '#D8001D', backgroundColor: '#FFF1F2', padding: '2px 6px', borderRadius: '4px' }}>
-                                        {issue.id}
-                                      </span>
-                                      <strong style={{ fontSize: '13px', color: '#0F172A' }}>{issue.title}</strong>
-                                      <span style={{ fontSize: '10.5px', fontWeight: '700', color: issue.severity === 'Critical' ? '#991B1B' : '#B45309', backgroundColor: issue.severity === 'Critical' ? '#FEE2E2' : '#FEF3C7', padding: '1px 6px', borderRadius: '4px' }}>
-                                        {issue.severity}
-                                      </span>
-                                    </div>
-
-                                    <div style={{ fontSize: '11.5px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '16px', marginTop: '2px' }}>
-                                      <span><strong>Created By:</strong> {issue.createdBy}</span>
-                                      <span>•</span>
-                                      <span><strong>Last Edited By:</strong> {issue.lastEditedBy} ({issue.updatedOn})</span>
-                                    </div>
-                                  </div>
-
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <div style={{ textAlign: 'right' }}>
-                                      <span style={{ fontSize: '10px', color: '#94A3B8', display: 'block', textTransform: 'uppercase', fontWeight: '700' }}>Current Target Stage</span>
-                                      <span style={{ fontSize: '11.5px', fontWeight: '800', color: '#1E293B' }}>{issue.currentLevel}</span>
-                                    </div>
-
+                              {/* Inner Metric Tabs inside Expanded Container */}
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                paddingBottom: '2px'
+                              }}>
+                                {(isAuditor ? [
+                                  { id: 'total', label: 'Total Issues', count: (job.issuesList || []).length },
+                                  { id: 'my-contributed', label: 'Issues Contributed', count: getMyIssuesCount(job) },
+                                  { id: 'others-contributions', label: 'Others Contributions', count: getOthersIssuesCount(job) }
+                                ] : [
+                                  { id: 'total', label: 'Total Issues', count: (job.issuesList || []).length },
+                                  { id: 'pending-me', label: 'Pending With Me', count: getPendingWithMeCount(job) },
+                                  { id: 'external', label: 'External Contributions', count: getExternalContributionsCount(job) },
+                                  { id: 'completed-my-side', label: 'Completed My Side', count: getCompletedMySideCount(job) },
+                                  { id: 'overall-completed', label: 'Overall Completed', count: getOverallCompletedCount(job) }
+                                ]).map(tab => {
+                                  const currentTab = expandedInnerTabs[job.id] || 'total';
+                                  const isActive = currentTab === tab.id;
+                                  return (
                                     <button
+                                      key={tab.id}
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        onOpenDiscussionPoints && onOpenDiscussionPoints(job);
+                                        setExpandedInnerTabs(prev => ({ ...prev, [job.id]: tab.id }));
                                       }}
                                       style={{
-                                        padding: '6px 12px',
-                                        fontSize: '11.5px',
-                                        fontWeight: '700',
-                                        color: '#1D4ED8',
-                                        backgroundColor: '#EFF6FF',
-                                        border: '1px solid #BFDBFE',
-                                        borderRadius: '6px',
+                                        padding: '8px 14px',
+                                        fontSize: '12px',
+                                        fontWeight: isActive ? '800' : '600',
+                                        color: isActive ? '#D8001D' : '#64748B',
+                                        borderBottom: isActive ? '3px solid #D8001D' : '3px solid transparent',
+                                        backgroundColor: 'transparent',
+                                        borderTop: 'none',
+                                        borderLeft: 'none',
+                                        borderRight: 'none',
                                         cursor: 'pointer',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        gap: '6px'
+                                        gap: '6px',
+                                        transition: 'all 0.15s ease'
                                       }}
                                     >
-                                      <Eye style={{ width: '13px', height: '13px' }} />
-                                      <span>Review Issue</span>
+                                      <span>{tab.label}</span>
+                                      <span style={{
+                                        fontSize: '10.5px',
+                                        fontWeight: '800',
+                                        color: isActive ? '#ffffff' : '#475569',
+                                        backgroundColor: isActive ? '#D8001D' : '#F1F5F9',
+                                        borderRadius: '10px',
+                                        padding: '1px 7px',
+                                        lineHeight: '1.2'
+                                      }}>
+                                        {tab.count}
+                                      </span>
                                     </button>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Inner Table View for Issues inside Expanded Container */}
+                              {(() => {
+                                const activeInnerTab = expandedInnerTabs[job.id] || 'total';
+                                const filteredIssues = getFilteredIssuesForInnerTab(job, activeInnerTab);
+
+                                if (filteredIssues.length === 0) {
+                                  return (
+                                    <div style={{
+                                      padding: '32px 20px',
+                                      textAlign: 'center',
+                                      backgroundColor: '#F8FAFC',
+                                      borderRadius: '8px',
+                                      border: '1px dashed #CBD5E1'
+                                    }}>
+                                      <AlertCircle style={{ width: '28px', height: '28px', color: '#94A3B8', margin: '0 auto 8px auto' }} />
+                                      <h5 style={{ fontSize: '13px', fontWeight: '700', color: '#475569', margin: '0 0 4px 0' }}>
+                                        No issues found in this category
+                                      </h5>
+                                      <p style={{ fontSize: '11.5px', color: '#94A3B8', margin: 0 }}>
+                                        {job.status === 'Not Started'
+                                          ? 'This audit is Not Started. Click + Add Issue to create the first issue.'
+                                          : 'No issues match the selected inner tab filter.'}
+                                      </p>
+                                      {isAuditor && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleOpenCreateForJob(job);
+                                          }}
+                                          style={{
+                                            marginTop: '12px',
+                                            padding: '6px 14px',
+                                            fontSize: '11.5px',
+                                            fontWeight: '700',
+                                            color: '#ffffff',
+                                            backgroundColor: '#D8001D',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer'
+                                          }}
+                                        >
+                                          + Add Issue
+                                        </button>
+                                      )}
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <div style={{ overflowX: 'auto' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: '#ffffff', borderRadius: '8px', overflow: 'hidden', border: '1px solid #E2E8F0' }}>
+                                      <thead>
+                                        <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', color: '#475569', fontSize: '11.5px', textTransform: 'uppercase', fontWeight: '700' }}>
+                                          <th style={{ textAlign: 'left', padding: '10px 14px' }}>Issue & Severity</th>
+                                          <th style={{ textAlign: 'left', padding: '10px 14px' }}>Current Stage</th>
+                                          <th style={{ textAlign: 'left', padding: '10px 14px' }}>Created By</th>
+                                          <th style={{ textAlign: 'left', padding: '10px 14px' }}>Last Updated By</th>
+                                          <th style={{ textAlign: 'right', padding: '10px 14px' }}>Actions</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {filteredIssues.map((issue, idx) => (
+                                          <tr key={issue.id} style={{ borderBottom: idx < filteredIssues.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
+                                            {/* 1. Issue & Severity */}
+                                            <td style={{ padding: '12px 14px' }}>
+                                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <span style={{ fontSize: '11px', fontWeight: '800', color: '#D8001D', backgroundColor: '#FFF1F2', border: '1px solid #FECDD3', padding: '2px 6px', borderRadius: '4px' }}>
+                                                  {issue.id}
+                                                </span>
+                                                <strong style={{ fontSize: '13px', color: '#0F172A' }}>{issue.title}</strong>
+                                                <span style={{ fontSize: '10.5px', fontWeight: '700', color: issue.severity === 'Critical' ? '#991B1B' : '#B45309', backgroundColor: issue.severity === 'Critical' ? '#FEE2E2' : '#FEF3C7', padding: '1px 6px', borderRadius: '10px' }}>
+                                                  {issue.severity}
+                                                </span>
+                                              </div>
+                                            </td>
+
+                                            {/* 2. Current Stage */}
+                                            <td style={{ padding: '12px 14px' }}>
+                                              <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#1D4ED8', backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE', padding: '3px 8px', borderRadius: '6px' }}>
+                                                {issue.currentLevel || 'Auditor Drafting'}
+                                              </span>
+                                            </td>
+
+                                            {/* 3. Created By */}
+                                            <td style={{ padding: '12px 14px', fontSize: '12px', color: '#334155' }}>
+                                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                <User style={{ width: '12px', height: '12px', color: '#2563EB' }} />
+                                                <span><strong>{issue.createdBy || 'Rachel Green'}</strong></span>
+                                              </div>
+                                            </td>
+
+                                            {/* 4. Last Updated By */}
+                                            <td style={{ padding: '12px 14px', fontSize: '11.5px', color: '#64748B' }}>
+                                              <span>{issue.lastEditedBy || 'Carlos Mendez'}</span>
+                                              <span style={{ fontSize: '10.5px', color: '#94A3B8', display: 'block' }}>{issue.updatedOn}</span>
+                                            </td>
+
+                                            {/* 5. Actions Toolbar */}
+                                            <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+                                                {/* 1. Edit Issue (Available for Auditor and all roles) */}
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleOpenCreateForJob(job);
+                                                  }}
+                                                  style={{ padding: '5px 9px', fontSize: '11px', fontWeight: '700', color: '#0F172A', backgroundColor: '#F8FAFC', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                                  title="Edit Issue"
+                                                >
+                                                  <Edit2 style={{ width: '12px', height: '12px' }} />
+                                                  <span>Edit</span>
+                                                </button>
+
+                                                {/* Non-Auditor Roles get ALL remaining workflow actions */}
+                                                {!isAuditor && (
+                                                  <>
+                                                    {/* 2. Submit for Next Level */}
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const levels = ['Auditor Drafting', 'TC Review', 'Manager Review', 'Director Review', 'VP Sign-Off', 'Completed & Signed Off'];
+                                                        const curIdx = levels.findIndex(l => (issue.currentLevel || '').toLowerCase().includes(l.toLowerCase()));
+                                                        const nextLevel = curIdx >= 0 && curIdx < levels.length - 1 ? levels[curIdx + 1] : 'Completed & Signed Off';
+
+                                                        setJobs(prev => prev.map(j => {
+                                                          if (j.id === job.id) {
+                                                            return {
+                                                              ...j,
+                                                              status: 'In Progress',
+                                                              issuesList: (j.issuesList || []).map(iss => iss.id === issue.id ? { ...iss, currentLevel: nextLevel, status: nextLevel === 'Completed & Signed Off' ? 'Completed' : 'In Review' } : iss)
+                                                            };
+                                                          }
+                                                          return j;
+                                                        }));
+                                                        setToastMessage({
+                                                          title: "Submitted for Next Level",
+                                                          description: `${issue.id} promoted to ${nextLevel}.`
+                                                        });
+                                                      }}
+                                                      style={{ padding: '5px 9px', fontSize: '11px', fontWeight: '700', color: '#2563EB', backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                                      title="Submit for Next Level"
+                                                    >
+                                                      <ArrowRight style={{ width: '12px', height: '12px' }} />
+                                                      <span>Submit Next Level</span>
+                                                    </button>
+
+                                                    {/* 3. Mark Completed */}
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setJobs(prev => prev.map(j => {
+                                                          if (j.id === job.id) {
+                                                            return {
+                                                              ...j,
+                                                              status: 'In Progress',
+                                                              issuesList: (j.issuesList || []).map(iss => iss.id === issue.id ? { ...iss, status: 'Completed', currentLevel: 'Completed & Signed Off' } : iss)
+                                                            };
+                                                          }
+                                                          return j;
+                                                        }));
+                                                        setToastMessage({
+                                                          title: "Issue Fast-Tracked & Signed Off",
+                                                          description: `${issue.id} marked as Completed & Signed Off by ${userRole.toUpperCase()}.`
+                                                        });
+                                                      }}
+                                                      style={{ padding: '5px 9px', fontSize: '11px', fontWeight: '700', color: '#15803D', backgroundColor: '#F0FDF4', border: '1px solid #BBF2D0', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                                      title="Mark Completed"
+                                                    >
+                                                      <CheckCircle style={{ width: '12px', height: '12px' }} />
+                                                      <span>Mark Completed</span>
+                                                    </button>
+
+                                                    {/* 4. Lineage History */}
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onOpenHistory && onOpenHistory(job);
+                                                      }}
+                                                      style={{ padding: '5px 9px', fontSize: '11px', fontWeight: '700', color: '#4338CA', backgroundColor: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                                      title="Lineage History"
+                                                    >
+                                                      <Eye style={{ width: '12px', height: '12px' }} />
+                                                      <span>Lineage History</span>
+                                                    </button>
+                                                  </>
+                                                )}
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
                                   </div>
-                                </div>
-                              ))}
+                                );
+                              })()}
+
                             </div>
                           </td>
                         </tr>
