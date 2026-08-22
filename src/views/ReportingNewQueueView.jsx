@@ -242,11 +242,6 @@ export default function ReportingNewQueueView({
 
   // Filter Jobs
   const filteredJobs = jobs.filter(job => {
-    if (viewMode === 'issue-cards' && concept2TabFilter !== 'all') {
-      if (concept2TabFilter === 'in-progress' && job.status !== 'In Progress') return false;
-      if (concept2TabFilter === 'not-started' && job.status !== 'Not Started') return false;
-      if (concept2TabFilter === 'completed' && job.status !== 'Completed') return false;
-    }
 
     if (selectedStatuses.length > 0 && !selectedStatuses.includes(job.status)) return false;
     if (searchQuery.trim()) {
@@ -448,70 +443,7 @@ export default function ReportingNewQueueView({
   return (
     <div className="full-width-queue">
 
-      {/* Concept 2 Granular Issue Lineage Tab-Based Filter Bar */}
-      {viewMode === 'issue-cards' && (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          padding: '6px',
-          backgroundColor: '#F8FAFC',
-          border: '1px solid #E2E8F0',
-          borderRadius: '10px',
-          marginBottom: '14px',
-          overflowX: 'auto'
-        }}>
-          {[
-            { id: 'in-progress', label: 'In Progress', count: jobs.filter(j => j.status === 'In Progress').length },
-            { id: 'not-started', label: 'Not Started', count: jobs.filter(j => j.status === 'Not Started').length },
-            { id: 'completed', label: 'Completed', count: jobs.filter(j => j.status === 'Completed').length },
-            { id: 'all', label: 'ALL', count: jobs.length }
-          ].map(tab => {
-            const isActive = concept2TabFilter === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setConcept2TabFilter(tab.id)}
-                style={{
-                  padding: '7px 14px',
-                  fontSize: '12px',
-                  fontWeight: isActive ? '800' : '600',
-                  color: isActive ? '#D8001D' : '#475569',
-                  backgroundColor: isActive ? '#ffffff' : 'transparent',
-                  border: isActive ? '1px solid #FECDD3' : '1px solid transparent',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  boxShadow: isActive ? '0 1px 3px rgba(216, 0, 29, 0.12)' : 'none',
-                  whiteSpace: 'nowrap',
-                  transition: 'all 0.15s ease'
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive) e.currentTarget.style.backgroundColor = '#F1F5F9';
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
-                }}
-              >
-                <span>{tab.label}</span>
-                <span style={{
-                  fontSize: '10.5px',
-                  fontWeight: '800',
-                  color: isActive ? '#ffffff' : '#64748B',
-                  backgroundColor: isActive ? '#D8001D' : '#E2E8F0',
-                  borderRadius: '10px',
-                  padding: '1px 7px',
-                  lineHeight: '1.2'
-                }}>
-                  {tab.count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
+
 
       {/* Slick Single-Row Filter Toolbar */}
       <div className="single-row-filter-panel" style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
@@ -788,7 +720,7 @@ export default function ReportingNewQueueView({
             <thead>
               <tr>
                 {/* 1. Job ID */}
-                {['default', 'persona-lens', 'roster-matrix', 'enhanced-lineage', 'issue-cards'].includes(viewMode) && (
+                {['default', 'persona-lens', 'roster-matrix', 'enhanced-lineage'].includes(viewMode) && (
                   <th onClick={() => handleSort('id')} style={{ cursor: 'pointer' }}>
                     <div className="th-content">
                       <span>Job ID</span>
