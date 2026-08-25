@@ -349,14 +349,9 @@ export default function App() {
                       animation: 'fadeIn 0.15s ease-out'
                     }}>
                       {[
-                        { id: 'default', label: 'Default View' },
-                        { id: 'with-substatus', label: 'With Sub-Status' },
-                        { id: 'inline-action', label: 'Inline Action Buttons' },
-                        { id: 'concept1-edge-to-edge', label: 'Concept 1: Seamless Edge-to-Edge Workbench' },
-                        { id: 'tree-table', label: 'Concept 2: Hierarchical Tree-Table' },
-                        { id: 'split-pane', label: 'Concept 3: Split-Pane / Slide-over Workbench Panel' },
-                        { id: 'issue-cards', label: 'Concept 2: Granular Issue Lineage' },
-                        { id: 'enhanced-lineage', label: 'Enhanced Granular Issue Lineage Card' }
+                        { id: 'concept1-edge-to-edge', label: 'Expanding View' },
+                        { id: 'split-pane', label: 'Split View' },
+                        { id: 'with-substatus', label: 'Drawer View' }
                       ].map(option => (
                         <button
                           key={option.id}

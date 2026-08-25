@@ -347,16 +347,32 @@ table {
   width: 100%;
 }
 
-/* Hide scrollbar visually while preserving full scroll functionality for Reporting (New) */
+/* Sleek visible scrollbar for Reporting (New) table container */
 .full-width-queue .table-scroll-body {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+  -ms-overflow-style: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E1 #F8FAFC;
 }
 
 .full-width-queue .table-scroll-body::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
+  display: block;
+  width: 8px;
+  height: 8px;
+}
+
+.full-width-queue .table-scroll-body::-webkit-scrollbar-track {
+  background: #F1F5F9;
+  border-radius: 4px;
+}
+
+.full-width-queue .table-scroll-body::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+  border: 1px solid #F1F5F9;
+}
+
+.full-width-queue .table-scroll-body::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
 }
 
 .table-scroll-body table {
@@ -366,13 +382,13 @@ table {
   font-size: 13px;
 }
 
-/* Medium Slate Table Header with Preserved Red Bottom Accent Line */
-.table-scroll-body th {
+/* Primary Main Table Header with Red Bottom Accent Line */
+.full-width-queue .table-scroll-body > table > thead > tr > th {
   position: sticky;
   top: 0;
   z-index: 10;
   background: linear-gradient(180deg, #F1F5F9 0%, #E2E8F0 100%);
-  border-bottom: 2px solid #D8001D !important;
+  border-bottom: none !important;
   border-top: none !important;
   border-left: none !important;
   border-right: none !important;
@@ -382,14 +398,77 @@ table {
   text-transform: uppercase;
   letter-spacing: 0.8px;
   padding: 16px 18px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  box-shadow: inset 0 -2px 0 0 #D8001D, 0 2px 4px rgba(0, 0, 0, 0.04) !important;
   user-select: none;
 }
 
-/* Reporting (New): Ensure red bottom accent line remains 100% visible on sticky th during scroll */
-.full-width-queue .table-scroll-body th {
-  box-shadow: inset 0 -2px 0 0 #D8001D, 0 2px 4px rgba(0, 0, 0, 0.04) !important;
-  border-bottom: none !important;
+.full-width-queue .table-scroll-body > table > thead > tr > th:hover {
+  background: #CBD5E1;
+  color: #D8001D;
+}
+
+/* Dedicated Inner Sub-Table Styling inside Expanded Workspace (No Header Hover) */
+.inner-sub-table,
+.expanded-drawer-row table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #ffffff;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.full-width-queue .table-scroll-body table.inner-sub-table th,
+.full-width-queue .table-scroll-body table.inner-sub-table thead tr th,
+.inner-sub-table th,
+.expanded-drawer-row table th {
+  position: static !important;
+  background: #F9FAFB !important;
+  background-color: #F9FAFB !important;
+  color: #475569 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  padding: 10px 14px !important;
+  border-bottom: 1px solid #E2E8F0 !important;
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  box-shadow: none !important;
+  cursor: default !important;
+  user-select: none;
+}
+
+.full-width-queue .table-scroll-body table.inner-sub-table th:hover,
+.full-width-queue .table-scroll-body table.inner-sub-table thead tr th:hover,
+.inner-sub-table th:hover,
+.expanded-drawer-row table th:hover {
+  background: #F9FAFB !important;
+  background-color: #F9FAFB !important;
+  color: #475569 !important;
+  box-shadow: none !important;
+  cursor: default !important;
+}
+
+/* Sub-table body row hover state */
+.inner-sub-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.inner-sub-table tbody tr:hover {
+  background-color: #F8FAFC !important;
+}
+
+/* Sub-table row action buttons hidden by default, visible on row hover */
+.inner-sub-table tbody tr .inner-row-action-buttons {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+}
+
+.inner-sub-table tbody tr:hover .inner-row-action-buttons {
+  opacity: 1;
+  visibility: visible;
 }
 
 .th-content {
@@ -426,8 +505,27 @@ table {
   border-left: 3px solid transparent;
 }
 
+/* When ANY row is expanded, ALL audit rows in the queue take tinted background (#F8FAFC) */
+.has-expanded-row tr.table-row-interactive,
+.has-expanded-row tr.table-row-interactive > td {
+  background-color: #F8FAFC !important;
+}
+
+/* The expanded parent row retains red left accent border */
+.table-row-interactive.row-expanded,
+.table-row-interactive.row-expanded > td {
+  background-color: #F8FAFC !important;
+  border-left-color: #D8001D !important;
+}
+
+/* Expanded drawer container: takes pure solid white (#ffffff) background workspace */
+.expanded-drawer-row,
+.expanded-drawer-row > td {
+  background-color: #ffffff !important;
+}
+
 /* Hover: Soft background (#FFF5F6), NO left border shape, subtle right chevron shift */
-.table-row-interactive:hover {
+.table-row-interactive:hover:not(.row-expanded) {
   background-color: #FFF5F6;
   border-left-color: transparent;
 }
