@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, Sparkles, RefreshCw, MessageSquare, AlertCircle, 
-  CheckCircle2, Plus, ArrowRight, ShieldCheck, DollarSign, UserPlus, AlertOctagon, GitCompare, Check, ChevronDown, AlertTriangle
+  CheckCircle2, Plus, ArrowRight, ShieldCheck, DollarSign, UserPlus, AlertOctagon, GitCompare, Check, ChevronDown, AlertTriangle, Eye
 } from 'lucide-react';
 
 // Custom Enterprise SaaS Form Select Dropdown
@@ -211,7 +211,8 @@ export default function CreateIssueDrawerNew({
   onClose,
   onSaveDiscussionPoint,
   defaultFunction = 'IT',
-  initialData = null
+  initialData = null,
+  isReadOnly = false
 }) {
   // Manual Entry Section State
   const [formData, setFormData] = useState({
@@ -391,6 +392,14 @@ export default function CreateIssueDrawerNew({
       alert("Please enter an Issue Header before saving.");
       return;
     }
+    if (!formData.originalIssue.trim()) {
+      alert("Please enter the Original Issue before saving.");
+      return;
+    }
+    if (!formData.tech) {
+      alert("Please select Tech (IT or FinOps) before saving.");
+      return;
+    }
 
     const savedPoint = {
       id: initialData ? initialData.id : `${Date.now().toString().slice(-3)}`,
@@ -444,8 +453,15 @@ export default function CreateIssueDrawerNew({
             backgroundColor: '#0F172A',
             color: '#ffffff'
           }}>
-            <h2 style={{ fontSize: '17px', fontWeight: '800', margin: 0 }}>
-              {initialData ? "Edit Issue" : "Add Issue"}
+            <h2 style={{ fontSize: '17px', fontWeight: '800', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {isReadOnly ? (
+                <>
+                  <Eye style={{ width: '18px', height: '18px', color: '#60A5FA' }} />
+                  <span>View Issue (Read-Only)</span>
+                </>
+              ) : (
+                initialData ? "Edit Issue" : "Add Issue"
+              )}
             </h2>
 
             <button
@@ -461,6 +477,24 @@ export default function CreateIssueDrawerNew({
             >
               <X style={{ width: '18px', height: '18px' }} />
             </button>
+          </div>
+        )}
+
+        {/* Read-Only Banner */}
+        {isReadOnly && (
+          <div style={{
+            padding: '10px 24px',
+            backgroundColor: '#FEF3C7',
+            borderBottom: '1px solid #FCD34D',
+            color: '#92400E',
+            fontSize: '12px',
+            fontWeight: '700',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <Eye style={{ width: '15px', height: '15px', color: '#D97706' }} />
+            <span>Read-Only View Mode: You belong to a different domain role and do not have edit permissions for this issue.</span>
           </div>
         )}
 
@@ -544,7 +578,7 @@ export default function CreateIssueDrawerNew({
                 <div>
                   <FormRadioButtonGroup
                     label="Criticality"
-                    required={true}
+                    required={false}
                     value={formData.criticality}
                     onChange={(val) => handleChange('criticality', val)}
                     options={['Critical', 'Major', 'Minor']}
@@ -557,7 +591,7 @@ export default function CreateIssueDrawerNew({
                   <div>
                     <FormRadioButtonGroup
                       label="Repeat Finding"
-                      required={true}
+                      required={false}
                       value={formData.repeatFinding}
                       onChange={(val) => handleChange('repeatFinding', val)}
                       options={['No', 'Yes']}
@@ -567,7 +601,7 @@ export default function CreateIssueDrawerNew({
                   <div>
                     <FormRadioButtonGroup
                       label="SOX Reportable"
-                      required={true}
+                      required={false}
                       value={formData.soxReportable}
                       onChange={(val) => handleChange('soxReportable', val)}
                       options={['No', 'Yes']}
@@ -590,7 +624,7 @@ export default function CreateIssueDrawerNew({
                   <div>
                     <FormSelectDropdown
                       label="Accountable Function"
-                      required={true}
+                      required={false}
                       value={formData.accountableFunction}
                       onChange={(val) => handleChange('accountableFunction', val)}
                       options={['IT', 'FinOps']}
@@ -604,7 +638,7 @@ export default function CreateIssueDrawerNew({
                   <div>
                     <FormSelectDropdown
                       label="Process Area"
-                      required={true}
+                      required={false}
                       value={formData.processArea}
                       onChange={(val) => handleChange('processArea', val)}
                       options={[
@@ -621,7 +655,7 @@ export default function CreateIssueDrawerNew({
                   <div>
                     <FormSelectDropdown
                       label="Issue Cause Type"
-                      required={true}
+                      required={false}
                       value={formData.issueCauseType}
                       onChange={(val) => handleChange('issueCauseType', val)}
                       options={[
@@ -1063,8 +1097,41 @@ export default function CreateIssueDrawerNew({
 
         </div>
 
+        {/* Read-Only Footer Bar */}
+        {isReadOnly && (
+          <div style={{
+            padding: '14px 28px',
+            borderTop: '1px solid #E2E8F0',
+            backgroundColor: '#ffffff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            gap: '12px',
+            boxShadow: '0 -4px 12px rgba(15, 23, 42, 0.05)',
+            flexShrink: 0
+          }}>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                height: '40px',
+                padding: '0 24px',
+                fontSize: '13px',
+                fontWeight: '800',
+                color: '#1E293B',
+                backgroundColor: '#F1F5F9',
+                border: '1px solid #CBD5E1',
+                borderRadius: '8px',
+                cursor: 'pointer'
+              }}
+            >
+              Close Drawer
+            </button>
+          </div>
+        )}
+
         {/* Fixed Bottom Drawer Footer Bar (Shown Only After AI Generation in Step 2, Hidden during Version Comparison) */}
-        {isAiGenerated && !isComparing && (
+        {!isReadOnly && isAiGenerated && !isComparing && (
           <div style={{
             padding: '14px 28px',
             borderTop: '1px solid #E2E8F0',

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft, Plus, Minus, Download, Save, Send, GitBranch, History, 
   AlertOctagon, CheckCircle2, RefreshCw, FileText, ArrowUp, ArrowDown, Sparkles,
-  MoreVertical, Check, Layout, Columns, PanelLeft, Layers, X
+  MoreVertical, Check, Layout, Columns, PanelLeft, Layers, X,
+  ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 import { mockAuditReportIssues } from '../data/reportIssuesData';
 
@@ -13,8 +14,55 @@ export default function WorkOnReportView({ job, onClose }) {
   const [isTrackChangesActive, setIsTrackChangesActive] = useState(false);
 
   // Multi-Design Mode State ('default', '3pane', 'slideover', 'tabbed')
-  const [designMode, setDesignMode] = useState('default');
+  const [designMode, setDesignMode] = useState('3pane');
   const [isDesignMenuOpen, setIsDesignMenuOpen] = useState(false);
+
+  // 3-Pane Resizable Widths & Collapse States
+  const [pane1Width, setPane1Width] = useState(24); // percentage (12% to 45%)
+  const [pane2Width, setPane2Width] = useState(36); // percentage (15% to 55%)
+
+  const [isPane1Collapsed, setIsPane1Collapsed] = useState(false);
+  const [isPane2Collapsed, setIsPane2Collapsed] = useState(false);
+  const [isPane3Collapsed, setIsPane3Collapsed] = useState(false);
+
+  const [isDraggingSplitter1, setIsDraggingSplitter1] = useState(false);
+  const [isDraggingSplitter2, setIsDraggingSplitter2] = useState(false);
+  const [hoveredSplitter, setHoveredSplitter] = useState(null);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!containerRef.current) return;
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const containerWidth = containerRect.width;
+
+      if (isDraggingSplitter1) {
+        const mouseX = e.clientX - containerRect.left;
+        const newPct = Math.min(Math.max((mouseX / containerWidth) * 100, 12), 45);
+        setPane1Width(Math.round(newPct));
+      } else if (isDraggingSplitter2) {
+        const mouseX = e.clientX - containerRect.left;
+        const pane1Px = isPane1Collapsed ? 36 : (containerWidth * (pane1Width / 100));
+        const availablePx = mouseX - pane1Px;
+        const newPct = Math.min(Math.max((availablePx / containerWidth) * 100, 15), 55);
+        setPane2Width(Math.round(newPct));
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingSplitter1(false);
+      setIsDraggingSplitter2(false);
+    };
+
+    if (isDraggingSplitter1 || isDraggingSplitter2) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDraggingSplitter1, isDraggingSplitter2, pane1Width, isPane1Collapsed]);
 
   // Slide-over & Tabbed Modal Active Tab States
   const [slideoverTab, setSlideoverTab] = useState('metadata'); // 'metadata', 'analysis', 'actions'
@@ -675,7 +723,15 @@ export default function WorkOnReportView({ job, onClose }) {
       </div>
 
       {/* DYNAMIC DESIGN WORKSPACE RENDERER */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+      <div
+        ref={containerRef}
+        style={{
+          flex: 1,
+          display: 'flex',
+          overflow: 'hidden',
+          userSelect: (isDraggingSplitter1 || isDraggingSplitter2) ? 'none' : 'auto'
+        }}
+      >
         
         {/* ============================================================== */}
         {/* MODE 1: DEFAULT INLINE EXPANDED TABLE LAYOUT                  */}
@@ -693,7 +749,7 @@ export default function WorkOnReportView({ job, onClose }) {
                       <th style={{ padding: '12px 16px', fontWeight: '800', width: '80px' }}>Function</th>
                       <th style={{ padding: '12px 16px', fontWeight: '800', width: '130px' }}>Process Area</th>
                       <th style={{ padding: '12px 16px', fontWeight: '800', width: '90px' }}>Criticality</th>
-                      <th style={{ padding: '12px 16px', fontWeight: '800', width: '110px' }}>Status</th>
+                      <th style={{ padding: '12px 16px', fontWeight: '800', width: '90px' }}>Status</th>
                       <th style={{ padding: '12px 16px', fontWeight: '800', width: '60px', textAlign: 'center' }}>Reorder</th>
                     </tr>
                   </thead>
@@ -703,19 +759,20 @@ export default function WorkOnReportView({ job, onClose }) {
                       return (
                         <React.Fragment key={item.id}>
                           <tr style={{ borderBottom: '1px solid #E2E8F0', backgroundColor: isExpanded ? '#FFF5F6' : 'transparent', transition: 'background-color 0.15s ease' }}>
-                            <td style={{ padding: '14px 8px', textAlign: 'center' }}>
-                              <button onClick={() => setExpandedIssueId(isExpanded ? null : item.id)} style={{ border: 'none', background: 'none', color: '#D8001D', cursor: 'pointer', fontWeight: '900', fontSize: '15px' }}>
+                            <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                              <button
+                                onClick={() => setExpandedIssueId(isExpanded ? null : item.id)}
+                                style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#D8001D' }}
+                              >
                                 {isExpanded ? <Minus style={{ width: '15px', height: '15px' }} /> : <Plus style={{ width: '15px', height: '15px' }} />}
                               </button>
                             </td>
-                            <td onClick={() => setExpandedIssueId(isExpanded ? null : item.id)} style={{ padding: '14px 16px', fontWeight: '700', color: isExpanded ? '#D8001D' : '#0F172A', cursor: 'pointer', lineHeight: '1.4' }}>
-                              {item.title}
-                            </td>
-                            <td style={{ padding: '14px 16px', color: '#475569', fontWeight: '600' }}>{item.function}</td>
-                            <td style={{ padding: '14px 16px', color: '#475569' }}>{item.processArea}</td>
-                            <td style={{ padding: '14px 16px' }}>{renderCriticalityBadge(item.criticality)}</td>
-                            <td style={{ padding: '14px 16px' }}>{renderStatusBadge(item.status)}</td>
-                            <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                            <td style={{ padding: '12px 16px', fontWeight: '700', color: '#0F172A' }}>{item.title}</td>
+                            <td style={{ padding: '12px 16px', color: '#475569' }}>{item.function}</td>
+                            <td style={{ padding: '12px 16px', color: '#475569' }}>{item.processArea}</td>
+                            <td style={{ padding: '12px 16px' }}>{renderCriticalityBadge(item.criticality)}</td>
+                            <td style={{ padding: '12px 16px' }}>{renderStatusBadge(item.status)}</td>
+                            <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                                 <button onClick={() => handleMoveIssue(idx, 'up')} disabled={idx === 0} style={{ border: 'none', background: 'none', cursor: idx === 0 ? 'default' : 'pointer', color: idx === 0 ? '#CBD5E1' : '#475569' }}>
                                   <ArrowUp style={{ width: '14px', height: '14px' }} />
@@ -760,69 +817,271 @@ export default function WorkOnReportView({ job, onClose }) {
         {/* ============================================================== */}
         {designMode === '3pane' && (
           <>
-            {/* Pane 1: Master Issue Cards List (22%) */}
-            <div style={{ width: '22%', borderRight: '1px solid #CBD5E1', backgroundColor: '#F8FAFC', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              <div style={{ padding: '14px 16px', borderBottom: '1px solid #E2E8F0', backgroundColor: '#ffffff' }}>
-                <h3 style={{ fontSize: '13px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
-                  Master Issues List ({issues.length})
-                </h3>
+            {/* PANE 1: Master Issue Cards List */}
+            {isPane1Collapsed ? (
+              <div style={{
+                width: '36px',
+                minWidth: '36px',
+                backgroundColor: '#F8FAFC',
+                borderRight: '1px solid #CBD5E1',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                paddingTop: '10px',
+                gap: '16px',
+                userSelect: 'none',
+                flexShrink: 0
+              }}>
+                <button
+                  onClick={() => setIsPane1Collapsed(false)}
+                  title="Expand Master Issues List"
+                  style={{
+                    width: '26px',
+                    height: '26px',
+                    borderRadius: '6px',
+                    border: '1px solid #CBD5E1',
+                    backgroundColor: '#ffffff',
+                    color: '#2563EB',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <PanelLeftOpen style={{ width: '14px', height: '14px' }} />
+                </button>
+                <div style={{
+                  writingMode: 'vertical-rl',
+                  transform: 'rotate(180deg)',
+                  fontSize: '10.5px',
+                  fontWeight: '800',
+                  color: '#475569',
+                  letterSpacing: '1px',
+                  whiteSpace: 'nowrap'
+                }}>
+                  MASTER LIST ({issues.length})
+                </div>
               </div>
+            ) : (
+              <div style={{
+                width: `${pane1Width}%`,
+                minWidth: '160px',
+                maxWidth: '500px',
+                borderRight: '1px solid #CBD5E1',
+                backgroundColor: '#F8FAFC',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                flexShrink: 0
+              }}>
+                <div style={{ padding: '12px 14px', borderBottom: '1px solid #E2E8F0', backgroundColor: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <h3 style={{ fontSize: '12.5px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
+                    Master Issues List ({issues.length})
+                  </h3>
+                  <button
+                    onClick={() => setIsPane1Collapsed(true)}
+                    title="Collapse Pane 1"
+                    style={{
+                      padding: '4px',
+                      borderRadius: '4px',
+                      border: '1px solid #E2E8F0',
+                      backgroundColor: '#F8FAFC',
+                      color: '#64748B',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <PanelLeftClose style={{ width: '14px', height: '14px' }} />
+                  </button>
+                </div>
 
-              <div style={{ flex: 1, overflowY: 'auto', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {issues.map(item => {
-                  const isSelected = expandedIssueId === item.id;
-                  return (
-                    <div
-                      key={item.id}
-                      onClick={() => setExpandedIssueId(isSelected ? null : item.id)}
-                      style={{
-                        padding: '12px 14px',
-                        borderRadius: '8px',
-                        backgroundColor: '#ffffff',
-                        border: isSelected ? '2px solid #2563EB' : '1px solid #E2E8F0',
-                        boxShadow: isSelected ? '0 4px 12px rgba(37,99,235,0.15)' : '0 1px 3px rgba(0,0,0,0.03)',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s ease'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                        <span style={{ fontSize: '11px', fontWeight: '800', color: isSelected ? '#2563EB' : '#64748B' }}>{item.id}</span>
-                        {renderCriticalityBadge(item.criticality)}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {issues.map(item => {
+                    const isSelected = expandedIssueId === item.id;
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => setExpandedIssueId(isSelected ? null : item.id)}
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          backgroundColor: '#ffffff',
+                          border: isSelected ? '2px solid #2563EB' : '1px solid #E2E8F0',
+                          boxShadow: isSelected ? '0 4px 12px rgba(37,99,235,0.15)' : '0 1px 3px rgba(0,0,0,0.03)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '11px', fontWeight: '800', color: isSelected ? '#2563EB' : '#64748B' }}>{item.id}</span>
+                          {renderCriticalityBadge(item.criticality)}
+                        </div>
+                        <h4 style={{ fontSize: '12px', fontWeight: '700', color: '#0F172A', lineHeight: '1.3', margin: '0 0 4px 0' }}>
+                          {item.title}
+                        </h4>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '10.5px', color: '#64748B' }}>
+                          <span>{item.function}</span>
+                          {renderStatusBadge(item.status)}
+                        </div>
                       </div>
-                      <h4 style={{ fontSize: '12px', fontWeight: '700', color: '#0F172A', lineHeight: '1.3', margin: '0 0 6px 0' }}>
-                        {item.title}
-                      </h4>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: '#64748B' }}>
-                        <span>{item.function}</span>
-                        {renderStatusBadge(item.status)}
-                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* SPLITTER HANDLE 1 */}
+            {!isPane1Collapsed && !isPane2Collapsed && (
+              <div
+                onMouseDown={(e) => { e.preventDefault(); setIsDraggingSplitter1(true); }}
+                onMouseEnter={() => setHoveredSplitter(1)}
+                onMouseLeave={() => setHoveredSplitter(null)}
+                title="Click and drag to resize Pane 1 width"
+                style={{
+                  width: '6px',
+                  backgroundColor: (isDraggingSplitter1 || hoveredSplitter === 1) ? '#3B82F6' : '#E2E8F0',
+                  cursor: 'col-resize',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'background-color 0.15s ease',
+                  zIndex: 20,
+                  flexShrink: 0
+                }}
+              >
+                <div style={{
+                  width: '2px',
+                  height: '24px',
+                  borderRadius: '1px',
+                  backgroundColor: (isDraggingSplitter1 || hoveredSplitter === 1) ? '#ffffff' : '#94A3B8'
+                }} />
+              </div>
+            )}
+
+            {/* PANE 2: Form Editor */}
+            {isPane2Collapsed ? (
+              <div style={{
+                width: '36px',
+                minWidth: '36px',
+                backgroundColor: '#FAFAFA',
+                borderRight: '1px solid #CBD5E1',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                paddingTop: '10px',
+                gap: '16px',
+                userSelect: 'none',
+                flexShrink: 0
+              }}>
+                <button
+                  onClick={() => setIsPane2Collapsed(false)}
+                  title="Expand Form Editor"
+                  style={{
+                    width: '26px',
+                    height: '26px',
+                    borderRadius: '6px',
+                    border: '1px solid #CBD5E1',
+                    backgroundColor: '#ffffff',
+                    color: '#2563EB',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <PanelLeftOpen style={{ width: '14px', height: '14px' }} />
+                </button>
+                <div style={{
+                  writingMode: 'vertical-rl',
+                  transform: 'rotate(180deg)',
+                  fontSize: '10.5px',
+                  fontWeight: '800',
+                  color: '#475569',
+                  letterSpacing: '1px',
+                  whiteSpace: 'nowrap'
+                }}>
+                  FORM EDITOR
+                </div>
+              </div>
+            ) : (
+              <div style={{
+                width: `${pane2Width}%`,
+                minWidth: '200px',
+                borderRight: '1px solid #CBD5E1',
+                backgroundColor: '#FAFAFA',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                flexShrink: 0
+              }}>
+                <div style={{ padding: '12px 14px', borderBottom: '1px solid #E2E8F0', backgroundColor: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <h3 style={{ fontSize: '12.5px', fontWeight: '800', color: '#0F172A', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {selectedIssue ? `Form Editor: ${selectedIssue.id}` : "Select an Issue from Master List"}
+                  </h3>
+                  <button
+                    onClick={() => setIsPane2Collapsed(true)}
+                    title="Collapse Pane 2"
+                    style={{
+                      padding: '4px',
+                      borderRadius: '4px',
+                      border: '1px solid #E2E8F0',
+                      backgroundColor: '#F8FAFC',
+                      color: '#64748B',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}
+                  >
+                    <PanelLeftClose style={{ width: '14px', height: '14px' }} />
+                  </button>
+                </div>
+
+                {selectedIssue ? (
+                  <div style={{ flex: 1, overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {renderActionToolbar(selectedIssue.id)}
+                    <div style={{ backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '8px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {renderFormFields(selectedIssue)}
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Pane 2: Issue Form Editor Pane (33%) */}
-            <div style={{ width: '33%', borderRight: '1px solid #CBD5E1', backgroundColor: '#FAFAFA', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              <div style={{ padding: '14px 16px', borderBottom: '1px solid #E2E8F0', backgroundColor: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ fontSize: '13px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
-                  {selectedIssue ? `Form Editor: ${selectedIssue.id}` : "Select an Issue from Master List"}
-                </h3>
-              </div>
-
-              {selectedIssue ? (
-                <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {renderActionToolbar(selectedIssue.id)}
-                  <div style={{ backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    {renderFormFields(selectedIssue)}
                   </div>
-                </div>
-              ) : (
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', fontSize: '13px', padding: '20px', textAlign: 'center' }}>
-                  👈 Click any issue on the Master List to view &amp; edit its fields here while keeping live PDF preview open!
-                </div>
-              )}
-            </div>
+                ) : (
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', fontSize: '12px', padding: '20px', textAlign: 'center' }}>
+                    👈 Click any issue on the Master List to view &amp; edit its fields here while keeping live PDF preview open!
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SPLITTER HANDLE 2 */}
+            {!isPane2Collapsed && !isPane3Collapsed && (
+              <div
+                onMouseDown={(e) => { e.preventDefault(); setIsDraggingSplitter2(true); }}
+                onMouseEnter={() => setHoveredSplitter(2)}
+                onMouseLeave={() => setHoveredSplitter(null)}
+                title="Click and drag to resize Form Editor width"
+                style={{
+                  width: '6px',
+                  backgroundColor: (isDraggingSplitter2 || hoveredSplitter === 2) ? '#3B82F6' : '#E2E8F0',
+                  cursor: 'col-resize',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'background-color 0.15s ease',
+                  zIndex: 20,
+                  flexShrink: 0
+                }}
+              >
+                <div style={{
+                  width: '2px',
+                  height: '24px',
+                  borderRadius: '1px',
+                  backgroundColor: (isDraggingSplitter2 || hoveredSplitter === 2) ? '#ffffff' : '#94A3B8'
+                }} />
+              </div>
+            )}
           </>
         )}
 
@@ -1109,19 +1368,90 @@ export default function WorkOnReportView({ job, onClose }) {
         )}
 
         {/* ============================================================== */}
-        {/* RIGHT COLUMN: LIVE HTML PDF-STYLE REPORT PREVIEW               */}
+        {/* PANE 3 / RIGHT COLUMN: LIVE HTML PDF-STYLE REPORT PREVIEW       */}
         {/* ============================================================== */}
-        <div style={{
-          width: '50%',
-          backgroundColor: '#52525B',
-          padding: '28px 24px',
-          overflowY: 'auto',
-          maxHeight: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          boxSizing: 'border-box'
-        }}>
+        {designMode === '3pane' && isPane3Collapsed ? (
+          <div style={{
+            width: '36px',
+            minWidth: '36px',
+            backgroundColor: '#27272A',
+            borderLeft: '1px solid #52525B',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            paddingTop: '10px',
+            gap: '16px',
+            userSelect: 'none',
+            flexShrink: 0
+          }}>
+            <button
+              onClick={() => setIsPane3Collapsed(false)}
+              title="Expand Report Preview"
+              style={{
+                width: '26px',
+                height: '26px',
+                borderRadius: '6px',
+                border: '1px solid #52525B',
+                backgroundColor: '#3F3F46',
+                color: '#ffffff',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <PanelLeftOpen style={{ width: '14px', height: '14px' }} />
+            </button>
+            <div style={{
+              writingMode: 'vertical-rl',
+              transform: 'rotate(180deg)',
+              fontSize: '10.5px',
+              fontWeight: '800',
+              color: '#A1A1AA',
+              letterSpacing: '1px',
+              whiteSpace: 'nowrap'
+            }}>
+              REPORT PREVIEW
+            </div>
+          </div>
+        ) : (
+          <div style={{
+            flex: designMode === '3pane' ? 1 : 'none',
+            width: designMode === '3pane' ? 'auto' : '50%',
+            backgroundColor: '#52525B',
+            padding: '24px 20px',
+            overflowY: 'auto',
+            maxHeight: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            boxSizing: 'border-box',
+            position: 'relative'
+          }}>
+            {designMode === '3pane' && (
+              <div style={{ width: '100%', maxWidth: '840px', display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+                <button
+                  onClick={() => setIsPane3Collapsed(true)}
+                  title="Collapse Report Preview Pane"
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    borderRadius: '6px',
+                    border: '1px solid #71717A',
+                    backgroundColor: '#3F3F46',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <span>Collapse Preview</span>
+                  <ChevronRight style={{ width: '13px', height: '13px' }} />
+                </button>
+              </div>
+            )}
           
           {/* Outer PDF Paper Container */}
           <div style={{
@@ -1199,6 +1529,7 @@ export default function WorkOnReportView({ job, onClose }) {
           </div>
 
         </div>
+        )}
 
       </div>
 

@@ -77,7 +77,7 @@ export default function App() {
   };
 
   // Application Active User Role: 'auditor' | 'team-coordinator' | 'manager' | 'director' | 'vp' | 'business-head' | 'primary-business-contact'
-  const [userRole, setUserRole] = useState('manager');
+  const [userRole, setUserRole] = useState('it-manager');
 
   // Audit Queue Title Banner Dropdown State: 'default' | 'with-substatus' | 'inline-action' | 'expand-action' | 'issue-cards'
   const [auditQueueViewMode, setAuditQueueViewMode] = useState('concept1-edge-to-edge');

@@ -2,13 +2,23 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Bell, ChevronDown, Check, Shield, UserCheck } from 'lucide-react';
 
 export const APPLICATION_ROLES = [
-  { id: 'auditor', label: 'Auditor', category: 'Hierarchical', scope: 'Issues Only' },
-  { id: 'team-coordinator', label: 'Team Co-Ordinator', category: 'Hierarchical', scope: 'Issues, Audit & Summary' },
-  { id: 'manager', label: 'Manager', category: 'Hierarchical', scope: 'Issues, Audit & Summary' },
-  { id: 'director', label: 'Director', category: 'Hierarchical', scope: 'Issues, Audit & Summary' },
-  { id: 'vp', label: 'VP', category: 'Hierarchical', scope: 'Issues, Audit & Summary' },
-  { id: 'business-head', label: 'Business Head', category: 'Case-Based', scope: 'Issues, Audit & Summary' },
-  { id: 'primary-business-contact', label: 'Primary Business Contact', category: 'Case-Based', scope: 'Issues, Audit & Summary' }
+  // IT Roles
+  { id: 'it-auditor', label: 'IT Auditor', category: 'IT Roles', scope: 'Issues Only', domain: 'IT', baseRole: 'auditor' },
+  { id: 'it-team-coordinator', label: 'IT Team Co-Ordinator', category: 'IT Roles', scope: 'Issues, Audit & Summary', domain: 'IT', baseRole: 'team-coordinator' },
+  { id: 'it-manager', label: 'IT Manager', category: 'IT Roles', scope: 'Issues, Audit & Summary', domain: 'IT', category: 'IT Roles', scope: 'Issues, Audit & Summary', baseRole: 'manager' },
+  { id: 'it-director', label: 'IT Director', category: 'IT Roles', scope: 'Issues, Audit & Summary', domain: 'IT', baseRole: 'director' },
+  { id: 'it-vp', label: 'IT VP', category: 'IT Roles', scope: 'Issues, Audit & Summary', domain: 'IT', baseRole: 'vp' },
+
+  // FinOps Roles
+  { id: 'finops-auditor', label: 'FinOps Auditor', category: 'FinOps Roles', scope: 'Issues Only', domain: 'FinOps', baseRole: 'auditor' },
+  { id: 'finops-team-coordinator', label: 'FinOps Team Co-Ordinator', category: 'FinOps Roles', scope: 'Issues, Audit & Summary', domain: 'FinOps', baseRole: 'team-coordinator' },
+  { id: 'finops-manager', label: 'FinOps Manager', category: 'FinOps Roles', scope: 'Issues, Audit & Summary', domain: 'FinOps', baseRole: 'manager' },
+  { id: 'finops-director', label: 'FinOps Director', category: 'FinOps Roles', scope: 'Issues, Audit & Summary', domain: 'FinOps', baseRole: 'director' },
+  { id: 'finops-vp', label: 'FinOps VP', category: 'FinOps Roles', scope: 'Issues, Audit & Summary', domain: 'FinOps', baseRole: 'vp' },
+
+  // Case-Based Roles
+  { id: 'business-head', label: 'Business Head', category: 'Case-Based', scope: 'Issues, Audit & Summary', domain: 'All', baseRole: 'business-head' },
+  { id: 'primary-business-contact', label: 'Primary Business Contact', category: 'Case-Based', scope: 'Issues, Audit & Summary', domain: 'All', baseRole: 'primary-business-contact' }
 ];
 
 export default function Header({ currentPhase, onPhaseChange, userRole = 'manager', onRoleChange }) {

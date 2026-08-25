@@ -46,7 +46,6 @@ export default function ReportingNewQueueView({
   onWorkOnReport,
   onOpenHistory
 }) {
-  const isAuditor = userRole === 'auditor';
   const [jobs, setJobs] = useState(mockReportingNewJobs);
 
   // Concept 2 Granular Issue Lineage Tab Filter State
@@ -57,6 +56,7 @@ export default function ReportingNewQueueView({
   // Direct Create Issue Drawer State for Auditor 'Not Started' Jobs
   const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
   const [selectedJobForIssue, setSelectedJobForIssue] = useState(null);
+  const [editingIssueData, setEditingIssueData] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
 
   // Send to Dropdown State
@@ -98,11 +98,93 @@ export default function ReportingNewQueueView({
       }
       return j;
     }));
-    setToastMessage && setToastMessage({
+    setToastMessage({
       title: `Issue Sent to ${targetStageObj.role}`,
       description: `Issue ${issueId} current stage updated to ${targetStageObj.label}.`
     });
     setSendToDropdownIssueId(null);
+  };
+
+  const getRoleDetails = (roleId) => {
+    const rLower = (roleId || '').toLowerCase();
+    const isIT = rLower.includes('it-') || rLower.startsWith('it');
+    const isFinOps = rLower.includes('finops');
+    const domain = isIT ? 'IT' : isFinOps ? 'FinOps' : 'All';
+
+    let baseRole = 'manager';
+    if (rLower.includes('auditor')) baseRole = 'auditor';
+    else if (rLower.includes('coordinator') || rLower.includes('team-coordinator')) baseRole = 'team-coordinator';
+    else if (rLower.includes('manager')) baseRole = 'manager';
+    else if (rLower.includes('director')) baseRole = 'director';
+    else if (rLower.includes('vp')) baseRole = 'vp';
+
+    return { domain, baseRole };
+  };
+
+  const userRoleDetails = getRoleDetails(userRole);
+  const isAuditor = userRoleDetails.baseRole === 'auditor';
+
+  const canEditIssue = (issueObj) => {
+    const { baseRole, domain } = userRoleDetails;
+    // Director and VP have no domain restrictions
+    if (baseRole === 'director' || baseRole === 'vp' || domain === 'All') {
+      return true;
+    }
+
+    // Auditor, Team Co-ordinator, and Manager can only edit issues in their domain
+    const issueDomain = (issueObj.tech || issueObj.function || 'IT').toUpperCase();
+    if (domain.toUpperCase() === 'IT') {
+      return issueDomain === 'IT';
+    } else if (domain.toUpperCase() === 'FINOPS') {
+      return issueDomain === 'FINOPS';
+    }
+    return true;
+  };
+
+  const [isViewOnlyDrawerMode, setIsViewOnlyDrawerMode] = useState(false);
+
+  const handleOpenEditIssueForJob = (jobObj, issueObj, e) => {
+    if (e) e.stopPropagation();
+    setSelectedJobForIssue(jobObj);
+    setEditingIssueData({
+      id: issueObj.id,
+      header: issueObj.title || issueObj.header || issueObj.id,
+      title: issueObj.title || issueObj.header || issueObj.id,
+      originalIssue: issueObj.description || issueObj.rootCause || issueObj.title || '',
+      criticality: issueObj.criticality || issueObj.severity || 'Major',
+      tech: issueObj.tech || jobObj?.tech || 'IT',
+      soxReportable: issueObj.soxReportable || 'No',
+      primaryContact: issueObj.primaryContact || '',
+      secondaryContact: issueObj.secondaryContact || '',
+      repeatFinding: issueObj.repeatFinding || 'No',
+      accountableFunction: issueObj.accountableFunction || '',
+      issueCauseType: issueObj.issueCauseType || '',
+      processArea: issueObj.processArea || ''
+    });
+    setIsViewOnlyDrawerMode(false);
+    setIsCreateDrawerOpen(true);
+  };
+
+  const handleOpenViewIssueForJob = (jobObj, issueObj, e) => {
+    if (e) e.stopPropagation();
+    setSelectedJobForIssue(jobObj);
+    setEditingIssueData({
+      id: issueObj.id,
+      header: issueObj.title || issueObj.header || issueObj.id,
+      title: issueObj.title || issueObj.header || issueObj.id,
+      originalIssue: issueObj.description || issueObj.rootCause || issueObj.title || '',
+      criticality: issueObj.criticality || issueObj.severity || 'Major',
+      tech: issueObj.tech || jobObj?.tech || 'IT',
+      soxReportable: issueObj.soxReportable || 'No',
+      primaryContact: issueObj.primaryContact || '',
+      secondaryContact: issueObj.secondaryContact || '',
+      repeatFinding: issueObj.repeatFinding || 'No',
+      accountableFunction: issueObj.accountableFunction || '',
+      issueCauseType: issueObj.issueCauseType || '',
+      processArea: issueObj.processArea || ''
+    });
+    setIsViewOnlyDrawerMode(true);
+    setIsCreateDrawerOpen(true);
   };
 
   useEffect(() => {
@@ -119,6 +201,7 @@ export default function ReportingNewQueueView({
   }, [toastMessage]);
 
   const handleOpenCreateForJob = (job) => {
+    setEditingIssueData(null);
     if (onOpenCreateIssue) {
       onOpenCreateIssue(job);
     } else {
@@ -131,11 +214,18 @@ export default function ReportingNewQueueView({
     if (selectedJobForIssue) {
       setJobs(prev => prev.map(j => {
         if (j.id === selectedJobForIssue.id) {
+          const existingList = j.issuesList || [];
+          const exists = existingList.some(item => item.id === savedPoint.id || item.id === editingIssueData?.id);
+          const updatedList = exists
+            ? existingList.map(item => (item.id === savedPoint.id || item.id === editingIssueData?.id)
+                ? { ...item, ...savedPoint, title: savedPoint.header || savedPoint.issueHeader || item.title }
+                : item)
+            : [...existingList, savedPoint];
           return {
             ...j,
             status: 'In Progress',
             subStatus: 'Audit Report In Progress',
-            issuesList: [...(j.issuesList || []), savedPoint]
+            issuesList: updatedList
           };
         }
         return j;
@@ -143,10 +233,11 @@ export default function ReportingNewQueueView({
     }
     setIsCreateDrawerOpen(false);
     setSelectedJobForIssue(null);
+    setEditingIssueData(null);
 
     setToastMessage({
-      title: "Issue Saved Successfully",
-      description: `Issue #${savedPoint.issueId || savedPoint.id} has been saved to the audit queue and synthesized with AI.`
+      title: editingIssueData ? "Issue Updated Successfully" : "Issue Saved Successfully",
+      description: `Issue #${savedPoint.issueId || savedPoint.id || editingIssueData?.id} has been updated.`
     });
   };
 
@@ -928,7 +1019,7 @@ export default function ReportingNewQueueView({
                   <tr>
                     {/* Left Expand/Collapse Column Header */}
                     {['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) && (
-                      <th style={{ width: '28px', padding: '16px 4px 16px 10px', textAlign: 'center' }}></th>
+                      <th style={{ width: '36px', minWidth: '36px', maxWidth: '36px', padding: '16px 4px 16px 10px', textAlign: 'center' }}></th>
                     )}
 
                     {/* 1. Job ID */}
@@ -942,7 +1033,7 @@ export default function ReportingNewQueueView({
                     )}
 
                     {/* 2. Engagement */}
-                    <th onClick={() => handleSort('engagement')} style={{ cursor: 'pointer', width: ['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) ? '26%' : 'auto', minWidth: '200px' }}>
+                    <th onClick={() => handleSort('engagement')} style={{ cursor: 'pointer', width: 'auto', minWidth: '220px' }}>
                       <div className="th-content">
                         <span>{['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) ? 'Engagement' : 'Engagement Audit'}</span>
                         <ArrowUpDown className="th-sort-icon" />
@@ -1075,7 +1166,7 @@ export default function ReportingNewQueueView({
                             >
                               {/* Left Expand/Collapse Arrow Cell */}
                               {['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) && (
-                                <td style={{ width: '28px', padding: '10px 4px 10px 10px', textAlign: 'center' }}>
+                                <td style={{ width: '36px', minWidth: '36px', maxWidth: '36px', padding: '10px 4px 10px 10px', textAlign: 'center' }}>
                                   {isExpanded ? (
                                     <ChevronDown style={{ width: '16px', height: '16px', color: '#D8001D', transition: 'transform 0.2s ease' }} />
                                   ) : (
@@ -1729,29 +1820,49 @@ export default function ReportingNewQueueView({
                                                   {/* 5. Actions */}
                                                   <td style={{ padding: '10px 12px', textAlign: 'right', paddingRight: '16px' }}>
                                                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', justifyContent: 'flex-end' }}>
-                                                      <button
-                                                        onClick={(e) => {
-                                                          e.stopPropagation();
-                                                          onOpenDiscussionPoints && onOpenDiscussionPoints(job);
-                                                        }}
-                                                        style={{
-                                                          padding: '4px 8px',
-                                                          fontSize: '11px',
-                                                          fontWeight: '700',
-                                                          color: '#334155',
-                                                          backgroundColor: '#ffffff',
-                                                          border: '1px solid #CBD5E1',
-                                                          borderRadius: '5px',
-                                                          cursor: 'pointer',
-                                                          display: 'inline-flex',
-                                                          alignItems: 'center',
-                                                          gap: '4px'
-                                                        }}
-                                                        title="Edit Issue"
-                                                      >
-                                                        <Edit2 style={{ width: '11px', height: '11px' }} />
-                                                        <span>Edit</span>
-                                                      </button>
+                                                      {!canEditIssue(iss) ? (
+                                                        <button
+                                                          onClick={(e) => handleOpenViewIssueForJob(job, iss, e)}
+                                                          style={{
+                                                            padding: '4px 8px',
+                                                            fontSize: '11px',
+                                                            fontWeight: '700',
+                                                            color: '#475569',
+                                                            backgroundColor: '#F8FAFC',
+                                                            border: '1px solid #CBD5E1',
+                                                            borderRadius: '5px',
+                                                            cursor: 'pointer',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px'
+                                                          }}
+                                                          title="View Issue (Read-Only)"
+                                                        >
+                                                          <Eye style={{ width: '11px', height: '11px', color: '#64748B' }} />
+                                                          <span>View</span>
+                                                        </button>
+                                                      ) : (
+                                                        <>
+                                                          <button
+                                                            onClick={(e) => handleOpenEditIssueForJob(job, iss, e)}
+                                                            style={{
+                                                              padding: '4px 8px',
+                                                              fontSize: '11px',
+                                                              fontWeight: '700',
+                                                              color: '#334155',
+                                                              backgroundColor: '#ffffff',
+                                                              border: '1px solid #CBD5E1',
+                                                              borderRadius: '5px',
+                                                              cursor: 'pointer',
+                                                              display: 'inline-flex',
+                                                              alignItems: 'center',
+                                                              gap: '4px'
+                                                            }}
+                                                            title="Edit Issue"
+                                                          >
+                                                            <Edit2 style={{ width: '11px', height: '11px' }} />
+                                                            <span>Edit</span>
+                                                          </button>
                                                       {(() => {
                                                         const isIssueCompleted = (iss.status === 'Completed' ||
                                                           (iss.currentLevel || '').toLowerCase().includes('completed') ||
@@ -1906,6 +2017,8 @@ export default function ReportingNewQueueView({
                                                           <Eye style={{ width: '11px', height: '11px' }} />
                                                           <span>History</span>
                                                         </button>
+                                                      )}
+                                                        </>
                                                       )}
                                                     </div>
                                                   </td>
@@ -2289,29 +2402,49 @@ export default function ReportingNewQueueView({
                                                 </td>
                                                 <td style={{ padding: '12px 14px', textAlign: 'right', paddingRight: '18px' }}>
                                                   <div className="inner-row-action-buttons" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
-                                                    <button
-                                                      onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        onOpenDiscussionPoints && onOpenDiscussionPoints(job);
-                                                      }}
-                                                      style={{
-                                                        padding: '4px 9px',
-                                                        fontSize: '11px',
-                                                        fontWeight: '700',
-                                                        color: '#334155',
-                                                        backgroundColor: '#ffffff',
-                                                        border: '1px solid #CBD5E1',
-                                                        borderRadius: '5px',
-                                                        cursor: 'pointer',
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        gap: '4px'
-                                                      }}
-                                                      title="Edit Issue"
-                                                    >
-                                                      <Edit2 style={{ width: '11px', height: '11px' }} />
-                                                      <span>Edit</span>
-                                                    </button>
+                                                    {!canEditIssue(iss) ? (
+                                                      <button
+                                                        onClick={(e) => handleOpenViewIssueForJob(job, iss, e)}
+                                                        style={{
+                                                          padding: '4px 9px',
+                                                          fontSize: '11px',
+                                                          fontWeight: '700',
+                                                          color: '#475569',
+                                                          backgroundColor: '#F8FAFC',
+                                                          border: '1px solid #CBD5E1',
+                                                          borderRadius: '5px',
+                                                          cursor: 'pointer',
+                                                          display: 'inline-flex',
+                                                          alignItems: 'center',
+                                                          gap: '4px'
+                                                        }}
+                                                        title="View Issue (Read-Only)"
+                                                      >
+                                                        <Eye style={{ width: '11px', height: '11px', color: '#64748B' }} />
+                                                        <span>View</span>
+                                                      </button>
+                                                    ) : (
+                                                      <>
+                                                        <button
+                                                          onClick={(e) => handleOpenEditIssueForJob(job, iss, e)}
+                                                          style={{
+                                                            padding: '4px 9px',
+                                                            fontSize: '11px',
+                                                            fontWeight: '700',
+                                                            color: '#334155',
+                                                            backgroundColor: '#ffffff',
+                                                            border: '1px solid #CBD5E1',
+                                                            borderRadius: '5px',
+                                                            cursor: 'pointer',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px'
+                                                          }}
+                                                          title="Edit Issue"
+                                                        >
+                                                          <Edit2 style={{ width: '11px', height: '11px' }} />
+                                                          <span>Edit</span>
+                                                        </button>
                                                     {(() => {
                                                         const isIssueCompleted = (iss.status === 'Completed' ||
                                                           (iss.currentLevel || '').toLowerCase().includes('completed') ||
@@ -2466,6 +2599,8 @@ export default function ReportingNewQueueView({
                                                         <Eye style={{ width: '11px', height: '11px' }} />
                                                         <span>History</span>
                                                       </button>
+                                                    )}
+                                                      </>
                                                     )}
                                                   </div>
                                                 </td>
@@ -2812,17 +2947,25 @@ export default function ReportingNewQueueView({
                                                   <td style={{ padding: '12px 14px', textAlign: 'right' }}>
                                                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
                                                       {/* 1. Edit Issue (Available for Auditor and all roles) */}
-                                                      <button
-                                                        onClick={(e) => {
-                                                          e.stopPropagation();
-                                                          handleOpenCreateForJob(job);
-                                                        }}
-                                                        style={{ padding: '5px 9px', fontSize: '11px', fontWeight: '700', color: '#0F172A', backgroundColor: '#F8FAFC', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                                                        title="Edit Issue"
-                                                      >
-                                                        <Edit2 style={{ width: '12px', height: '12px' }} />
-                                                        <span>Edit</span>
-                                                      </button>
+                                                      {!canEditIssue(issue) ? (
+                                                        <button
+                                                          onClick={(e) => handleOpenViewIssueForJob(job, issue, e)}
+                                                          style={{ padding: '5px 9px', fontSize: '11px', fontWeight: '700', color: '#475569', backgroundColor: '#F8FAFC', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                                          title="View Issue (Read-Only)"
+                                                        >
+                                                          <Eye style={{ width: '12px', height: '12px', color: '#64748B' }} />
+                                                          <span>View</span>
+                                                        </button>
+                                                      ) : (
+                                                        <button
+                                                          onClick={(e) => handleOpenEditIssueForJob(job, issue, e)}
+                                                          style={{ padding: '5px 9px', fontSize: '11px', fontWeight: '700', color: '#0F172A', backgroundColor: '#F8FAFC', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                                          title="Edit Issue"
+                                                        >
+                                                          <Edit2 style={{ width: '12px', height: '12px' }} />
+                                                          <span>Edit</span>
+                                                        </button>
+                                                      )}
 
                                                       {(() => {
                                                         const isIssueCompleted = (issue.status === 'Completed' ||
@@ -3795,25 +3938,49 @@ export default function ReportingNewQueueView({
 
                         {/* Issue Actions Toolbar */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', borderTop: '1px solid #F1F5F9', paddingTop: '8px' }}>
-                          <button
-                            onClick={() => onOpenDiscussionPoints && onOpenDiscussionPoints(selectedJobForPanel)}
-                            style={{
-                              padding: '4px 8px',
-                              fontSize: '11px',
-                              fontWeight: '700',
-                              color: '#334155',
-                              backgroundColor: '#F8FAFC',
-                              border: '1px solid #CBD5E1',
-                              borderRadius: '5px',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px'
-                            }}
-                          >
-                            <Edit2 style={{ width: '11px', height: '11px' }} />
-                            <span>Edit</span>
-                          </button>
+                          {!canEditIssue(iss) ? (
+                            <button
+                              onClick={(e) => handleOpenViewIssueForJob(selectedJobForPanel, iss, e)}
+                              style={{
+                                padding: '4px 8px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                color: '#475569',
+                                backgroundColor: '#F8FAFC',
+                                border: '1px solid #CBD5E1',
+                                borderRadius: '5px',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                              title="View Issue (Read-Only)"
+                            >
+                              <Eye style={{ width: '11px', height: '11px', color: '#64748B' }} />
+                              <span>View</span>
+                            </button>
+                          ) : (
+                            <>
+                              <button
+                                onClick={(e) => handleOpenEditIssueForJob(selectedJobForPanel, iss, e)}
+                                style={{
+                                  padding: '4px 8px',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                  color: '#334155',
+                                  backgroundColor: '#F8FAFC',
+                                  border: '1px solid #CBD5E1',
+                                  borderRadius: '5px',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                                title="Edit Issue"
+                              >
+                                <Edit2 style={{ width: '11px', height: '11px' }} />
+                                <span>Edit</span>
+                              </button>
 
                           {(() => {
                             const isIssueCompleted = (iss.status === 'Completed' ||
@@ -3967,6 +4134,8 @@ export default function ReportingNewQueueView({
                               <span>Lineage</span>
                             </button>
                           )}
+                            </>
+                          )}
                         </div>
 
                       </div>
@@ -3981,15 +4150,19 @@ export default function ReportingNewQueueView({
         )}
       </div>
 
-      {/* Create Issue Drawer Overlay for Not Started Jobs */}
+      {/* Create / Edit / View Issue Drawer Overlay */}
       <CreateIssueDrawerNew
         isOpen={isCreateDrawerOpen}
         onClose={() => {
           setIsCreateDrawerOpen(false);
           setSelectedJobForIssue(null);
+          setEditingIssueData(null);
+          setIsViewOnlyDrawerMode(false);
         }}
         onSaveDiscussionPoint={handleSaveDiscussionPoint}
         defaultFunction={selectedJobForIssue?.tech || 'IT'}
+        initialData={editingIssueData}
+        isReadOnly={isViewOnlyDrawerMode}
       />
 
       {/* Embedded CSS Keyframes for Animations & Hover Actions */}
