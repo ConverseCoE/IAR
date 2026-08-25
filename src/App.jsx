@@ -29,7 +29,7 @@ import {
 import { MoreVertical, Check, CheckCircle2, X } from 'lucide-react';
 
 export default function App() {
-  const [currentPhase, setCurrentPhase] = useState('fieldwork');
+  const [currentPhase, setCurrentPhase] = useState('reporting-new');
   const [reports, setReports] = useState(initialReports);
   const [selectedReportId, setSelectedReportId] = useState("REP-2026-006"); // BiosenseWebster_Catheters_Audit as default
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -79,8 +79,8 @@ export default function App() {
   // Application Active User Role: 'auditor' | 'team-coordinator' | 'manager' | 'director' | 'vp' | 'business-head' | 'primary-business-contact'
   const [userRole, setUserRole] = useState('manager');
 
-  // Audit Queue Title Banner Dropdown State: 'default' | 'with-substatus' | 'inline-action' | 'expand-action'
-  const [auditQueueViewMode, setAuditQueueViewMode] = useState('default');
+  // Audit Queue Title Banner Dropdown State: 'default' | 'with-substatus' | 'inline-action' | 'expand-action' | 'issue-cards'
+  const [auditQueueViewMode, setAuditQueueViewMode] = useState('concept1-edge-to-edge');
   const [isTitleMenuOpen, setIsTitleMenuOpen] = useState(false);
   const titleMenuRef = React.useRef(null);
 
@@ -352,6 +352,9 @@ export default function App() {
                         { id: 'default', label: 'Default View' },
                         { id: 'with-substatus', label: 'With Sub-Status' },
                         { id: 'inline-action', label: 'Inline Action Buttons' },
+                        { id: 'concept1-edge-to-edge', label: 'Concept 1: Seamless Edge-to-Edge Workbench' },
+                        { id: 'tree-table', label: 'Concept 2: Hierarchical Tree-Table' },
+                        { id: 'split-pane', label: 'Concept 3: Split-Pane / Slide-over Workbench Panel' },
                         { id: 'issue-cards', label: 'Concept 2: Granular Issue Lineage' },
                         { id: 'enhanced-lineage', label: 'Enhanced Granular Issue Lineage Card' }
                       ].map(option => (

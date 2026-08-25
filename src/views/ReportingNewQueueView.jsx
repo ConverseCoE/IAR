@@ -3,15 +3,17 @@ import {
   Search, RotateCcw, Filter, ArrowUpDown, Clock,
   FileText, ChevronRight, ChevronDown, Check, X,
   Plus, MessageSquare, PlayCircle, ShieldCheck, Shield,
-  UserCheck, Users, AlertCircle, CheckCircle, GitCommit, Eye, User, Layers, ArrowRight, CheckCircle2, Edit2
+  UserCheck, Users, AlertCircle, CheckCircle, GitCommit, Eye, User, Layers, ArrowRight, CheckCircle2, Edit2, ExternalLink
 } from 'lucide-react';
 import { mockReportingNewJobs } from '../data/reportingNewMockData';
 import CreateIssueDrawerNew from '../components/CreateIssueDrawerNew';
 
 const STATUS_OPTIONS = [
   { id: 'Not Started', label: 'Not Started', color: '#64748B', bg: '#F8FAFC', border: '#E2E8F0' },
-  { id: 'In Progress', label: 'In Progress', color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE' },
-  { id: 'Completed', label: 'Completed', color: '#15803D', bg: '#F0FDF4', border: '#BBF2D0' }
+  { id: 'Audit Report In Progress', label: 'Audit Report In Progress', color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE' },
+  { id: 'Audit Report Completed', label: 'Audit Report Completed', color: '#0284C7', bg: '#E0F2FE', border: '#BAE6FD' },
+  { id: 'Executive Report In Progress', label: 'Executive Report In Progress', color: '#D97706', bg: '#FEF3C7', border: '#FDE68A' },
+  { id: 'Executive Report Completed', label: 'Executive Report Completed', color: '#15803D', bg: '#F0FDF4', border: '#BBF2D0' }
 ];
 
 const formatUSDateTime = (dateTimeStr) => {
@@ -50,6 +52,7 @@ export default function ReportingNewQueueView({
   // Concept 2 Granular Issue Lineage Tab Filter State
   const [concept2TabFilter, setConcept2TabFilter] = useState('all');
   const [expandedInnerTabs, setExpandedInnerTabs] = useState({});
+  const [includeCompletedAudits, setIncludeCompletedAudits] = useState(false);
 
   // Direct Create Issue Drawer State for Auditor 'Not Started' Jobs
   const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
@@ -200,6 +203,54 @@ export default function ReportingNewQueueView({
     return (job.issuesList || []).filter(iss => iss.status === 'Completed').length;
   };
 
+  const isITIssue = (iss) => {
+    const tech = (iss.tech || '').toUpperCase();
+    const func = (iss.functionType || '').toUpperCase();
+    const title = (iss.title || '').toLowerCase();
+    return tech === 'IT' || func === 'IT' || title.includes('firmware') || title.includes('software') || title.includes('sox') || title.includes('telemetry') || title.includes('bluetooth') || title.includes('robotics');
+  };
+
+  const getIssueBreakdown = (job) => {
+    const issues = job.issuesList || [];
+    
+    // Total
+    const total = issues.length;
+    const totalIT = issues.filter(iss => isITIssue(iss)).length;
+    const totalFin = total - totalIT;
+
+    // In Progress
+    const inProgressList = issues.filter(iss => iss.status !== 'Completed');
+    const inProgress = inProgressList.length;
+    const inProgressIT = inProgressList.filter(iss => isITIssue(iss)).length;
+    const inProgressFin = inProgress - inProgressIT;
+
+    // Completed
+    const completedList = issues.filter(iss => iss.status === 'Completed');
+    const completed = completedList.length;
+    const completedIT = completedList.filter(iss => isITIssue(iss)).length;
+    const completedFin = completed - completedIT;
+
+    return {
+      total, totalIT, totalFin,
+      inProgress, inProgressIT, inProgressFin,
+      completed, completedIT, completedFin
+    };
+  };
+
+  const getInProgressITIssuesCount = (job) => {
+    return (job.issuesList || []).filter(iss => 
+      iss.status !== 'Completed' && 
+      isITIssue(iss)
+    ).length;
+  };
+
+  const getInProgressFinOpsIssuesCount = (job) => {
+    return (job.issuesList || []).filter(iss => 
+      iss.status !== 'Completed' && 
+      !isITIssue(iss)
+    ).length;
+  };
+
   const getFilteredIssuesForInnerTab = (job, innerTabKey) => {
     const issues = job.issuesList || [];
     if (innerTabKey === 'total' || !innerTabKey) return issues;
@@ -242,8 +293,13 @@ export default function ReportingNewQueueView({
 
   // Filter Jobs
   const filteredJobs = jobs.filter(job => {
+    if (!includeCompletedAudits && job.status === 'Completed') return false;
 
-    if (selectedStatuses.length > 0 && !selectedStatuses.includes(job.status)) return false;
+    if (selectedStatuses.length > 0) {
+      const currentSub = getSubStatus(job);
+      const matchesStatus = selectedStatuses.includes(job.status) || selectedStatuses.includes(currentSub);
+      if (!matchesStatus) return false;
+    }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const match = job.id.toLowerCase().includes(q) ||
@@ -272,6 +328,8 @@ export default function ReportingNewQueueView({
     if (valA > valB) return sortAsc ? 1 : -1;
     return 0;
   });
+
+  const selectedJobForPanel = (viewMode === 'split-pane' && expandedRowId) ? filteredJobs.find(j => j.id === expandedRowId) : null;
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -434,7 +492,7 @@ export default function ReportingNewQueueView({
     if (viewMode === 'inline-action') return 5;
     if (viewMode === 'expand-action') return 5;
     if (viewMode === 'persona-lens') return 7;
-    if (viewMode === 'issue-cards') return isAuditor ? 7 : 9;
+    if (['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode)) return 7;
     if (viewMode === 'enhanced-lineage') return 7;
     if (viewMode === 'roster-matrix') return 7;
     return 6;
@@ -472,7 +530,7 @@ export default function ReportingNewQueueView({
             }}
           >
             <Filter style={{ width: '13px', height: '13px', color: selectedStatuses.length > 0 ? '#D8001D' : '#64748B' }} />
-            <span>
+            <span style={{ whiteSpace: 'nowrap' }}>
               {selectedStatuses.length === 0
                 ? 'All Statuses'
                 : selectedStatuses.length === 1
@@ -508,7 +566,7 @@ export default function ReportingNewQueueView({
               top: 'calc(100% + 6px)',
               left: 0,
               zIndex: 100,
-              minWidth: '190px',
+              minWidth: '280px',
               backgroundColor: '#ffffff',
               borderRadius: '10px',
               border: '1px solid #E2E8F0',
@@ -519,6 +577,7 @@ export default function ReportingNewQueueView({
               <div style={{ padding: '2px 0' }}>
                 {STATUS_OPTIONS.map((opt) => {
                   const isChecked = selectedStatuses.includes(opt.id);
+                  const optCount = jobs.filter(j => getSubStatus(j) === opt.id || j.status === opt.id).length;
                   return (
                     <div
                       key={opt.id}
@@ -548,10 +607,20 @@ export default function ReportingNewQueueView({
                         }}>
                           {isChecked && <Check style={{ width: '11px', height: '11px', color: '#ffffff', strokeWidth: 3 }} />}
                         </div>
-                        <span style={{ fontSize: '12px', fontWeight: isChecked ? '700' : '500', color: isChecked ? '#D8001D' : '#334155' }}>
+                        <span style={{ fontSize: '12px', fontWeight: isChecked ? '700' : '500', color: isChecked ? '#D8001D' : '#334155', whiteSpace: 'nowrap' }}>
                           {opt.label}
                         </span>
                       </div>
+                      <span style={{
+                        fontSize: '10.5px',
+                        fontWeight: '800',
+                        color: isChecked ? '#ffffff' : '#64748B',
+                        backgroundColor: isChecked ? '#D8001D' : '#F1F5F9',
+                        padding: '1px 7px',
+                        borderRadius: '10px'
+                      }}>
+                        {optCount}
+                      </span>
                     </div>
                   );
                 })}
@@ -579,6 +648,58 @@ export default function ReportingNewQueueView({
             </button>
           )}
         </div>
+
+        {/* Premium SaaS Checkbox Filter for Completed Audits */}
+        {['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) && (
+          <div 
+            onClick={() => setIncludeCompletedAudits(!includeCompletedAudits)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '6px 14px',
+              height: '36px',
+              backgroundColor: includeCompletedAudits ? '#F0FDF4' : '#ffffff',
+              border: `1px solid ${includeCompletedAudits ? '#BBF2D0' : '#CBD5E1'}`,
+              borderRadius: '8px',
+              cursor: 'pointer',
+              boxShadow: includeCompletedAudits 
+                ? '0 2px 8px rgba(21, 128, 61, 0.12)' 
+                : '0 1px 2px rgba(0, 0, 0, 0.04)',
+              transition: 'all 0.2s ease',
+              userSelect: 'none'
+            }}
+          >
+            <div style={{
+              width: '16px',
+              height: '16px',
+              borderRadius: '4px',
+              border: `2px solid ${includeCompletedAudits ? '#15803D' : '#94A3B8'}`,
+              backgroundColor: includeCompletedAudits ? '#15803D' : 'transparent',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.15s ease'
+            }}>
+              {includeCompletedAudits && <Check style={{ width: '12px', height: '12px', color: '#ffffff', strokeWidth: 3 }} />}
+            </div>
+            <span style={{ fontSize: '12px', fontWeight: '700', color: includeCompletedAudits ? '#166534' : '#475569' }}>
+              Include Completed Audits
+            </span>
+            <span style={{
+              fontSize: '10.5px',
+              fontWeight: '800',
+              color: includeCompletedAudits ? '#ffffff' : '#64748B',
+              backgroundColor: includeCompletedAudits ? '#15803D' : '#F1F5F9',
+              padding: '1px 7px',
+              borderRadius: '10px',
+              lineHeight: '1.2',
+              transition: 'all 0.15s ease'
+            }}>
+              {jobs.filter(j => j.status === 'Completed').length}
+            </span>
+          </div>
+        )}
 
         {/* Clear Filters Button (Shown ONLY when active filters exist) */}
         {isFilterActive && (
@@ -713,12 +834,24 @@ export default function ReportingNewQueueView({
         </div>
       )}
 
-      {/* Table Container */}
-      <div className="table-card-container">
-        <div className="table-scroll-body">
-          <table>
+      {/* Split-Pane Layout Wrapper */}
+      <div style={{
+        display: (viewMode === 'split-pane' && selectedJobForPanel) ? 'flex' : 'block',
+        gap: '16px',
+        alignItems: 'flex-start'
+      }}>
+        <div style={{ flex: (viewMode === 'split-pane' && selectedJobForPanel) ? '1 1 55%' : '1 1 100%', minWidth: 0 }}>
+              {/* Table Container */}
+              <div className="table-card-container">
+                <div className="table-scroll-body">
+                  <table>
             <thead>
               <tr>
+                {/* Left Expand/Collapse Column Header */}
+                {['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) && (
+                  <th style={{ width: '28px', padding: '16px 4px 16px 10px', textAlign: 'center' }}></th>
+                )}
+
                 {/* 1. Job ID */}
                 {['default', 'persona-lens', 'roster-matrix', 'enhanced-lineage'].includes(viewMode) && (
                   <th onClick={() => handleSort('id')} style={{ cursor: 'pointer' }}>
@@ -729,27 +862,29 @@ export default function ReportingNewQueueView({
                   </th>
                 )}
 
-                {/* 2. Engagement Audit */}
-                <th onClick={() => handleSort('engagement')} style={{ cursor: 'pointer' }}>
+                {/* 2. Engagement */}
+                <th onClick={() => handleSort('engagement')} style={{ cursor: 'pointer', width: ['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) ? '26%' : 'auto', minWidth: '200px' }}>
                   <div className="th-content">
-                    <span>Engagement Audit</span>
+                    <span>{['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) ? 'Engagement' : 'Engagement Audit'}</span>
                     <ArrowUpDown className="th-sort-icon" />
                   </div>
                 </th>
 
-                {/* 3. Status */}
-                <th onClick={() => handleSort('status')} style={{ cursor: 'pointer' }}>
-                  <div className="th-content">
-                    <span>Status</span>
-                    <ArrowUpDown className="th-sort-icon" />
-                  </div>
-                </th>
-
-                {/* 4. Custom Middle Columns */}
-                {(viewMode === 'with-substatus' || viewMode === 'issue-cards') && (
-                  <th onClick={() => handleSort('subStatus')} style={{ cursor: 'pointer' }}>
+                {/* 3. Status (Removed for Concept 1, 2, Tree-Table & Split-Pane) */}
+                {!['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) && (
+                  <th onClick={() => handleSort('status')} style={{ cursor: 'pointer' }}>
                     <div className="th-content">
-                      <span>Sub-Status</span>
+                      <span>Status</span>
+                      <ArrowUpDown className="th-sort-icon" />
+                    </div>
+                  </th>
+                )}
+
+                {/* 4. Report Status / Sub-Status */}
+                {(viewMode === 'with-substatus' || ['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode)) && (
+                  <th onClick={() => handleSort('subStatus')} style={{ cursor: 'pointer', width: ['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) ? '20%' : 'auto', minWidth: '170px' }}>
+                    <div className="th-content">
+                      <span>{['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) ? 'Report Status' : 'Sub-Status'}</span>
                       <ArrowUpDown className="th-sort-icon" />
                     </div>
                   </th>
@@ -761,36 +896,18 @@ export default function ReportingNewQueueView({
                   </th>
                 )}
 
-                {viewMode === 'issue-cards' && (
+                {/* Concept 1, 2, Tree-Table & Split-Pane Columns */}
+                {['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) && (
                   <>
-                    <th style={{ textAlign: 'center', padding: '12px 10px' }}>
+                    <th style={{ textAlign: 'center', padding: '12px 10px', width: '13%', minWidth: '110px' }}>
                       <span>Total Issues</span>
                     </th>
-                    {isAuditor ? (
-                      <>
-                        <th style={{ textAlign: 'center', padding: '12px 10px' }}>
-                          <span>Issues Contributed</span>
-                        </th>
-                        <th style={{ textAlign: 'center', padding: '12px 10px' }}>
-                          <span>Others Contributions</span>
-                        </th>
-                      </>
-                    ) : (
-                      <>
-                        <th style={{ textAlign: 'center', padding: '12px 10px' }}>
-                          <span>Pending With Me</span>
-                        </th>
-                        <th style={{ textAlign: 'center', padding: '12px 10px' }}>
-                          <span>External Contributions</span>
-                        </th>
-                        <th style={{ textAlign: 'center', padding: '12px 10px' }}>
-                          <span>Completed My Side</span>
-                        </th>
-                        <th style={{ textAlign: 'center', padding: '12px 10px' }}>
-                          <span>Overall Completed</span>
-                        </th>
-                      </>
-                    )}
+                    <th style={{ textAlign: 'center', padding: '12px 10px', width: '13%', minWidth: '110px' }}>
+                      <span>In-Progress Issues</span>
+                    </th>
+                    <th style={{ textAlign: 'center', padding: '12px 10px', width: '13%', minWidth: '110px' }}>
+                      <span>Completed Issues</span>
+                    </th>
                   </>
                 )}
 
@@ -807,7 +924,7 @@ export default function ReportingNewQueueView({
                 )}
 
                 {/* 5. Time in Queue */}
-                {viewMode !== 'issue-cards' && (
+                {!['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) && (
                   <th onClick={() => handleSort('aging')} style={{ cursor: 'pointer' }}>
                     <div className="th-content">
                       <span>Time in Queue</span>
@@ -817,7 +934,7 @@ export default function ReportingNewQueueView({
                 )}
 
                 {/* 6. Last Updated */}
-                {viewMode !== 'issue-cards' && (
+                {!['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) && (
                   <th onClick={() => handleSort('lastUpdated')} style={{ cursor: 'pointer' }}>
                     <div className="th-content">
                       <span>Last Updated</span>
@@ -826,9 +943,9 @@ export default function ReportingNewQueueView({
                   </th>
                 )}
 
-                {/* 7. Action / Chevron Header */}
-                {['inline-action', 'persona-lens'].includes(viewMode) ? (
-                  <th style={{ textAlign: 'right', paddingRight: '24px' }}>
+                {/* 7. Action Header */}
+                {['inline-action', 'persona-lens', 'issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) ? (
+                  <th style={{ textAlign: 'right', paddingRight: '24px', width: '1%', whiteSpace: 'nowrap' }}>
                     <span>Actions</span>
                   </th>
                 ) : (
@@ -858,300 +975,457 @@ export default function ReportingNewQueueView({
 
                   return (
                     <React.Fragment key={job.id}>
-                      <tr
-                        onClick={() => {
-                          if (['expand-action', 'issue-cards', 'enhanced-lineage'].includes(viewMode)) {
-                            setExpandedRowId(isExpanded ? null : job.id);
-                          } else if (viewMode !== 'inline-action') {
-                            onSelectJob(job.id);
-                          }
-                        }}
-                        className={`table-row-interactive ${isSelected ? 'active-selected' : ''}`}
-                        style={{ cursor: viewMode === 'inline-action' ? 'default' : 'pointer' }}
-                      >
-                        {/* 1. Job ID */}
-                        {['default', 'persona-lens', 'roster-matrix', 'enhanced-lineage'].includes(viewMode) && (
-                          <td style={{ padding: '10px 18px', fontSize: '12.5px', fontWeight: '700', color: '#D8001D' }}>
-                            {job.id}
-                          </td>
-                        )}
-
-                        {/* 2. Engagement Audit */}
-                        <td style={{ padding: '10px 18px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            {viewMode !== 'default' && (
-                              <div className="file-icon-box" style={{ flexShrink: 0 }}>
-                                <FileText style={{ width: '16px', height: '16px' }} />
-                              </div>
-                            )}
-                            <span className="file-name-text" style={{ color: '#D8001D', fontWeight: '800', fontSize: '13px' }}>
-                              {job.fileName || job.engagement}
-                            </span>
-                          </div>
-                        </td>
-
-                        {/* 3. Status Column */}
-                        <td style={{ padding: '10px 18px' }}>
-                          {renderStatusPill(job.status)}
-                        </td>
-
-                        {/* 4. Custom Mode Columns */}
-                        {(viewMode === 'with-substatus' || viewMode === 'issue-cards') && (
-                          <td style={{ padding: '10px 18px' }}>
-                            {renderSubStatusPill(job)}
-                          </td>
-                        )}
-
-                        {viewMode === 'persona-lens' && (
-                          <td style={{ padding: '10px 18px' }}>
-                            {pState.isPendingWithMe ? (
-                              <span style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                padding: '4px 10px',
-                                borderRadius: '6px',
-                                fontSize: '11px',
-                                fontWeight: '700',
-                                backgroundColor: '#FFFBEB',
-                                color: '#B45309',
-                                border: '1px solid #FDE68A'
-                              }}>
-                                <AlertCircle style={{ width: '13px', height: '13px', color: '#D97706' }} />
-                                <span>Action Needed ({pState.pendingCount} Item)</span>
-                              </span>
-                            ) : pState.isMyContribution ? (
-                              <span style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                padding: '4px 10px',
-                                borderRadius: '6px',
-                                fontSize: '11px',
-                                fontWeight: '700',
-                                backgroundColor: '#EFF6FF',
-                                color: '#1D4ED8',
-                                border: '1px solid #BFDBFE'
-                              }}>
-                                <CheckCircle style={{ width: '13px', height: '13px', color: '#2563EB' }} />
-                                <span>You Contributed</span>
-                              </span>
-                            ) : (
-                              <span style={{ fontSize: '11.5px', color: '#94A3B8', fontWeight: '500' }}>
-                                Pending with {job.currentQueue}
-                              </span>
-                            )}
-                          </td>
-                        )}
-
-                        {viewMode === 'issue-cards' && (
-                          <>
-                            <td style={{ textAlign: 'center', padding: '10px 14px' }}>
-                              <span style={{ padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '800', backgroundColor: '#F1F5F9', color: '#334155', border: '1px solid #CBD5E1', display: 'inline-block' }}>
-                                {(job.issuesList || []).length}
-                              </span>
+                      {/* Main Table Row (Hidden when expanded in Concept 1 & 2, but STAYS VISIBLE in Tree-Table & Split-Pane) */}
+                      {!(['issue-cards', 'concept1-edge-to-edge'].includes(viewMode) && isExpanded) && (
+                        <tr
+                          onClick={() => {
+                            if (['expand-action', 'issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane', 'enhanced-lineage'].includes(viewMode)) {
+                              setExpandedRowId(isExpanded ? null : job.id);
+                            } else if (viewMode !== 'inline-action') {
+                              onSelectJob(job.id);
+                            }
+                          }}
+                          className={`table-row-interactive ${isSelected ? 'active-selected' : ''}`}
+                          style={{
+                            cursor: viewMode === 'inline-action' ? 'default' : 'pointer',
+                            backgroundColor: isExpanded ? '#FEF2F2' : 'transparent',
+                            borderLeft: isExpanded ? '4px solid #D8001D' : 'none'
+                          }}
+                        >
+                          {/* Left Expand/Collapse Arrow Cell */}
+                          {['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) && (
+                            <td style={{ width: '28px', padding: '10px 4px 10px 10px', textAlign: 'center' }}>
+                              {isExpanded ? (
+                                <ChevronDown style={{ width: '16px', height: '16px', color: '#D8001D', transition: 'transform 0.2s ease' }} />
+                              ) : (
+                                <ChevronRight style={{ width: '16px', height: '16px', color: '#64748B', transition: 'transform 0.2s ease' }} />
+                              )}
                             </td>
-                            {isAuditor ? (
-                              <>
-                                <td style={{ textAlign: 'center', padding: '10px 14px' }}>
-                                  <span style={{ padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '800', backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE', display: 'inline-block' }}>
-                                    {getMyIssuesCount(job)}
-                                  </span>
-                                </td>
-                                <td style={{ textAlign: 'center', padding: '10px 14px' }}>
-                                  <span style={{ padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '800', backgroundColor: '#FDF4FF', color: '#A21CAF', border: '1px solid #F0ABFC', display: 'inline-block' }}>
-                                    {getOthersIssuesCount(job)}
-                                  </span>
-                                </td>
-                              </>
-                            ) : (
-                              <>
-                                <td style={{ textAlign: 'center', padding: '10px 14px' }}>
-                                  <span style={{ padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '800', backgroundColor: getPendingWithMeCount(job) > 0 ? '#FEF2F2' : '#F8FAFC', color: getPendingWithMeCount(job) > 0 ? '#D8001D' : '#64748B', border: `1px solid ${getPendingWithMeCount(job) > 0 ? '#FECDD3' : '#E2E8F0'}`, display: 'inline-block' }}>
-                                    {getPendingWithMeCount(job)}
-                                  </span>
-                                </td>
-                                <td style={{ textAlign: 'center', padding: '10px 14px' }}>
-                                  <span style={{ padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '800', backgroundColor: '#FFFBEB', color: '#B45309', border: '1px solid #FDE68A', display: 'inline-block' }}>
-                                    {getExternalContributionsCount(job)}
-                                  </span>
-                                </td>
-                                <td style={{ textAlign: 'center', padding: '10px 14px' }}>
-                                  <span style={{ padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '800', backgroundColor: '#EEF2FF', color: '#4338CA', border: '1px solid #C7D2FE', display: 'inline-block' }}>
-                                    {getCompletedMySideCount(job)}
-                                  </span>
-                                </td>
-                                <td style={{ textAlign: 'center', padding: '10px 14px' }}>
-                                  <span style={{ padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '800', backgroundColor: '#F0FDF4', color: '#15803D', border: '1px solid #BBF2D0', display: 'inline-block' }}>
-                                    {getOverallCompletedCount(job)}
-                                  </span>
-                                </td>
-                              </>
-                            )}
-                          </>
-                        )}
+                          )}
 
-                        {viewMode === 'enhanced-lineage' && (
-                          <td style={{ padding: '10px 18px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <Layers style={{ width: '15px', height: '15px', color: '#6366F1' }} />
-                              <span style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
-                                {job.issuesList?.length || 0} Issues Tracked
-                              </span>
-                              <span style={{ fontSize: '10.5px', color: '#64748B', backgroundColor: '#F1F5F9', padding: '2px 8px', borderRadius: '4px', fontWeight: '600' }}>
-                                {isExpanded ? 'Hide Lineage ▲' : 'View Lineage ▼'}
-                              </span>
-                            </div>
-                          </td>
-                        )}
+                          {/* 1. Job ID */}
+                          {['default', 'persona-lens', 'roster-matrix', 'enhanced-lineage'].includes(viewMode) && (
+                            <td style={{ padding: '10px 18px', fontSize: '12.5px', fontWeight: '700', color: '#D8001D' }}>
+                              {job.id}
+                            </td>
+                          )}
 
-                        {viewMode === 'roster-matrix' && (
+                          {/* 2. Engagement Audit */}
                           <td style={{ padding: '10px 18px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              {(job.roster || []).slice(0, 4).map((m, idx) => (
-                                <div
-                                  key={idx}
-                                  title={`${m.name} (${m.role}): ${m.status}`}
-                                  style={{
-                                    width: '26px',
-                                    height: '26px',
-                                    borderRadius: '50%',
-                                    backgroundColor: idx === 0 ? '#DBEAFE' : idx === 1 ? '#FEF3C7' : idx === 2 ? '#E0E7FF' : '#F3E8FF',
-                                    color: idx === 0 ? '#1E40AF' : idx === 1 ? '#92400E' : idx === 2 ? '#3730A3' : '#6B21A8',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '10px',
-                                    fontWeight: '800',
-                                    border: '1.5px solid #ffffff',
-                                    boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-                                    cursor: 'pointer'
-                                  }}
-                                >
-                                  {m.avatar}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              {viewMode !== 'default' && viewMode !== 'concept1-edge-to-edge' && (
+                                <div className="file-icon-box" style={{ flexShrink: 0 }}>
+                                  <FileText style={{ width: '16px', height: '16px' }} />
                                 </div>
-                              ))}
-                              <span style={{ fontSize: '11px', color: '#64748B', fontWeight: '600', marginLeft: '4px' }}>
-                                Hand-off: {job.currentOwner}
+                              )}
+                              <span className="file-name-text" style={{ color: viewMode === 'concept1-edge-to-edge' ? '#0F172A' : '#D8001D', fontWeight: '600', fontSize: '13px' }}>
+                                {job.fileName || job.engagement}
                               </span>
                             </div>
                           </td>
-                        )}
 
-                        {/* 5. Time in Queue */}
-                        {viewMode !== 'issue-cards' && (
-                          <td style={{ fontSize: '12.5px', padding: '10px 18px' }}>
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#334155', fontWeight: '700' }}>
-                              <Clock style={{ width: '13px', height: '13px', color: '#D8001D' }} />
-                              <span>{job.aging}</span>
-                            </div>
-                          </td>
-                        )}
+                          {/* 3. Status Column */}
+                          {!['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) && (
+                            <td style={{ padding: '10px 18px' }}>
+                              {renderStatusPill(job.status)}
+                            </td>
+                          )}
 
-                        {/* 6. Last Updated */}
-                        {viewMode !== 'issue-cards' && (
-                          <td style={{ fontSize: '12.5px', color: '#64748B', padding: '10px 18px', whiteSpace: 'nowrap' }}>
-                            {formatUSDateTime(job.lastUpdated)}
-                          </td>
-                        )}
+                          {/* 4. Report Status / Sub-Status Column */}
+                          {(viewMode === 'with-substatus' || ['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode)) && (
+                            <td style={{ padding: '10px 18px' }}>
+                              {renderSubStatusPill(job)}
+                            </td>
+                          )}
 
-                        {/* 7. Action / Chevron Column */}
-                        {['inline-action', 'persona-lens'].includes(viewMode) ? (
-                          <td style={{ padding: '8px 18px', textAlign: 'right' }}>
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
-                              {/* 1. Issues Action - ONLY FOR AUDITOR ROLE */}
-                              {isAuditor && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (job.status === 'Not Started') {
-                                      handleOpenCreateForJob(job);
-                                    } else {
-                                      onOpenDiscussionPoints && onOpenDiscussionPoints(job);
-                                    }
-                                  }}
-                                  style={{
-                                    padding: '5px 10px',
-                                    fontSize: '11.5px',
-                                    fontWeight: '700',
-                                    color: '#B45309',
-                                    backgroundColor: '#FFFBEB',
-                                    border: '1px solid #FDE68A',
-                                    borderRadius: '6px',
-                                    cursor: 'pointer',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '5px'
-                                  }}
-                                >
-                                  {job.status === 'Not Started' ? (
-                                    <>
-                                      <Plus style={{ width: '13px', height: '13px' }} />
-                                      <span>Add Issue</span>
-                                    </>
+                          {viewMode === 'persona-lens' && (
+                            <td style={{ padding: '10px 18px' }}>
+                              {pState.isPendingWithMe ? (
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '4px 10px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                  backgroundColor: '#FFFBEB',
+                                  color: '#B45309',
+                                  border: '1px solid #FDE68A'
+                                }}>
+                                  <AlertCircle style={{ width: '13px', height: '13px', color: '#D97706' }} />
+                                  <span>Action Needed ({pState.pendingCount} Item)</span>
+                                </span>
+                              ) : pState.isMyContribution ? (
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '4px 10px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                  backgroundColor: '#EFF6FF',
+                                  color: '#1D4ED8',
+                                  border: '1px solid #BFDBFE'
+                                }}>
+                                  <CheckCircle style={{ width: '13px', height: '13px', color: '#2563EB' }} />
+                                  <span>You Contributed</span>
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: '11.5px', color: '#94A3B8', fontWeight: '500' }}>
+                                  Pending with {job.currentQueue}
+                                </span>
+                              )}
+                            </td>
+                          )}
+
+                          {/* Issue Metric Columns (Total, In-Progress, Completed with IT/FinOps sub-badges) */}
+                          {['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) && (() => {
+                            if (job.status === 'Not Started') {
+                              return (
+                                <>
+                                  <td style={{ textAlign: 'center', padding: '5px 8px' }}>
+                                    <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '600' }}>-</span>
+                                  </td>
+                                  <td style={{ textAlign: 'center', padding: '5px 8px' }}>
+                                    <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '600' }}>-</span>
+                                  </td>
+                                  <td style={{ textAlign: 'center', padding: '5px 8px' }}>
+                                    <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '600' }}>-</span>
+                                  </td>
+                                </>
+                              );
+                            }
+
+                            const bd = getIssueBreakdown(job);
+                            return (
+                              <>
+                                {/* 1. Total Issues */}
+                                <td style={{ textAlign: 'center', padding: '5px 8px', width: '13%' }}>
+                                  {bd.total === 0 ? (
+                                    <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '600' }}>-</span>
                                   ) : (
-                                    <>
-                                      <MessageSquare style={{ width: '13px', height: '13px' }} />
-                                      <span>Issues ({job.discussionPoints?.count || 1})</span>
-                                    </>
+                                    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '3px', justifyContent: 'center' }}>
+                                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#0F172A', whiteSpace: 'nowrap' }}>
+                                        {bd.total} {bd.total === 1 ? 'Issue' : 'Issues'}
+                                      </span>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        {bd.totalIT > 0 && (
+                                          <span style={{ padding: '1px 5px', borderRadius: '4px', fontSize: '9.5px', fontWeight: '600', lineHeight: '1.2', backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE', whiteSpace: 'nowrap' }}>
+                                            {bd.totalIT} IT
+                                          </span>
+                                        )}
+                                        {bd.totalFin > 0 && (
+                                          <span style={{ padding: '1px 5px', borderRadius: '4px', fontSize: '9.5px', fontWeight: '600', lineHeight: '1.2', backgroundColor: '#FFFBEB', color: '#92400E', border: '1px solid #FEF3C7', whiteSpace: 'nowrap' }}>
+                                            {bd.totalFin} FinOps
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
                                   )}
-                                </button>
-                              )}
+                                </td>
 
-                              {/* 2. Audit Report Action - ONLY FOR NON-AUDITOR ROLES */}
-                              {!isAuditor && job.status !== 'Not Started' && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onWorkOnReport && onWorkOnReport(job, 'audit');
-                                  }}
-                                  style={{
-                                    padding: '5px 10px',
-                                    fontSize: '11.5px',
-                                    fontWeight: '700',
-                                    color: '#1D4ED8',
-                                    backgroundColor: '#EFF6FF',
-                                    border: '1px solid #BFDBFE',
-                                    borderRadius: '6px',
-                                    cursor: 'pointer',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '5px'
-                                  }}
-                                >
-                                  <PlayCircle style={{ width: '13px', height: '13px' }} />
-                                  <span>Audit Report</span>
-                                </button>
-                              )}
+                                {/* 2. In-Progress Issues */}
+                                <td style={{ textAlign: 'center', padding: '5px 8px', width: '13%' }}>
+                                  {bd.inProgress === 0 ? (
+                                    <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '600' }}>-</span>
+                                  ) : (
+                                    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '3px', justifyContent: 'center' }}>
+                                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#0F172A', whiteSpace: 'nowrap' }}>
+                                        {bd.inProgress} {bd.inProgress === 1 ? 'Issue' : 'Issues'}
+                                      </span>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        {bd.inProgressIT > 0 && (
+                                          <span style={{ padding: '1px 5px', borderRadius: '4px', fontSize: '9.5px', fontWeight: '600', lineHeight: '1.2', backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE', whiteSpace: 'nowrap' }}>
+                                            {bd.inProgressIT} IT
+                                          </span>
+                                        )}
+                                        {bd.inProgressFin > 0 && (
+                                          <span style={{ padding: '1px 5px', borderRadius: '4px', fontSize: '9.5px', fontWeight: '600', lineHeight: '1.2', backgroundColor: '#FFFBEB', color: '#92400E', border: '1px solid #FEF3C7', whiteSpace: 'nowrap' }}>
+                                            {bd.inProgressFin} FinOps
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </td>
 
-                              {/* 3. Executive Report Action - ONLY FOR NON-AUDITOR ROLES */}
-                              {!isAuditor && isExecEligible && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onWorkOnReport && onWorkOnReport(job, 'executive');
-                                  }}
-                                  style={{
-                                    padding: '5px 10px',
-                                    fontSize: '11.5px',
-                                    fontWeight: '700',
-                                    color: '#7C3AED',
-                                    backgroundColor: '#F5F3FF',
-                                    border: '1px solid #DDD6FE',
-                                    borderRadius: '6px',
-                                    cursor: 'pointer',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '5px'
-                                  }}
-                                >
-                                  <ShieldCheck style={{ width: '13px', height: '13px' }} />
-                                  <span>Executive Report</span>
-                                </button>
+                                {/* 3. Completed Issues */}
+                                <td style={{ textAlign: 'center', padding: '5px 8px', width: '13%' }}>
+                                  {bd.completed === 0 ? (
+                                    <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: '600' }}>-</span>
+                                  ) : (
+                                    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '3px', justifyContent: 'center' }}>
+                                      <span style={{ fontSize: '11px', fontWeight: '600', color: '#0F172A', whiteSpace: 'nowrap' }}>
+                                        {bd.completed} {bd.completed === 1 ? 'Issue' : 'Issues'}
+                                      </span>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        {bd.completedIT > 0 && (
+                                          <span style={{ padding: '1px 5px', borderRadius: '4px', fontSize: '9.5px', fontWeight: '600', lineHeight: '1.2', backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE', whiteSpace: 'nowrap' }}>
+                                            {bd.completedIT} IT
+                                          </span>
+                                        )}
+                                        {bd.completedFin > 0 && (
+                                          <span style={{ padding: '1px 5px', borderRadius: '4px', fontSize: '9.5px', fontWeight: '600', lineHeight: '1.2', backgroundColor: '#FFFBEB', color: '#92400E', border: '1px solid #FEF3C7', whiteSpace: 'nowrap' }}>
+                                            {bd.completedFin} FinOps
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </td>
+                              </>
+                            );
+                          })()}
+
+                          {viewMode === 'enhanced-lineage' && (
+                            <td style={{ padding: '10px 18px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Layers style={{ width: '15px', height: '15px', color: '#6366F1' }} />
+                                <span style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
+                                  {job.issuesList?.length || 0} Issues Tracked
+                                </span>
+                                <span style={{ fontSize: '10.5px', color: '#64748B', backgroundColor: '#F1F5F9', padding: '2px 8px', borderRadius: '4px', fontWeight: '600' }}>
+                                  {isExpanded ? 'Hide Lineage ▲' : 'View Lineage ▼'}
+                                </span>
+                              </div>
+                            </td>
+                          )}
+
+                          {viewMode === 'roster-matrix' && (
+                            <td style={{ padding: '10px 18px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                {(job.roster || []).slice(0, 4).map((m, idx) => (
+                                  <div
+                                    key={idx}
+                                    title={`${m.name} (${m.role}): ${m.status}`}
+                                    style={{
+                                      width: '26px',
+                                      height: '26px',
+                                      borderRadius: '50%',
+                                      backgroundColor: idx === 0 ? '#DBEAFE' : idx === 1 ? '#FEF3C7' : idx === 2 ? '#E0E7FF' : '#F3E8FF',
+                                      color: idx === 0 ? '#1E40AF' : idx === 1 ? '#92400E' : idx === 2 ? '#3730A3' : '#6B21A8',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      fontSize: '10px',
+                                      fontWeight: '800',
+                                      border: '1.5px solid #ffffff',
+                                      boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    {m.avatar}
+                                  </div>
+                                ))}
+                                <span style={{ fontSize: '11px', color: '#64748B', fontWeight: '600', marginLeft: '4px' }}>
+                                  Hand-off: {job.currentQueue}
+                                </span>
+                              </div>
+                            </td>
+                          )}
+
+                          {/* 5. Time in Queue */}
+                          {!['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) && (
+                            <td style={{ fontSize: '12.5px', padding: '10px 18px' }}>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#334155', fontWeight: '700' }}>
+                                <Clock style={{ width: '13px', height: '13px', color: '#D8001D' }} />
+                                <span>{job.aging}</span>
+                              </div>
+                            </td>
+                          )}
+
+                          {/* 6. Last Updated */}
+                          {!['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) && (
+                            <td style={{ fontSize: '12.5px', color: '#64748B', padding: '10px 18px', whiteSpace: 'nowrap' }}>
+                              {formatUSDateTime(job.lastUpdated)}
+                            </td>
+                          )}
+
+                          {/* 7. Action Column */}
+                          {['inline-action', 'persona-lens', 'issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) ? (
+                            <td style={{ padding: '8px 18px', textAlign: 'right', width: '1%', whiteSpace: 'nowrap' }}>
+                              <div className="row-action-buttons" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
+                                {['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) ? (
+                                <>
+                                  {/* 1. Create Issue (Available for ALL Roles) */}
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenCreateForJob(job);
+                                    }}
+                                    style={{
+                                      padding: '5px 11px',
+                                      fontSize: '11.5px',
+                                      fontWeight: '700',
+                                      color: '#D8001D',
+                                      backgroundColor: '#FEF2F2',
+                                      border: '1px solid #FECDD3',
+                                      borderRadius: '6px',
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      transition: 'all 0.15s ease'
+                                    }}
+                                    title="Create New Issue"
+                                  >
+                                    <Plus style={{ width: '13px', height: '13px', color: '#D8001D' }} />
+                                    <span>Issue</span>
+                                  </button>
+
+                                  {/* 3. Audit Report (Non-Auditors when status !== Not Started) */}
+                                  {!isAuditor && job.status !== 'Not Started' && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onWorkOnReport && onWorkOnReport(job, 'audit');
+                                      }}
+                                      style={{
+                                        padding: '5px 10px',
+                                        fontSize: '11.5px',
+                                        fontWeight: '700',
+                                        color: '#1D4ED8',
+                                        backgroundColor: '#EFF6FF',
+                                        border: '1px solid #BFDBFE',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px'
+                                      }}
+                                      title="Open Audit Report"
+                                    >
+                                      <PlayCircle style={{ width: '13px', height: '13px' }} />
+                                      <span>Audit Report</span>
+                                    </button>
+                                  )}
+
+                                  {/* 4. Summary Report (Non-Auditors when eligible) */}
+                                  {!isAuditor && isExecEligible && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onWorkOnReport && onWorkOnReport(job, 'executive');
+                                      }}
+                                      style={{
+                                        padding: '5px 10px',
+                                        fontSize: '11.5px',
+                                        fontWeight: '700',
+                                        color: '#4338CA',
+                                        backgroundColor: '#EEF2FF',
+                                        border: '1px solid #C7D2FE',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px'
+                                      }}
+                                      title="Open Summary Report"
+                                    >
+                                      <ExternalLink style={{ width: '13px', height: '13px' }} />
+                                      <span>Summary Report</span>
+                                    </button>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  {/* 1. Issues Action - ONLY FOR AUDITOR ROLE */}
+                                  {isAuditor && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (job.status === 'Not Started') {
+                                          handleOpenCreateForJob(job);
+                                        } else {
+                                          onOpenDiscussionPoints && onOpenDiscussionPoints(job);
+                                        }
+                                      }}
+                                      style={{
+                                        padding: '5px 10px',
+                                        fontSize: '11.5px',
+                                        fontWeight: '700',
+                                        color: '#B45309',
+                                        backgroundColor: '#FFFBEB',
+                                        border: '1px solid #FDE68A',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px'
+                                      }}
+                                    >
+                                      {job.status === 'Not Started' ? (
+                                        <>
+                                          <Plus style={{ width: '13px', height: '13px' }} />
+                                          <span>Add Issue</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <MessageSquare style={{ width: '13px', height: '13px' }} />
+                                          <span>Issues ({job.discussionPoints?.count || 1})</span>
+                                        </>
+                                      )}
+                                    </button>
+                                  )}
+
+                                  {/* 2. Audit Report Action - ONLY FOR NON-AUDITOR ROLES */}
+                                  {!isAuditor && job.status !== 'Not Started' && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onWorkOnReport && onWorkOnReport(job, 'audit');
+                                      }}
+                                      style={{
+                                        padding: '5px 10px',
+                                        fontSize: '11.5px',
+                                        fontWeight: '700',
+                                        color: '#1D4ED8',
+                                        backgroundColor: '#EFF6FF',
+                                        border: '1px solid #BFDBFE',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px'
+                                      }}
+                                    >
+                                      <PlayCircle style={{ width: '13px', height: '13px' }} />
+                                      <span>Audit Report</span>
+                                    </button>
+                                  )}
+
+                                  {/* 3. Executive Report Action - ONLY FOR NON-AUDITOR ROLES */}
+                                  {!isAuditor && isExecEligible && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onWorkOnReport && onWorkOnReport(job, 'executive');
+                                      }}
+                                      style={{
+                                        padding: '5px 10px',
+                                        fontSize: '11.5px',
+                                        fontWeight: '700',
+                                        color: '#7C3AED',
+                                        backgroundColor: '#F5F3FF',
+                                        border: '1px solid #DDD6FE',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px'
+                                      }}
+                                    >
+                                      <ShieldCheck style={{ width: '13px', height: '13px' }} />
+                                      <span>Executive Report</span>
+                                    </button>
+                                  )}
+                                </>
                               )}
                             </div>
                           </td>
-                        ) : ['expand-action', 'issue-cards', 'enhanced-lineage'].includes(viewMode) ? (
+                        ) : ['expand-action', 'enhanced-lineage'].includes(viewMode) ? (
                           <td style={{ width: '40px', padding: '10px 16px 10px 0', textAlign: 'right' }}>
                             <ChevronDown
                               style={{
@@ -1169,35 +1443,899 @@ export default function ReportingNewQueueView({
                           </td>
                         )}
                       </tr>
+                      )}
 
-                      {/* Concept 2 EXPANDED SCREEN-INSIDE-TABLE CONTAINER FOR ISSUE CARDS */}
-                      {viewMode === 'issue-cards' && isExpanded && (
-                        <tr style={{ backgroundColor: '#F8FAFC' }}>
-                          <td colSpan={getColSpanCount()} style={{ padding: '20px 24px', borderBottom: '2px solid #CBD5E1' }}>
-                            <div style={{
-                              backgroundColor: '#ffffff',
-                              borderRadius: '12px',
-                              border: '1px solid #E2E8F0',
-                              boxShadow: '0 4px 16px rgba(15, 23, 42, 0.08)',
-                              padding: '20px 22px',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: '18px'
-                            }}>
+                      {/* Concept 2 HIERARCHICAL TREE-TABLE CONTAINER */}
+                      {viewMode === 'tree-table' && isExpanded && (
+                        <tr style={{ backgroundColor: '#ffffff' }}>
+                          <td
+                            colSpan={getColSpanCount()}
+                            style={{
+                              padding: '12px 16px 16px 16px',
+                              borderLeft: '4px solid #D8001D',
+                              borderBottom: '2px solid #CBD5E1',
+                              backgroundColor: '#ffffff'
+                            }}
+                          >
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                               
-                              {/* Header Bar inside Expanded Screen Container */}
+                              {/* Metric Filter Chips Bar (Right above sub-rows) */}
                               <div style={{
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
+                                backgroundColor: '#ffffff',
+                                padding: '8px 14px',
+                                borderRadius: '8px',
+                                border: '1px solid #E2E8F0',
+                                boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)'
+                              }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span style={{ fontSize: '11.5px', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', marginRight: '6px' }}>
+                                    Filter Issues:
+                                  </span>
+                                  {(isAuditor ? [
+                                    { id: 'total', label: 'Total Issues', count: (job.issuesList || []).length },
+                                    { id: 'my-contributed', label: 'Issues Contributed', count: getMyIssuesCount(job) },
+                                    { id: 'others-contributions', label: 'Others Contributions', count: getOthersIssuesCount(job) }
+                                  ] : [
+                                    { id: 'total', label: 'Total Issues', count: (job.issuesList || []).length },
+                                    { id: 'pending-me', label: 'Pending With Me', count: getPendingWithMeCount(job) },
+                                    { id: 'external', label: 'External Contributions', count: getExternalContributionsCount(job) },
+                                    { id: 'completed-my-side', label: 'Completed My Side', count: getCompletedMySideCount(job) },
+                                    { id: 'overall-completed', label: 'Overall Completed', count: getOverallCompletedCount(job) }
+                                  ]).map(tab => {
+                                    const currentTab = expandedInnerTabs[job.id] || 'total';
+                                    const isActive = currentTab === tab.id;
+                                    return (
+                                      <button
+                                        key={tab.id}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setExpandedInnerTabs(prev => ({ ...prev, [job.id]: tab.id }));
+                                        }}
+                                        style={{
+                                          padding: '5px 11px',
+                                          fontSize: '11.5px',
+                                          fontWeight: isActive ? '700' : '500',
+                                          color: isActive ? '#D8001D' : '#475569',
+                                          backgroundColor: isActive ? '#FEF2F2' : '#F8FAFC',
+                                          border: `1px solid ${isActive ? '#FECDD3' : '#E2E8F0'}`,
+                                          borderRadius: '6px',
+                                          cursor: 'pointer',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '6px',
+                                          transition: 'all 0.15s ease'
+                                        }}
+                                      >
+                                        <span>{tab.label}</span>
+                                        <span style={{
+                                          fontSize: '10px',
+                                          fontWeight: '800',
+                                          color: isActive ? '#ffffff' : '#64748B',
+                                          backgroundColor: isActive ? '#D8001D' : '#CBD5E1',
+                                          borderRadius: '10px',
+                                          padding: '1px 5px',
+                                          lineHeight: '1.2'
+                                        }}>
+                                          {tab.count}
+                                        </span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+
+                                <div style={{ fontSize: '12px', color: '#64748B', fontWeight: '600' }}>
+                                  Queue Owner: <strong style={{ color: '#0F172A' }}>{job.currentOwner}</strong>
+                                </div>
+                              </div>
+
+                              {/* Hierarchical Sub-Rows Container */}
+                              {(() => {
+                                const currentTabKey = expandedInnerTabs[job.id] || 'total';
+                                const displayedIssues = getFilteredIssuesForInnerTab(job, currentTabKey);
+
+                                if (displayedIssues.length === 0) {
+                                  return (
+                                    <div style={{
+                                      padding: '20px',
+                                      textAlign: 'center',
+                                      backgroundColor: '#ffffff',
+                                      borderRadius: '8px',
+                                      border: '1px solid #E2E8F0',
+                                      color: '#64748B',
+                                      fontSize: '12.5px'
+                                    }}>
+                                      No sub-row issues match this filter.
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <div style={{
+                                    backgroundColor: '#ffffff',
+                                    borderRadius: '8px',
+                                    border: '1px solid #E2E8F0',
+                                    overflow: 'hidden',
+                                    boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)'
+                                  }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                      <thead>
+                                        <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+                                          <th style={{ padding: '9px 12px', fontSize: '11px', fontWeight: '800', color: '#475569', textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                            Hierarchy & Issue
+                                          </th>
+                                          <th style={{ padding: '9px 12px', fontSize: '11px', fontWeight: '800', color: '#475569', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                            Current Stage
+                                          </th>
+                                          <th style={{ padding: '9px 12px', fontSize: '11px', fontWeight: '800', color: '#475569', textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                            Created By
+                                          </th>
+                                          <th style={{ padding: '9px 12px', fontSize: '11px', fontWeight: '800', color: '#475569', textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                            Last Updated By
+                                          </th>
+                                          <th style={{ padding: '9px 12px', fontSize: '11px', fontWeight: '800', color: '#475569', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.04em', paddingRight: '16px' }}>
+                                            Actions
+                                          </th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {displayedIssues.map((iss, iIdx) => {
+                                          const isLast = iIdx === displayedIssues.length - 1;
+                                          return (
+                                            <tr key={iss.id || iIdx} style={{ borderBottom: isLast ? 'none' : '1px solid #F1F5F9', backgroundColor: iIdx % 2 === 0 ? '#ffffff' : '#FAFAFA' }}>
+                                              {/* 1. Hierarchy & Issue */}
+                                              <td style={{ padding: '10px 12px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                  {/* Vertical Connector Tree Branch Line */}
+                                                  <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    width: '28px',
+                                                    height: '24px',
+                                                    position: 'relative',
+                                                    flexShrink: 0
+                                                  }}>
+                                                    {/* Vertical stem */}
+                                                    <div style={{
+                                                      position: 'absolute',
+                                                      top: 0,
+                                                      bottom: isLast ? '50%' : 0,
+                                                      left: '12px',
+                                                      width: '2px',
+                                                      backgroundColor: '#CBD5E1'
+                                                    }} />
+                                                    {/* Horizontal branch */}
+                                                    <div style={{
+                                                      position: 'absolute',
+                                                      top: '50%',
+                                                      left: '12px',
+                                                      right: '4px',
+                                                      height: '2px',
+                                                      backgroundColor: '#CBD5E1'
+                                                    }} />
+                                                  </div>
+
+                                                  <span style={{
+                                                    padding: '2px 7px',
+                                                    borderRadius: '4px',
+                                                    fontSize: '11px',
+                                                    fontWeight: '700',
+                                                    backgroundColor: '#FEF2F2',
+                                                    color: '#D8001D',
+                                                    border: '1px solid #FECDD3',
+                                                    fontFamily: 'monospace',
+                                                    flexShrink: 0
+                                                  }}>
+                                                    {iss.id}
+                                                  </span>
+
+                                                  <span style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>
+                                                    {iss.title}
+                                                  </span>
+
+                                                  <span style={{
+                                                    padding: '1px 7px',
+                                                    borderRadius: '10px',
+                                                    fontSize: '10px',
+                                                    fontWeight: '800',
+                                                    backgroundColor: iss.severity === 'Critical' ? '#FEF2F2' : iss.severity === 'High' ? '#FFFBEB' : '#F0FDF4',
+                                                    color: iss.severity === 'Critical' ? '#991B1B' : iss.severity === 'High' ? '#B45309' : '#166534',
+                                                    border: `1px solid ${iss.severity === 'Critical' ? '#FCA5A5' : iss.severity === 'High' ? '#FDE68A' : '#BBF2D0'}`,
+                                                    flexShrink: 0
+                                                  }}>
+                                                    {iss.severity}
+                                                  </span>
+                                                </div>
+                                              </td>
+
+                                              {/* 2. Current Stage */}
+                                              <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                                                <span style={{
+                                                  padding: '3px 9px',
+                                                  borderRadius: '6px',
+                                                  fontSize: '11px',
+                                                  fontWeight: '700',
+                                                  backgroundColor: '#EFF6FF',
+                                                  color: '#1D4ED8',
+                                                  border: '1px solid #BFDBFE'
+                                                }}>
+                                                  {iss.currentLevel || 'Auditor Drafting'}
+                                                </span>
+                                              </td>
+
+                                              {/* 3. Created By */}
+                                              <td style={{ padding: '10px 12px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11.5px', color: '#334155', fontWeight: '600' }}>
+                                                  <User style={{ width: '12px', height: '12px', color: '#64748B' }} />
+                                                  <span>{iss.createdBy}</span>
+                                                </div>
+                                              </td>
+
+                                              {/* 4. Last Updated By */}
+                                              <td style={{ padding: '10px 12px' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                  <span style={{ fontSize: '11.5px', fontWeight: '600', color: '#334155' }}>
+                                                    {iss.lastEditedBy}
+                                                  </span>
+                                                  <span style={{ fontSize: '10px', color: '#94A3B8' }}>
+                                                    {iss.lastUpdated}
+                                                  </span>
+                                                </div>
+                                              </td>
+
+                                              {/* 5. Actions */}
+                                              <td style={{ padding: '10px 12px', textAlign: 'right', paddingRight: '16px' }}>
+                                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', justifyContent: 'flex-end' }}>
+                                                  <button
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      onOpenDiscussionPoints && onOpenDiscussionPoints(job);
+                                                    }}
+                                                    style={{
+                                                      padding: '4px 8px',
+                                                      fontSize: '11px',
+                                                      fontWeight: '700',
+                                                      color: '#334155',
+                                                      backgroundColor: '#ffffff',
+                                                      border: '1px solid #CBD5E1',
+                                                      borderRadius: '5px',
+                                                      cursor: 'pointer',
+                                                      display: 'inline-flex',
+                                                      alignItems: 'center',
+                                                      gap: '4px'
+                                                    }}
+                                                    title="Edit Issue"
+                                                  >
+                                                    <Edit2 style={{ width: '11px', height: '11px' }} />
+                                                    <span>Edit</span>
+                                                  </button>
+                                                  {!isAuditor && (
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setToastMessage && setToastMessage({
+                                                          title: "Submitted to Next Level",
+                                                          description: `Issue ${iss.id} has been advanced to the next review stage.`
+                                                        });
+                                                      }}
+                                                      style={{
+                                                        padding: '4px 8px',
+                                                        fontSize: '11px',
+                                                        fontWeight: '700',
+                                                        color: '#1D4ED8',
+                                                        backgroundColor: '#EFF6FF',
+                                                        border: '1px solid #BFDBFE',
+                                                        borderRadius: '5px',
+                                                        cursor: 'pointer',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px'
+                                                      }}
+                                                      title="Submit to Next Reviewer"
+                                                    >
+                                                      <ArrowRight style={{ width: '11px', height: '11px' }} />
+                                                      <span>Submit Next Level</span>
+                                                    </button>
+                                                  )}
+                                                  {!isAuditor && (
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setToastMessage && setToastMessage({
+                                                          title: "Issue Marked Completed",
+                                                          description: `Issue ${iss.id} status updated to Completed.`
+                                                        });
+                                                      }}
+                                                      style={{
+                                                        padding: '4px 8px',
+                                                        fontSize: '11px',
+                                                        fontWeight: '700',
+                                                        color: '#15803D',
+                                                        backgroundColor: '#F0FDF4',
+                                                        border: '1px solid #BBF2D0',
+                                                        borderRadius: '5px',
+                                                        cursor: 'pointer',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px'
+                                                      }}
+                                                      title="Mark Issue Completed"
+                                                    >
+                                                      <CheckCircle style={{ width: '11px', height: '11px' }} />
+                                                      <span>Mark Completed</span>
+                                                    </button>
+                                                  )}
+                                                  {!isAuditor && (
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onOpenDiscussionPoints && onOpenDiscussionPoints(job);
+                                                      }}
+                                                      style={{
+                                                        padding: '4px 8px',
+                                                        fontSize: '11px',
+                                                        fontWeight: '700',
+                                                        color: '#4338CA',
+                                                        backgroundColor: '#EEF2FF',
+                                                        border: '1px solid #C7D2FE',
+                                                        borderRadius: '5px',
+                                                        cursor: 'pointer',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px'
+                                                      }}
+                                                      title="View Lineage Audit Trail"
+                                                    >
+                                                      <Eye style={{ width: '11px', height: '11px' }} />
+                                                      <span>Lineage History</span>
+                                                    </button>
+                                                  )}
+                                                </div>
+                                              </td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                );
+                              })()}
+
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+
+                      {/* Concept 1 SEAMLESS EDGE-TO-EDGE WORKBENCH CONTAINER */}
+                      {viewMode === 'concept1-edge-to-edge' && isExpanded && (
+                        <tr style={{ backgroundColor: '#ffffff' }}>
+                          <td
+                            colSpan={getColSpanCount()}
+                            style={{
+                              padding: '0',
+                              borderLeft: '4px solid #D8001D',
+                              borderBottom: '2px solid #CBD5E1',
+                              backgroundColor: '#ffffff'
+                            }}
+                          >
+                            <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                              
+                              {/* Seamless Workbench Header */}
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                paddingBottom: '12px',
+                                borderBottom: '1px solid #E2E8F0'
+                              }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                  {/* Tiny Collapse Arrow Button */}
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setExpandedRowId(null);
+                                    }}
+                                    style={{
+                                      width: '26px',
+                                      height: '26px',
+                                      borderRadius: '6px',
+                                      backgroundColor: '#ffffff',
+                                      border: '1px solid #CBD5E1',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      cursor: 'pointer',
+                                      color: '#475569',
+                                      boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)',
+                                      transition: 'all 0.15s ease',
+                                      flexShrink: 0
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#FEF2F2';
+                                      e.currentTarget.style.color = '#D8001D';
+                                      e.currentTarget.style.borderColor = '#FECDD3';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#ffffff';
+                                      e.currentTarget.style.color = '#475569';
+                                      e.currentTarget.style.borderColor = '#CBD5E1';
+                                    }}
+                                    title="Collapse & Return to Table"
+                                  >
+                                    <ChevronDown style={{ width: '15px', height: '15px', transform: 'rotate(90deg)', strokeWidth: 2.5 }} />
+                                  </button>
+
+                                  <div style={{
+                                    width: '38px',
+                                    height: '38px',
+                                    borderRadius: '8px',
+                                    backgroundColor: '#FEF2F2',
+                                    border: '1px solid #FECDD3',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                  }}>
+                                    <Layers style={{ width: '20px', height: '20px', color: '#D8001D' }} />
+                                  </div>
+
+                                  <div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                      <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
+                                        {job.fileName || job.engagement}
+                                      </h3>
+                                      {renderStatusPill(job.status)}
+                                    </div>
+                                    <span style={{ fontSize: '12px', color: '#64748B', marginTop: '2px', display: 'block' }}>
+                                      {job.engagement} • Queue Owner: <strong>{job.currentOwner}</strong> • Total Issues: <strong>{(job.issuesList || []).length}</strong>
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Workbench Header Buttons */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenCreateForJob(job);
+                                    }}
+                                    style={{
+                                      padding: '6px 12px',
+                                      fontSize: '11.5px',
+                                      fontWeight: '700',
+                                      color: '#D8001D',
+                                      backgroundColor: '#FEF2F2',
+                                      border: '1px solid #FECDD3',
+                                      borderRadius: '6px',
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '5px',
+                                      transition: 'all 0.15s ease'
+                                    }}
+                                    title="Create New Issue"
+                                  >
+                                    <Plus style={{ width: '13px', height: '13px', color: '#D8001D' }} />
+                                    <span>Issue</span>
+                                  </button>
+
+                                  {!isAuditor && job.status !== 'Not Started' && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onWorkOnReport && onWorkOnReport(job, 'audit');
+                                      }}
+                                      style={{
+                                        padding: '7px 14px',
+                                        fontSize: '12px',
+                                        fontWeight: '700',
+                                        color: '#1D4ED8',
+                                        backgroundColor: '#EFF6FF',
+                                        border: '1px solid #BFDBFE',
+                                        borderRadius: '7px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        boxShadow: '0 1px 4px rgba(29, 78, 216, 0.1)'
+                                      }}
+                                    >
+                                      <PlayCircle style={{ width: '14px', height: '14px', color: '#1D4ED8' }} />
+                                      <span>Audit Report</span>
+                                    </button>
+                                  )}
+
+                                  {!isAuditor && isExecEligible && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onWorkOnReport && onWorkOnReport(job, 'executive');
+                                      }}
+                                      style={{
+                                        padding: '7px 14px',
+                                        fontSize: '12px',
+                                        fontWeight: '700',
+                                        color: '#4338CA',
+                                        backgroundColor: '#EEF2FF',
+                                        border: '1px solid #C7D2FE',
+                                        borderRadius: '7px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        boxShadow: '0 1px 4px rgba(67, 56, 202, 0.1)'
+                                      }}
+                                    >
+                                      <ExternalLink style={{ width: '14px', height: '14px', color: '#4338CA' }} />
+                                      <span>Executive Summary Report</span>
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Metric Filter Tabs (Seamless) */}
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
                                 paddingBottom: '4px'
                               }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                {(isAuditor ? [
+                                  { id: 'total', label: 'Total Issues', count: (job.issuesList || []).length },
+                                  { id: 'my-contributed', label: 'Issues Contributed', count: getMyIssuesCount(job) },
+                                  { id: 'others-contributions', label: 'Others Contributions', count: getOthersIssuesCount(job) }
+                                ] : [
+                                  { id: 'total', label: 'Total Issues', count: (job.issuesList || []).length },
+                                  { id: 'pending-me', label: 'Pending With Me', count: getPendingWithMeCount(job) },
+                                  { id: 'external', label: 'External Contributions', count: getExternalContributionsCount(job) },
+                                  { id: 'completed-my-side', label: 'Completed My Side', count: getCompletedMySideCount(job) },
+                                  { id: 'overall-completed', label: 'Overall Completed', count: getOverallCompletedCount(job) }
+                                ]).map(tab => {
+                                  const currentTab = expandedInnerTabs[job.id] || 'total';
+                                  const isActive = currentTab === tab.id;
+                                  return (
+                                    <button
+                                      key={tab.id}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setExpandedInnerTabs(prev => ({ ...prev, [job.id]: tab.id }));
+                                      }}
+                                      style={{
+                                        padding: '6px 12px',
+                                        fontSize: '12px',
+                                        fontWeight: isActive ? '700' : '500',
+                                        color: isActive ? '#D8001D' : '#475569',
+                                        backgroundColor: isActive ? '#ffffff' : 'transparent',
+                                        border: isActive ? '1px solid #FECDD3' : '1px solid transparent',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        boxShadow: isActive ? '0 1px 3px rgba(216, 0, 29, 0.08)' : 'none',
+                                        transition: 'all 0.15s ease'
+                                      }}
+                                    >
+                                      <span>{tab.label}</span>
+                                      <span style={{
+                                        fontSize: '10.5px',
+                                        fontWeight: '800',
+                                        color: isActive ? '#ffffff' : '#64748B',
+                                        backgroundColor: isActive ? '#D8001D' : '#E2E8F0',
+                                        borderRadius: '10px',
+                                        padding: '1px 6px',
+                                        lineHeight: '1.2'
+                                      }}>
+                                        {tab.count}
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Inner Table (Edge-to-Edge Grid) */}
+                              {(() => {
+                                const currentTabKey = expandedInnerTabs[job.id] || 'total';
+                                const displayedIssues = getFilteredIssuesForInnerTab(job, currentTabKey);
+
+                                if (displayedIssues.length === 0) {
+                                  return (
+                                    <div style={{
+                                      padding: '24px',
+                                      textAlign: 'center',
+                                      backgroundColor: '#ffffff',
+                                      borderRadius: '8px',
+                                      border: '1px solid #E2E8F0',
+                                      color: '#64748B',
+                                      fontSize: '13px'
+                                    }}>
+                                      No issues match this filter view.
+                                    </div>
+                                  );
+                                }
+
+                                return (
                                   <div style={{
-                                    width: '42px',
-                                    height: '42px',
-                                    borderRadius: '10px',
-                                    backgroundColor: '#FEF2F2',
+                                    backgroundColor: '#ffffff',
+                                    borderRadius: '8px',
+                                    border: '1px solid #E2E8F0',
+                                    overflow: 'hidden',
+                                    boxShadow: '0 1px 4px rgba(15, 23, 42, 0.04)'
+                                  }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                      <thead>
+                                        <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+                                          <th style={{ padding: '10px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                            Issue & Severity
+                                          </th>
+                                          <th style={{ padding: '10px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                            Current Stage
+                                          </th>
+                                          <th style={{ padding: '10px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                            Created By
+                                          </th>
+                                          <th style={{ padding: '10px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                            Last Updated By
+                                          </th>
+                                          <th style={{ padding: '10px 14px', fontSize: '11px', fontWeight: '800', color: '#475569', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.04em', paddingRight: '18px' }}>
+                                            Actions
+                                          </th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {displayedIssues.map((iss, iIdx) => (
+                                          <tr key={iss.id || iIdx} style={{ borderBottom: iIdx === displayedIssues.length - 1 ? 'none' : '1px solid #F1F5F9' }}>
+                                            <td style={{ padding: '12px 14px' }}>
+                                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <span style={{
+                                                  padding: '2px 8px',
+                                                  borderRadius: '4px',
+                                                  fontSize: '11px',
+                                                  fontWeight: '700',
+                                                  backgroundColor: '#FEF2F2',
+                                                  color: '#D8001D',
+                                                  border: '1px solid #FECDD3',
+                                                  fontFamily: 'monospace'
+                                                }}>
+                                                  {iss.id}
+                                                </span>
+                                                <span style={{ fontSize: '13px', fontWeight: '700', color: '#0F172A' }}>
+                                                  {iss.title}
+                                                </span>
+                                                <span style={{
+                                                  padding: '1px 8px',
+                                                  borderRadius: '10px',
+                                                  fontSize: '10.5px',
+                                                  fontWeight: '800',
+                                                  backgroundColor: iss.severity === 'Critical' ? '#FEF2F2' : iss.severity === 'High' ? '#FFFBEB' : '#F0FDF4',
+                                                  color: iss.severity === 'Critical' ? '#991B1B' : iss.severity === 'High' ? '#B45309' : '#166534',
+                                                  border: `1px solid ${iss.severity === 'Critical' ? '#FCA5A5' : iss.severity === 'High' ? '#FDE68A' : '#BBF2D0'}`
+                                                }}>
+                                                  {iss.severity}
+                                                </span>
+                                              </div>
+                                            </td>
+                                            <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                                              <span style={{
+                                                padding: '3px 10px',
+                                                borderRadius: '6px',
+                                                fontSize: '11.5px',
+                                                fontWeight: '700',
+                                                backgroundColor: '#EFF6FF',
+                                                color: '#1D4ED8',
+                                                border: '1px solid #BFDBFE'
+                                              }}>
+                                                {iss.currentLevel || 'Auditor Drafting'}
+                                              </span>
+                                            </td>
+                                            <td style={{ padding: '12px 14px' }}>
+                                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#334155', fontWeight: '600' }}>
+                                                <User style={{ width: '13px', height: '13px', color: '#64748B' }} />
+                                                <span>{iss.createdBy}</span>
+                                              </div>
+                                            </td>
+                                            <td style={{ padding: '12px 14px' }}>
+                                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <span style={{ fontSize: '12px', fontWeight: '600', color: '#334155' }}>
+                                                  {iss.lastEditedBy}
+                                                </span>
+                                                <span style={{ fontSize: '10.5px', color: '#94A3B8' }}>
+                                                  {iss.lastUpdated}
+                                                </span>
+                                              </div>
+                                            </td>
+                                            <td style={{ padding: '12px 14px', textAlign: 'right', paddingRight: '18px' }}>
+                                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onOpenDiscussionPoints && onOpenDiscussionPoints(job);
+                                                  }}
+                                                  style={{
+                                                    padding: '4px 9px',
+                                                    fontSize: '11px',
+                                                    fontWeight: '700',
+                                                    color: '#334155',
+                                                    backgroundColor: '#ffffff',
+                                                    border: '1px solid #CBD5E1',
+                                                    borderRadius: '5px',
+                                                    cursor: 'pointer',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px'
+                                                  }}
+                                                  title="Edit Issue"
+                                                >
+                                                  <Edit2 style={{ width: '11px', height: '11px' }} />
+                                                  <span>Edit</span>
+                                                </button>
+                                                {!isAuditor && (
+                                                  <button
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setToastMessage && setToastMessage({
+                                                        title: "Submitted to Next Level",
+                                                        description: `Issue ${iss.id} has been advanced to the next review stage.`
+                                                      });
+                                                    }}
+                                                    style={{
+                                                      padding: '4px 9px',
+                                                      fontSize: '11px',
+                                                      fontWeight: '700',
+                                                      color: '#1D4ED8',
+                                                      backgroundColor: '#EFF6FF',
+                                                      border: '1px solid #BFDBFE',
+                                                      borderRadius: '5px',
+                                                      cursor: 'pointer',
+                                                      display: 'inline-flex',
+                                                      alignItems: 'center',
+                                                      gap: '4px'
+                                                    }}
+                                                    title="Submit to Next Reviewer"
+                                                  >
+                                                    <ArrowRight style={{ width: '11px', height: '11px' }} />
+                                                    <span>Submit Next Level</span>
+                                                  </button>
+                                                )}
+                                                {!isAuditor && (
+                                                  <button
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setToastMessage && setToastMessage({
+                                                        title: "Issue Marked Completed",
+                                                        description: `Issue ${iss.id} status updated to Completed.`
+                                                      });
+                                                    }}
+                                                    style={{
+                                                      padding: '4px 9px',
+                                                      fontSize: '11px',
+                                                      fontWeight: '700',
+                                                      color: '#15803D',
+                                                      backgroundColor: '#F0FDF4',
+                                                      border: '1px solid #BBF2D0',
+                                                      borderRadius: '5px',
+                                                      cursor: 'pointer',
+                                                      display: 'inline-flex',
+                                                      alignItems: 'center',
+                                                      gap: '4px'
+                                                    }}
+                                                    title="Mark Issue Completed"
+                                                  >
+                                                    <CheckCircle style={{ width: '11px', height: '11px' }} />
+                                                    <span>Mark Completed</span>
+                                                  </button>
+                                                )}
+                                                {!isAuditor && (
+                                                  <button
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      onOpenDiscussionPoints && onOpenDiscussionPoints(job);
+                                                    }}
+                                                    style={{
+                                                      padding: '4px 9px',
+                                                      fontSize: '11px',
+                                                      fontWeight: '700',
+                                                      color: '#4338CA',
+                                                      backgroundColor: '#EEF2FF',
+                                                      border: '1px solid #C7D2FE',
+                                                      borderRadius: '5px',
+                                                      cursor: 'pointer',
+                                                      display: 'inline-flex',
+                                                      alignItems: 'center',
+                                                      gap: '4px'
+                                                    }}
+                                                    title="View Lineage Audit Trail"
+                                                  >
+                                                    <Eye style={{ width: '11px', height: '11px' }} />
+                                                    <span>Lineage History</span>
+                                                  </button>
+                                                )}
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                );
+                              })()}
+
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+
+                      {/* Concept 2 EXPANDED SCREEN-INSIDE-TABLE CONTAINER FOR ISSUE CARDS */}
+                      {viewMode === 'issue-cards' && isExpanded && (
+                        <tr style={{ backgroundColor: '#ffffff' }}>
+                          <td colSpan={getColSpanCount()} style={{ padding: '14px 8px', borderBottom: '2px solid #CBD5E1', backgroundColor: '#ffffff' }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                              
+                              {/* Tiny Collapse Arrow Button (Outside the information container) */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedRowId(null);
+                                }}
+                                style={{
+                                  width: '26px',
+                                  height: '26px',
+                                  borderRadius: '6px',
+                                  backgroundColor: '#ffffff',
+                                  border: '1px solid #CBD5E1',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  cursor: 'pointer',
+                                  color: '#475569',
+                                  boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)',
+                                  transition: 'all 0.15s ease',
+                                  flexShrink: 0,
+                                  marginTop: '6px'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = '#FEF2F2';
+                                  e.currentTarget.style.color = '#D8001D';
+                                  e.currentTarget.style.borderColor = '#FECDD3';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = '#ffffff';
+                                  e.currentTarget.style.color = '#475569';
+                                  e.currentTarget.style.borderColor = '#CBD5E1';
+                                }}
+                                title="Collapse & Return to Table"
+                              >
+                                <ChevronDown style={{ width: '15px', height: '15px', transform: 'rotate(90deg)', strokeWidth: 2.5 }} />
+                              </button>
+
+                              {/* Main Information Container */}
+                              <div style={{
+                                flex: '1 1 0px',
+                                backgroundColor: '#ffffff',
+                                borderRadius: '12px',
+                                border: '1px solid #E2E8F0',
+                                boxShadow: '0 4px 16px rgba(15, 23, 42, 0.08)',
+                                padding: '20px 22px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '18px'
+                              }}>
+                                
+                                {/* Header Bar inside Expanded Screen Container */}
+                                <div style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  paddingBottom: '4px'
+                                }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                    <div style={{
+                                      width: '42px',
+                                      height: '42px',
+                                      borderRadius: '10px',
+                                      backgroundColor: '#FEF2F2',
                                     border: '1px solid #FECDD3',
                                     display: 'flex',
                                     alignItems: 'center',
@@ -1219,15 +2357,16 @@ export default function ReportingNewQueueView({
                                 </div>
 
                                 {/* Header Action Buttons */}
-                                {isAuditor ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                  {/* + Add Issue Button (Available for ALL Roles) */}
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleOpenCreateForJob(job);
                                     }}
                                     style={{
-                                      padding: '8px 18px',
-                                      fontSize: '12.5px',
+                                      padding: '7px 14px',
+                                      fontSize: '12px',
                                       fontWeight: '800',
                                       color: '#ffffff',
                                       backgroundColor: '#D8001D',
@@ -1237,72 +2376,70 @@ export default function ReportingNewQueueView({
                                       display: 'flex',
                                       alignItems: 'center',
                                       gap: '6px',
-                                      boxShadow: '0 2px 8px rgba(216, 0, 29, 0.25)',
+                                      boxShadow: '0 2px 6px rgba(216, 0, 29, 0.25)',
                                       transition: 'all 0.15s ease'
                                     }}
                                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#B90018'}
                                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#D8001D'}
                                   >
-                                    <Plus style={{ width: '15px', height: '15px' }} />
-                                    <span>+ Add Issue</span>
+                                    <Plus style={{ width: '14px', height: '14px' }} />
+                                    <span>Issue</span>
                                   </button>
-                                ) : (
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    {/* Audit Report Button */}
-                                    {job.status !== 'Not Started' && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          onWorkOnReport && onWorkOnReport(job, 'audit');
-                                        }}
-                                        style={{
-                                          padding: '7px 14px',
-                                          fontSize: '12px',
-                                          fontWeight: '700',
-                                          color: '#1D4ED8',
-                                          backgroundColor: '#EFF6FF',
-                                          border: '1px solid #BFDBFE',
-                                          borderRadius: '7px',
-                                          cursor: 'pointer',
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          gap: '6px',
-                                          boxShadow: '0 1px 4px rgba(29, 78, 216, 0.1)'
-                                        }}
-                                      >
-                                        <PlayCircle style={{ width: '14px', height: '14px', color: '#1D4ED8' }} />
-                                        <span>Audit Report</span>
-                                      </button>
-                                    )}
 
-                                    {/* Executive Summary Report Button */}
-                                    {isExecEligible && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          onWorkOnReport && onWorkOnReport(job, 'executive');
-                                        }}
-                                        style={{
-                                          padding: '7px 14px',
-                                          fontSize: '12px',
-                                          fontWeight: '700',
-                                          color: '#4338CA',
-                                          backgroundColor: '#EEF2FF',
-                                          border: '1px solid #C7D2FE',
-                                          borderRadius: '7px',
-                                          cursor: 'pointer',
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          gap: '6px',
-                                          boxShadow: '0 1px 4px rgba(67, 56, 202, 0.1)'
-                                        }}
-                                      >
-                                        <ExternalLink style={{ width: '14px', height: '14px', color: '#4338CA' }} />
-                                        <span>Executive Summary Report</span>
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
+                                  {/* Audit Report Button (Non-Auditor personas when status !== Not Started) */}
+                                  {!isAuditor && job.status !== 'Not Started' && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onWorkOnReport && onWorkOnReport(job, 'audit');
+                                      }}
+                                      style={{
+                                        padding: '7px 14px',
+                                        fontSize: '12px',
+                                        fontWeight: '700',
+                                        color: '#1D4ED8',
+                                        backgroundColor: '#EFF6FF',
+                                        border: '1px solid #BFDBFE',
+                                        borderRadius: '7px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        boxShadow: '0 1px 4px rgba(29, 78, 216, 0.1)'
+                                      }}
+                                    >
+                                      <PlayCircle style={{ width: '14px', height: '14px', color: '#1D4ED8' }} />
+                                      <span>Audit Report</span>
+                                    </button>
+                                  )}
+
+                                  {/* Executive Summary Report Button (Non-Auditor personas when eligible) */}
+                                  {!isAuditor && isExecEligible && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onWorkOnReport && onWorkOnReport(job, 'executive');
+                                      }}
+                                      style={{
+                                        padding: '7px 14px',
+                                        fontSize: '12px',
+                                        fontWeight: '700',
+                                        color: '#4338CA',
+                                        backgroundColor: '#EEF2FF',
+                                        border: '1px solid #C7D2FE',
+                                        borderRadius: '7px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        boxShadow: '0 1px 4px rgba(67, 56, 202, 0.1)'
+                                      }}
+                                    >
+                                      <ExternalLink style={{ width: '14px', height: '14px', color: '#4338CA' }} />
+                                      <span>Executive Summary Report</span>
+                                    </button>
+                                  )}
+                                </div>
                               </div>
 
                               {/* Inner Metric Tabs inside Expanded Container */}
@@ -1563,8 +2700,9 @@ export default function ReportingNewQueueView({
                               })()}
 
                             </div>
-                          </td>
-                        </tr>
+                          </div>
+                        </td>
+                      </tr>
                       )}
 
                       {/* Enhanced Granular Issue Lineage Card */}
@@ -2027,6 +3165,410 @@ export default function ReportingNewQueueView({
         </table>
       </div>
     </div>
+  </div>
+
+            {/* Concept 3 RIGHT SLIDE-OVER WORKBENCH PANEL */}
+            {viewMode === 'split-pane' && selectedJobForPanel && (
+              <div style={{
+                flex: '0 0 45%',
+                width: '45%',
+                minWidth: '400px',
+                backgroundColor: '#ffffff',
+                borderRadius: '12px',
+                border: '1px solid #CBD5E1',
+                boxShadow: '-6px 0 24px rgba(15, 23, 42, 0.12)',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                position: 'sticky',
+                top: '16px',
+                maxHeight: 'calc(100vh - 120px)',
+                flexShrink: 0,
+                animation: 'fadeIn 0.2s ease-out'
+              }}>
+                
+                {/* Panel Top Header Bar */}
+                <div style={{
+                  padding: '16px 20px',
+                  backgroundColor: '#FAFAFA',
+                  borderBottom: '1px solid #E2E8F0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '8px',
+                      backgroundColor: '#FEF2F2',
+                      border: '1px solid #FECDD3',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}>
+                      <Layers style={{ width: '18px', height: '18px', color: '#D8001D' }} />
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <h3 style={{ fontSize: '14px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
+                          {selectedJobForPanel.fileName || selectedJobForPanel.engagement}
+                        </h3>
+                        {renderStatusPill(selectedJobForPanel.status)}
+                      </div>
+                      <span style={{ fontSize: '11.5px', color: '#64748B', marginTop: '2px', display: 'block' }}>
+                        Queue Owner: <strong>{selectedJobForPanel.currentOwner}</strong> • Issues: <strong>{(selectedJobForPanel.issuesList || []).length}</strong>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Close Panel Button */}
+                  <button
+                    onClick={() => setExpandedRowId(null)}
+                    style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '6px',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #CBD5E1',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      color: '#64748B',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#FEF2F2';
+                      e.currentTarget.style.color = '#D8001D';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#ffffff';
+                      e.currentTarget.style.color = '#64748B';
+                    }}
+                    title="Close Workbench Panel"
+                  >
+                    <X style={{ width: '16px', height: '16px' }} />
+                  </button>
+                </div>
+
+                {/* Panel Content Body (Scrollable) */}
+                <div style={{ padding: '16px 20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
+                  
+                  {/* Top Action Toolbar inside Panel */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => handleOpenCreateForJob(selectedJobForPanel)}
+                      style={{
+                        padding: '6px 12px',
+                        fontSize: '11.5px',
+                        fontWeight: '700',
+                        color: '#D8001D',
+                        backgroundColor: '#FEF2F2',
+                        border: '1px solid #FECDD3',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        transition: 'all 0.15s ease'
+                      }}
+                      title="Create New Issue"
+                    >
+                      <Plus style={{ width: '13px', height: '13px', color: '#D8001D' }} />
+                      <span>Issue</span>
+                    </button>
+
+                    {!isAuditor && selectedJobForPanel.status !== 'Not Started' && (
+                      <button
+                        onClick={() => onWorkOnReport && onWorkOnReport(selectedJobForPanel, 'audit')}
+                        style={{
+                          padding: '6px 12px',
+                          fontSize: '11.5px',
+                          fontWeight: '700',
+                          color: '#1D4ED8',
+                          backgroundColor: '#EFF6FF',
+                          border: '1px solid #BFDBFE',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px'
+                        }}
+                      >
+                        <PlayCircle style={{ width: '13px', height: '13px', color: '#1D4ED8' }} />
+                        <span>Audit Report</span>
+                      </button>
+                    )}
+
+                    {!isAuditor && [
+                      'Audit Report Completed',
+                      'Executive Report In Progress',
+                      'Executive Report Completed'
+                    ].includes(selectedJobForPanel.subStatus || (selectedJobForPanel.status === 'Completed' ? 'Executive Report Completed' : '')) && (
+                      <button
+                        onClick={() => onWorkOnReport && onWorkOnReport(selectedJobForPanel, 'executive')}
+                        style={{
+                          padding: '6px 12px',
+                          fontSize: '11.5px',
+                          fontWeight: '700',
+                          color: '#4338CA',
+                          backgroundColor: '#EEF2FF',
+                          border: '1px solid #C7D2FE',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px'
+                        }}
+                      >
+                        <ExternalLink style={{ width: '13px', height: '13px', color: '#4338CA' }} />
+                        <span>Executive Summary Report</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Metric Filter Tabs inside Panel */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
+                    {(isAuditor ? [
+                      { id: 'total', label: 'Total Issues', count: (selectedJobForPanel.issuesList || []).length },
+                      { id: 'my-contributed', label: 'Contributed', count: getMyIssuesCount(selectedJobForPanel) },
+                      { id: 'others-contributions', label: 'Others', count: getOthersIssuesCount(selectedJobForPanel) }
+                    ] : [
+                      { id: 'total', label: 'Total', count: (selectedJobForPanel.issuesList || []).length },
+                      { id: 'pending-me', label: 'Pending Me', count: getPendingWithMeCount(selectedJobForPanel) },
+                      { id: 'external', label: 'External', count: getExternalContributionsCount(selectedJobForPanel) },
+                      { id: 'completed-my-side', label: 'My Completed', count: getCompletedMySideCount(selectedJobForPanel) },
+                      { id: 'overall-completed', label: 'Overall Done', count: getOverallCompletedCount(selectedJobForPanel) }
+                    ]).map(tab => {
+                      const currentTab = expandedInnerTabs[selectedJobForPanel.id] || 'total';
+                      const isActive = currentTab === tab.id;
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => setExpandedInnerTabs(prev => ({ ...prev, [selectedJobForPanel.id]: tab.id }))}
+                          style={{
+                            padding: '4px 9px',
+                            fontSize: '11px',
+                            fontWeight: isActive ? '700' : '500',
+                            color: isActive ? '#D8001D' : '#475569',
+                            backgroundColor: isActive ? '#FEF2F2' : '#F8FAFC',
+                            border: `1px solid ${isActive ? '#FECDD3' : '#E2E8F0'}`,
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          <span>{tab.label}</span>
+                          <span style={{
+                            fontSize: '9.5px',
+                            fontWeight: '800',
+                            color: isActive ? '#ffffff' : '#64748B',
+                            backgroundColor: isActive ? '#D8001D' : '#CBD5E1',
+                            borderRadius: '8px',
+                            padding: '1px 5px'
+                          }}>
+                            {tab.count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Spacious Vertical Issues Stream */}
+                  {(() => {
+                    const currentTabKey = expandedInnerTabs[selectedJobForPanel.id] || 'total';
+                    const displayedIssues = getFilteredIssuesForInnerTab(selectedJobForPanel, currentTabKey);
+
+                    if (displayedIssues.length === 0) {
+                      return (
+                        <div style={{ padding: '24px', textAlign: 'center', color: '#64748B', fontSize: '12.5px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                          No issues match the selected filter.
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {displayedIssues.map((iss, idx) => (
+                          <div
+                            key={iss.id || idx}
+                            style={{
+                              backgroundColor: '#ffffff',
+                              borderRadius: '8px',
+                              border: '1px solid #E2E8F0',
+                              boxShadow: '0 2px 6px rgba(15, 23, 42, 0.04)',
+                              padding: '14px 16px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '10px'
+                            }}
+                          >
+                            {/* Issue Header */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{
+                                  padding: '2px 7px',
+                                  borderRadius: '4px',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                  backgroundColor: '#FEF2F2',
+                                  color: '#D8001D',
+                                  border: '1px solid #FECDD3',
+                                  fontFamily: 'monospace'
+                                }}>
+                                  {iss.id}
+                                </span>
+                                <span style={{
+                                  padding: '1px 7px',
+                                  borderRadius: '10px',
+                                  fontSize: '10px',
+                                  fontWeight: '800',
+                                  backgroundColor: iss.severity === 'Critical' ? '#FEF2F2' : iss.severity === 'High' ? '#FFFBEB' : '#F0FDF4',
+                                  color: iss.severity === 'Critical' ? '#991B1B' : iss.severity === 'High' ? '#B45309' : '#166534',
+                                  border: `1px solid ${iss.severity === 'Critical' ? '#FCA5A5' : iss.severity === 'High' ? '#FDE68A' : '#BBF2D0'}`
+                                }}>
+                                  {iss.severity}
+                                </span>
+                              </div>
+
+                              <span style={{
+                                padding: '2px 8px',
+                                borderRadius: '6px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                backgroundColor: '#EFF6FF',
+                                color: '#1D4ED8',
+                                border: '1px solid #BFDBFE'
+                              }}>
+                                {iss.currentLevel || 'Auditor Drafting'}
+                              </span>
+                            </div>
+
+                            {/* Issue Title */}
+                            <h4 style={{ fontSize: '13px', fontWeight: '700', color: '#0F172A', margin: 0 }}>
+                              {iss.title}
+                            </h4>
+
+                            {/* Issue Meta */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: '#64748B' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <User style={{ width: '12px', height: '12px' }} />
+                                <span>Created by: <strong>{iss.createdBy}</strong></span>
+                              </div>
+                              <span>Edited by <strong>{iss.lastEditedBy}</strong></span>
+                            </div>
+
+                            {/* Issue Actions Toolbar */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', borderTop: '1px solid #F1F5F9', paddingTop: '8px' }}>
+                              <button
+                                onClick={() => onOpenDiscussionPoints && onOpenDiscussionPoints(selectedJobForPanel)}
+                                style={{
+                                  padding: '4px 8px',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                  color: '#334155',
+                                  backgroundColor: '#F8FAFC',
+                                  border: '1px solid #CBD5E1',
+                                  borderRadius: '5px',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                <Edit2 style={{ width: '11px', height: '11px' }} />
+                                <span>Edit</span>
+                              </button>
+
+                              {!isAuditor && (
+                                <button
+                                  onClick={() => setToastMessage && setToastMessage({
+                                    title: "Submitted to Next Level",
+                                    description: `Issue ${iss.id} has been advanced to the next review stage.`
+                                  })}
+                                  style={{
+                                    padding: '4px 8px',
+                                    fontSize: '11px',
+                                    fontWeight: '700',
+                                    color: '#1D4ED8',
+                                    backgroundColor: '#EFF6FF',
+                                    border: '1px solid #BFDBFE',
+                                    borderRadius: '5px',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                >
+                                  <ArrowRight style={{ width: '11px', height: '11px' }} />
+                                  <span>Submit Next Level</span>
+                                </button>
+                              )}
+
+                              {!isAuditor && (
+                                <button
+                                  onClick={() => setToastMessage && setToastMessage({
+                                    title: "Issue Marked Completed",
+                                    description: `Issue ${iss.id} status updated to Completed.`
+                                  })}
+                                  style={{
+                                    padding: '4px 8px',
+                                    fontSize: '11px',
+                                    fontWeight: '700',
+                                    color: '#15803D',
+                                    backgroundColor: '#F0FDF4',
+                                    border: '1px solid #BBF2D0',
+                                    borderRadius: '5px',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                >
+                                  <CheckCircle style={{ width: '11px', height: '11px' }} />
+                                  <span>Mark Completed</span>
+                                </button>
+                              )}
+
+                              {!isAuditor && (
+                                <button
+                                  onClick={() => onOpenDiscussionPoints && onOpenDiscussionPoints(selectedJobForPanel)}
+                                  style={{
+                                    padding: '4px 8px',
+                                    fontSize: '11px',
+                                    fontWeight: '700',
+                                    color: '#4338CA',
+                                    backgroundColor: '#EEF2FF',
+                                    border: '1px solid #C7D2FE',
+                                    borderRadius: '5px',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                >
+                                  <Eye style={{ width: '11px', height: '11px' }} />
+                                  <span>Lineage</span>
+                                </button>
+                              )}
+                            </div>
+
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
+                </div>
+
+              </div>
+            )}
+          </div>
 
     {/* Create Issue Drawer Overlay for Not Started Jobs */}
     <CreateIssueDrawerNew
@@ -2039,8 +3581,18 @@ export default function ReportingNewQueueView({
       defaultFunction={selectedJobForIssue?.tech || 'IT'}
     />
 
-    {/* Embedded CSS Keyframes for Toast Animations */}
+    {/* Embedded CSS Keyframes for Animations & Hover Actions */}
     <style>{`
+      .table-row-interactive .row-action-buttons {
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s ease, visibility 0.2s ease;
+      }
+      .table-row-interactive:hover .row-action-buttons,
+      .table-row-interactive.active-selected .row-action-buttons {
+        opacity: 1;
+        visibility: visible;
+      }
       @keyframes slideUpToast {
         from {
           opacity: 0;
