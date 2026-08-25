@@ -416,7 +416,7 @@ export default function CreateIssueDrawerNew({
   };
 
   return (
-    <div className="modal-overlay" style={{ justifyContent: 'flex-end', zIndex: 120 }}>
+    <div className="modal-overlay" style={{ justifyContent: 'flex-end', zIndex: 1500 }}>
       
       {/* Overlay Drawer Panel */}
       <aside style={{

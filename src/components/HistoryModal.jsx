@@ -72,7 +72,7 @@ export default function HistoryModal({ isOpen, report, onClose }) {
   };
 
   return (
-    <div className="modal-overlay" style={{ justifyContent: 'flex-end', zIndex: 125 }}>
+    <div className="modal-overlay" style={{ justifyContent: 'flex-end', zIndex: 1500 }}>
       
       {/* Right Overlay Drawer Panel */}
       <aside style={{

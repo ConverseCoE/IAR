@@ -3,7 +3,7 @@ import {
   Search, RotateCcw, Filter, ArrowUpDown, Clock,
   FileText, ChevronRight, ChevronDown, Check, X,
   Plus, MessageSquare, PlayCircle, ShieldCheck, Shield,
-  UserCheck, Users, AlertCircle, CheckCircle, GitCommit, Eye, User, Layers, ArrowRight, CheckCircle2, Edit2, ExternalLink
+  UserCheck, Users, AlertCircle, CheckCircle, GitCommit, Eye, User, Layers, ArrowRight, CheckCircle2, Edit2, ExternalLink, Maximize2, Minimize2
 } from 'lucide-react';
 import { mockReportingNewJobs } from '../data/reportingNewMockData';
 import CreateIssueDrawerNew from '../components/CreateIssueDrawerNew';
@@ -59,6 +59,58 @@ export default function ReportingNewQueueView({
   const [selectedJobForIssue, setSelectedJobForIssue] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
 
+  // Send to Dropdown State
+  const [sendToDropdownIssueId, setSendToDropdownIssueId] = useState(null);
+
+  const ROLE_STAGES = [
+    { id: 'Auditor Drafting', label: 'Auditor Drafting', role: 'Auditor', color: '#1E293B', bg: '#F1F5F9' },
+    { id: 'Manager Review', label: 'Manager Review', role: 'Manager', color: '#D97706', bg: '#FEF3C7' },
+    { id: 'Director Review', label: 'Director Review', role: 'Director', color: '#7C3AED', bg: '#F3E8FF' },
+    { id: 'VP Sign-Off', label: 'VP Sign-Off', role: 'VP', color: '#059669', bg: '#ECFDF5' }
+  ];
+
+  const getAvailableNextStages = (currentLevel) => {
+    const levelStr = (currentLevel || '').toLowerCase();
+    const curIdx = ROLE_STAGES.findIndex(stg =>
+      levelStr.includes(stg.id.toLowerCase()) ||
+      levelStr.includes(stg.role.toLowerCase())
+    );
+    if (curIdx === -1) {
+      if (levelStr.includes('tc')) return ROLE_STAGES.slice(1);
+      return ROLE_STAGES.slice(1);
+    }
+    return ROLE_STAGES.slice(curIdx + 1);
+  };
+
+  const handleSendToRole = (jobId, issueId, targetStageObj, e) => {
+    if (e) e.stopPropagation();
+    setJobs(prev => prev.map(j => {
+      if (j.id === jobId) {
+        return {
+          ...j,
+          status: 'In Progress',
+          issuesList: (j.issuesList || []).map(iss =>
+            iss.id === issueId
+              ? { ...iss, currentLevel: targetStageObj.id, status: targetStageObj.id === 'VP Sign-Off' ? 'Completed' : 'In Review' }
+              : iss
+          )
+        };
+      }
+      return j;
+    }));
+    setToastMessage && setToastMessage({
+      title: `Issue Sent to ${targetStageObj.role}`,
+      description: `Issue ${issueId} current stage updated to ${targetStageObj.label}.`
+    });
+    setSendToDropdownIssueId(null);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = () => setSendToDropdownIssueId(null);
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
+
   useEffect(() => {
     if (toastMessage) {
       const timer = setTimeout(() => setToastMessage(null), 4500);
@@ -105,8 +157,9 @@ export default function ReportingNewQueueView({
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const statusDropdownRef = useRef(null);
 
-  // Expanded Row State for 'expand-action' mode
+  // Expanded Row & Full Screen View States
   const [expandedRowId, setExpandedRowId] = useState(null);
+  const [fullScreenJobId, setFullScreenJobId] = useState(null);
 
   // Sort State
   const [sortField, setSortField] = useState('lastUpdated');
@@ -513,12 +566,13 @@ export default function ReportingNewQueueView({
   };
 
   return (
-    <div className="full-width-queue">
+    <div className="full-width-queue" style={{ position: 'relative' }}>
 
 
 
       {/* Slick Single-Row Filter Toolbar */}
-      <div className="single-row-filter-panel" style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+      {!fullScreenJobId && (
+        <div className="single-row-filter-panel" style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
 
         {/* Premium Multi-Select Status Filter */}
         <div ref={statusDropdownRef} style={{ position: 'relative' }}>
@@ -753,9 +807,10 @@ export default function ReportingNewQueueView({
           </button>
         )}
       </div>
+      )}
 
       {/* Concept 1: Persona Lens Work Hub Bar */}
-      {viewMode === 'persona-lens' && (
+      {!fullScreenJobId && viewMode === 'persona-lens' && (
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -868,7 +923,8 @@ export default function ReportingNewQueueView({
           <div className="table-card-container">
             <div className="table-scroll-body">
               <table>
-                <thead>
+                {!fullScreenJobId && (
+                  <thead>
                   <tr>
                     {/* Left Expand/Collapse Column Header */}
                     {['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) && (
@@ -976,6 +1032,7 @@ export default function ReportingNewQueueView({
                     )}
                   </tr>
                 </thead>
+                )}
                 <tbody>
                   {filteredJobs.length === 0 ? (
                     <tr>
@@ -987,6 +1044,7 @@ export default function ReportingNewQueueView({
                     </tr>
                   ) : (
                     filteredJobs.map((job) => {
+                      if (fullScreenJobId && job.id !== fullScreenJobId) return null;
                       const isSelected = selectedJobId === job.id;
                       const isExpanded = expandedRowId === job.id;
                       const pState = getPersonaAuditState(job, userRole);
@@ -999,7 +1057,7 @@ export default function ReportingNewQueueView({
                       return (
                         <React.Fragment key={job.id}>
                           {/* Main Table Row (Hidden when expanded in Concept 1 & 2, but STAYS VISIBLE in Tree-Table & Split-Pane) */}
-                          {!(['issue-cards', 'concept1-edge-to-edge'].includes(viewMode) && isExpanded) && (
+                          {(!fullScreenJobId && !(['issue-cards', 'concept1-edge-to-edge'].includes(viewMode) && isExpanded)) && (
                             <tr
                               onClick={() => {
                                 if (['expand-action', 'issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane', 'enhanced-lineage'].includes(viewMode)) {
@@ -1640,9 +1698,9 @@ export default function ReportingNewQueueView({
                                                       borderRadius: '6px',
                                                       fontSize: '11px',
                                                       fontWeight: '700',
-                                                      backgroundColor: '#EFF6FF',
-                                                      color: '#1D4ED8',
-                                                      border: '1px solid #BFDBFE'
+                                                      backgroundColor: '#F1F5F9',
+                                                      color: '#0F172A',
+                                                      border: '1px solid #CBD5E1'
                                                     }}>
                                                       {iss.currentLevel || 'Auditor Drafting'}
                                                     </span>
@@ -1694,67 +1752,141 @@ export default function ReportingNewQueueView({
                                                         <Edit2 style={{ width: '11px', height: '11px' }} />
                                                         <span>Edit</span>
                                                       </button>
+                                                      {(() => {
+                                                        const isIssueCompleted = (iss.status === 'Completed' ||
+                                                          (iss.currentLevel || '').toLowerCase().includes('completed') ||
+                                                          (iss.currentLevel || '').toLowerCase().includes('signed off'));
+                                                        const nextStages = getAvailableNextStages(iss.currentLevel);
+
+                                                        if (isIssueCompleted) return null;
+
+                                                        return (
+                                                          <>
+                                                            {!isAuditor && nextStages.length > 0 && (
+                                                              <div style={{ position: 'relative', display: 'inline-block' }}>
+                                                                <button
+                                                                  onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setSendToDropdownIssueId(sendToDropdownIssueId === iss.id ? null : iss.id);
+                                                                  }}
+                                                                  style={{
+                                                                    padding: '4px 8px',
+                                                                    fontSize: '11px',
+                                                                    fontWeight: '700',
+                                                                    color: '#1D4ED8',
+                                                                    backgroundColor: '#EFF6FF',
+                                                                    border: '1px solid #BFDBFE',
+                                                                    borderRadius: '5px',
+                                                                    cursor: 'pointer',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '4px'
+                                                                  }}
+                                                                  title="Send to Role"
+                                                                >
+                                                                  <span>Send to</span>
+                                                                  <ChevronDown style={{
+                                                                    width: '11px',
+                                                                    height: '11px',
+                                                                    transform: sendToDropdownIssueId === iss.id ? 'rotate(180deg)' : 'rotate(0deg)',
+                                                                    transition: 'transform 0.15s ease'
+                                                                  }} />
+                                                                </button>
+
+                                                                {sendToDropdownIssueId === iss.id && (
+                                                                  <div
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    style={{
+                                                                      position: 'absolute',
+                                                                      top: 'calc(100% + 4px)',
+                                                                      left: 0,
+                                                                      zIndex: 1000,
+                                                                      minWidth: '170px',
+                                                                      backgroundColor: '#ffffff',
+                                                                      borderRadius: '8px',
+                                                                      border: '1px solid #CBD5E1',
+                                                                      boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.18), 0 4px 10px -2px rgba(15, 23, 42, 0.08)',
+                                                                      padding: '5px',
+                                                                      display: 'flex',
+                                                                      flexDirection: 'column',
+                                                                      gap: '2px'
+                                                                    }}
+                                                                  >
+                                                                    {nextStages.map((stg) => (
+                                                                      <button
+                                                                        key={stg.id}
+                                                                        onClick={(e) => handleSendToRole(job.id, iss.id, stg, e)}
+                                                                        style={{
+                                                                          display: 'flex',
+                                                                          alignItems: 'center',
+                                                                          justifyContent: 'space-between',
+                                                                          padding: '6px 10px',
+                                                                          fontSize: '11px',
+                                                                          fontWeight: '600',
+                                                                          color: '#334155',
+                                                                          backgroundColor: 'transparent',
+                                                                          border: 'none',
+                                                                          borderRadius: '6px',
+                                                                          cursor: 'pointer',
+                                                                          textAlign: 'left',
+                                                                          width: '100%',
+                                                                          transition: 'all 0.15s ease'
+                                                                        }}
+                                                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#EFF6FF'}
+                                                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                                      >
+                                                                        <span>{stg.label}</span>
+                                                                      </button>
+                                                                    ))}
+                                                                  </div>
+                                                                )}
+                                                              </div>
+                                                            )}
+                                                            {!isAuditor && (
+                                                              <button
+                                                                onClick={(e) => {
+                                                                  e.stopPropagation();
+                                                                  setJobs(prev => prev.map(j => {
+                                                                    if (j.id === job.id) {
+                                                                      return {
+                                                                        ...j,
+                                                                        issuesList: (j.issuesList || []).map(item => item.id === iss.id ? { ...item, status: 'Completed', currentLevel: 'Completed & Signed Off' } : item)
+                                                                      };
+                                                                    }
+                                                                    return j;
+                                                                  }));
+                                                                  setToastMessage && setToastMessage({
+                                                                    title: "Issue Signed Off",
+                                                                    description: `Issue ${iss.id} status updated to Completed & Signed Off.`
+                                                                  });
+                                                                }}
+                                                                style={{
+                                                                  padding: '4px 8px',
+                                                                  fontSize: '11px',
+                                                                  fontWeight: '700',
+                                                                  color: '#15803D',
+                                                                  backgroundColor: '#F0FDF4',
+                                                                  border: '1px solid #BBF2D0',
+                                                                  borderRadius: '5px',
+                                                                  cursor: 'pointer',
+                                                                  display: 'inline-flex',
+                                                                  alignItems: 'center',
+                                                                  gap: '4px'
+                                                                }}
+                                                                title="Sign-off Issue"
+                                                              >
+                                                                <CheckCircle style={{ width: '11px', height: '11px' }} />
+                                                                <span>Sign-off</span>
+                                                              </button>
+                                                            )}
+                                                          </>
+                                                        );
+                                                      })()}
                                                       {!isAuditor && (
                                                         <button
                                                           onClick={(e) => {
                                                             e.stopPropagation();
-                                                            setToastMessage && setToastMessage({
-                                                              title: "Submitted to Next Level",
-                                                              description: `Issue ${iss.id} has been advanced to the next review stage.`
-                                                            });
-                                                          }}
-                                                          style={{
-                                                            padding: '4px 8px',
-                                                            fontSize: '11px',
-                                                            fontWeight: '700',
-                                                            color: '#1D4ED8',
-                                                            backgroundColor: '#EFF6FF',
-                                                            border: '1px solid #BFDBFE',
-                                                            borderRadius: '5px',
-                                                            cursor: 'pointer',
-                                                            display: 'inline-flex',
-                                                            alignItems: 'center',
-                                                            gap: '4px'
-                                                          }}
-                                                          title="Submit to Next Reviewer"
-                                                        >
-                                                          <ArrowRight style={{ width: '11px', height: '11px' }} />
-                                                          <span>Submit Next Level</span>
-                                                        </button>
-                                                      )}
-                                                      {!isAuditor && (
-                                                        <button
-                                                          onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setToastMessage && setToastMessage({
-                                                              title: "Issue Marked Completed",
-                                                              description: `Issue ${iss.id} status updated to Completed.`
-                                                            });
-                                                          }}
-                                                          style={{
-                                                            padding: '4px 8px',
-                                                            fontSize: '11px',
-                                                            fontWeight: '700',
-                                                            color: '#15803D',
-                                                            backgroundColor: '#F0FDF4',
-                                                            border: '1px solid #BBF2D0',
-                                                            borderRadius: '5px',
-                                                            cursor: 'pointer',
-                                                            display: 'inline-flex',
-                                                            alignItems: 'center',
-                                                            gap: '4px'
-                                                          }}
-                                                          title="Mark Issue Completed"
-                                                        >
-                                                          <CheckCircle style={{ width: '11px', height: '11px' }} />
-                                                          <span>Mark Completed</span>
-                                                        </button>
-                                                      )}
-                                                      {!isAuditor && (
-                                                        <button
-                                                          onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            onOpenDiscussionPoints && onOpenDiscussionPoints(job);
+                                                            onOpenHistory && onOpenHistory(job);
                                                           }}
                                                           style={{
                                                             padding: '4px 8px',
@@ -1769,10 +1901,10 @@ export default function ReportingNewQueueView({
                                                             alignItems: 'center',
                                                             gap: '4px'
                                                           }}
-                                                          title="View Lineage Audit Trail"
+                                                          title="Track Log Changes History"
                                                         >
                                                           <Eye style={{ width: '11px', height: '11px' }} />
-                                                          <span>Lineage History</span>
+                                                          <span>History</span>
                                                         </button>
                                                       )}
                                                     </div>
@@ -1803,7 +1935,22 @@ export default function ReportingNewQueueView({
                                   backgroundColor: '#ffffff'
                                 }}
                               >
-                                <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                 <div style={{
+                                   padding: fullScreenJobId === job.id ? '20px 24px' : '16px 20px',
+                                   display: 'flex',
+                                   flexDirection: 'column',
+                                   gap: '10px',
+                                   ...(fullScreenJobId === job.id ? {
+                                     position: 'absolute',
+                                     top: 0,
+                                     left: 0,
+                                     right: 0,
+                                     bottom: 0,
+                                     zIndex: 600,
+                                     backgroundColor: '#ffffff',
+                                     overflowY: 'auto'
+                                   } : {})
+                                 }}>
 
                                   {/* Seamless Workbench Header */}
                                   <div style={{
@@ -1817,6 +1964,7 @@ export default function ReportingNewQueueView({
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setExpandedRowId(null);
+                                          setFullScreenJobId(null);
                                         }}
                                         style={{
                                           width: '26px',
@@ -1936,6 +2084,51 @@ export default function ReportingNewQueueView({
                                           <span>Executive Summary Report</span>
                                         </button>
                                       )}
+
+                                      {/* Icon-based Button for Full Screen View */}
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setFullScreenJobId(fullScreenJobId === job.id ? null : job.id);
+                                        }}
+                                        style={{
+                                          padding: '7px 10px',
+                                          fontSize: '12px',
+                                          fontWeight: '700',
+                                          color: fullScreenJobId === job.id ? '#D8001D' : '#475569',
+                                          backgroundColor: fullScreenJobId === job.id ? '#FEF2F2' : '#F8FAFC',
+                                          border: `1px solid ${fullScreenJobId === job.id ? '#FECDD3' : '#CBD5E1'}`,
+                                          borderRadius: '7px',
+                                          cursor: 'pointer',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          gap: '4px',
+                                          boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)',
+                                          transition: 'all 0.15s ease'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          if (fullScreenJobId !== job.id) {
+                                            e.currentTarget.style.backgroundColor = '#FEF2F2';
+                                            e.currentTarget.style.color = '#D8001D';
+                                            e.currentTarget.style.borderColor = '#FECDD3';
+                                          }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          if (fullScreenJobId !== job.id) {
+                                            e.currentTarget.style.backgroundColor = '#F8FAFC';
+                                            e.currentTarget.style.color = '#475569';
+                                            e.currentTarget.style.borderColor = '#CBD5E1';
+                                          }
+                                        }}
+                                        title={fullScreenJobId === job.id ? "Exit Full Screen" : "Full Screen View"}
+                                      >
+                                        {fullScreenJobId === job.id ? (
+                                          <Minimize2 style={{ width: '14px', height: '14px' }} />
+                                        ) : (
+                                          <Maximize2 style={{ width: '14px', height: '14px' }} />
+                                        )}
+                                      </button>
                                     </div>
                                   </div>
 
@@ -2070,9 +2263,9 @@ export default function ReportingNewQueueView({
                                                     borderRadius: '6px',
                                                     fontSize: '11.5px',
                                                     fontWeight: '700',
-                                                    backgroundColor: '#EFF6FF',
-                                                    color: '#1D4ED8',
-                                                    border: '1px solid #BFDBFE'
+                                                    backgroundColor: '#F1F5F9',
+                                                    color: '#0F172A',
+                                                    border: '1px solid #CBD5E1'
                                                   }}>
                                                     {iss.currentLevel || 'Auditor Drafting'}
                                                   </span>
@@ -2119,67 +2312,141 @@ export default function ReportingNewQueueView({
                                                       <Edit2 style={{ width: '11px', height: '11px' }} />
                                                       <span>Edit</span>
                                                     </button>
+                                                    {(() => {
+                                                        const isIssueCompleted = (iss.status === 'Completed' ||
+                                                          (iss.currentLevel || '').toLowerCase().includes('completed') ||
+                                                          (iss.currentLevel || '').toLowerCase().includes('signed off'));
+                                                        const nextStages = getAvailableNextStages(iss.currentLevel);
+
+                                                        if (isIssueCompleted) return null;
+
+                                                        return (
+                                                          <>
+                                                            {!isAuditor && nextStages.length > 0 && (
+                                                              <div style={{ position: 'relative', display: 'inline-block' }}>
+                                                                <button
+                                                                  onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setSendToDropdownIssueId(sendToDropdownIssueId === iss.id ? null : iss.id);
+                                                                  }}
+                                                                  style={{
+                                                                    padding: '4px 9px',
+                                                                    fontSize: '11px',
+                                                                    fontWeight: '700',
+                                                                    color: '#1D4ED8',
+                                                                    backgroundColor: '#EFF6FF',
+                                                                    border: '1px solid #BFDBFE',
+                                                                    borderRadius: '5px',
+                                                                    cursor: 'pointer',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '4px'
+                                                                  }}
+                                                                  title="Send to Role"
+                                                                >
+                                                                  <span>Send to</span>
+                                                                  <ChevronDown style={{
+                                                                    width: '11px',
+                                                                    height: '11px',
+                                                                    transform: sendToDropdownIssueId === iss.id ? 'rotate(180deg)' : 'rotate(0deg)',
+                                                                    transition: 'transform 0.15s ease'
+                                                                  }} />
+                                                                </button>
+
+                                                                {sendToDropdownIssueId === iss.id && (
+                                                                  <div
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    style={{
+                                                                      position: 'absolute',
+                                                                      top: 'calc(100% + 4px)',
+                                                                      left: 0,
+                                                                      zIndex: 1000,
+                                                                      minWidth: '190px',
+                                                                      backgroundColor: '#ffffff',
+                                                                      borderRadius: '8px',
+                                                                      border: '1px solid #CBD5E1',
+                                                                      boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.18), 0 4px 10px -2px rgba(15, 23, 42, 0.08)',
+                                                                      padding: '5px',
+                                                                      display: 'flex',
+                                                                      flexDirection: 'column',
+                                                                      gap: '2px'
+                                                                    }}
+                                                                  >
+                                                                    {nextStages.map((stg) => (
+                                                                      <button
+                                                                        key={stg.id}
+                                                                        onClick={(e) => handleSendToRole(job.id, iss.id, stg, e)}
+                                                                        style={{
+                                                                          display: 'flex',
+                                                                          alignItems: 'center',
+                                                                          justifyContent: 'space-between',
+                                                                          padding: '6px 10px',
+                                                                          fontSize: '11px',
+                                                                          fontWeight: '600',
+                                                                          color: '#334155',
+                                                                          backgroundColor: 'transparent',
+                                                                          border: 'none',
+                                                                          borderRadius: '6px',
+                                                                          cursor: 'pointer',
+                                                                          textAlign: 'left',
+                                                                          width: '100%',
+                                                                          transition: 'all 0.15s ease'
+                                                                        }}
+                                                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#EFF6FF'}
+                                                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                                      >
+                                                                        <span>{stg.label}</span>
+                                                                      </button>
+                                                                    ))}
+                                                                  </div>
+                                                                )}
+                                                              </div>
+                                                            )}
+                                                            {!isAuditor && (
+                                                              <button
+                                                                onClick={(e) => {
+                                                                  e.stopPropagation();
+                                                                  setJobs(prev => prev.map(j => {
+                                                                    if (j.id === job.id) {
+                                                                      return {
+                                                                        ...j,
+                                                                        issuesList: (j.issuesList || []).map(item => item.id === iss.id ? { ...item, status: 'Completed', currentLevel: 'Completed & Signed Off' } : item)
+                                                                      };
+                                                                    }
+                                                                    return j;
+                                                                  }));
+                                                                  setToastMessage && setToastMessage({
+                                                                    title: "Issue Signed Off",
+                                                                    description: `Issue ${iss.id} status updated to Completed & Signed Off.`
+                                                                  });
+                                                                }}
+                                                                style={{
+                                                                  padding: '4px 9px',
+                                                                  fontSize: '11px',
+                                                                  fontWeight: '700',
+                                                                  color: '#15803D',
+                                                                  backgroundColor: '#F0FDF4',
+                                                                  border: '1px solid #BBF2D0',
+                                                                  borderRadius: '5px',
+                                                                  cursor: 'pointer',
+                                                                  display: 'inline-flex',
+                                                                  alignItems: 'center',
+                                                                  gap: '4px'
+                                                                }}
+                                                                title="Sign-off Issue"
+                                                              >
+                                                                <CheckCircle style={{ width: '11px', height: '11px' }} />
+                                                                <span>Sign-off</span>
+                                                              </button>
+                                                            )}
+                                                          </>
+                                                        );
+                                                      })()}
                                                     {!isAuditor && (
                                                       <button
                                                         onClick={(e) => {
                                                           e.stopPropagation();
-                                                          setToastMessage && setToastMessage({
-                                                            title: "Submitted to Next Level",
-                                                            description: `Issue ${iss.id} has been advanced to the next review stage.`
-                                                          });
-                                                        }}
-                                                        style={{
-                                                          padding: '4px 9px',
-                                                          fontSize: '11px',
-                                                          fontWeight: '700',
-                                                          color: '#1D4ED8',
-                                                          backgroundColor: '#EFF6FF',
-                                                          border: '1px solid #BFDBFE',
-                                                          borderRadius: '5px',
-                                                          cursor: 'pointer',
-                                                          display: 'inline-flex',
-                                                          alignItems: 'center',
-                                                          gap: '4px'
-                                                        }}
-                                                        title="Submit to Next Reviewer"
-                                                      >
-                                                        <ArrowRight style={{ width: '11px', height: '11px' }} />
-                                                        <span>Submit Next Level</span>
-                                                      </button>
-                                                    )}
-                                                    {!isAuditor && (
-                                                      <button
-                                                        onClick={(e) => {
-                                                          e.stopPropagation();
-                                                          setToastMessage && setToastMessage({
-                                                            title: "Issue Marked Completed",
-                                                            description: `Issue ${iss.id} status updated to Completed.`
-                                                          });
-                                                        }}
-                                                        style={{
-                                                          padding: '4px 9px',
-                                                          fontSize: '11px',
-                                                          fontWeight: '700',
-                                                          color: '#15803D',
-                                                          backgroundColor: '#F0FDF4',
-                                                          border: '1px solid #BBF2D0',
-                                                          borderRadius: '5px',
-                                                          cursor: 'pointer',
-                                                          display: 'inline-flex',
-                                                          alignItems: 'center',
-                                                          gap: '4px'
-                                                        }}
-                                                        title="Mark Issue Completed"
-                                                      >
-                                                        <CheckCircle style={{ width: '11px', height: '11px' }} />
-                                                        <span>Mark Completed</span>
-                                                      </button>
-                                                    )}
-                                                    {!isAuditor && (
-                                                      <button
-                                                        onClick={(e) => {
-                                                          e.stopPropagation();
-                                                          onOpenDiscussionPoints && onOpenDiscussionPoints(job);
+                                                          onOpenHistory && onOpenHistory(job);
                                                         }}
                                                         style={{
                                                           padding: '4px 9px',
@@ -2194,10 +2461,10 @@ export default function ReportingNewQueueView({
                                                           alignItems: 'center',
                                                           gap: '4px'
                                                         }}
-                                                        title="View Lineage Audit Trail"
+                                                        title="Track Log Changes History"
                                                       >
                                                         <Eye style={{ width: '11px', height: '11px' }} />
-                                                        <span>Lineage History</span>
+                                                        <span>History</span>
                                                       </button>
                                                     )}
                                                   </div>
@@ -2226,6 +2493,7 @@ export default function ReportingNewQueueView({
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setExpandedRowId(null);
+                                      setFullScreenJobId(null);
                                     }}
                                     style={{
                                       width: '26px',
@@ -2260,16 +2528,26 @@ export default function ReportingNewQueueView({
 
                                   {/* Main Information Container */}
                                   <div style={{
-                                    flex: '1 1 0px',
-                                    backgroundColor: '#ffffff',
-                                    borderRadius: '12px',
-                                    border: '1px solid #E2E8F0',
-                                    boxShadow: '0 4px 16px rgba(15, 23, 42, 0.08)',
-                                    padding: '20px 22px',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '18px'
-                                  }}>
+                                     flex: '1 1 0px',
+                                     backgroundColor: '#ffffff',
+                                     borderRadius: fullScreenJobId === job.id ? 0 : '12px',
+                                     border: fullScreenJobId === job.id ? 'none' : '1px solid #E2E8F0',
+                                     boxShadow: fullScreenJobId === job.id ? 'none' : '0 4px 16px rgba(15, 23, 42, 0.08)',
+                                     padding: '20px 22px',
+                                     display: 'flex',
+                                     flexDirection: 'column',
+                                     gap: '18px',
+                                     ...(fullScreenJobId === job.id ? {
+                                       position: 'absolute',
+                                       top: 0,
+                                       left: 0,
+                                       right: 0,
+                                       bottom: 0,
+                                       zIndex: 600,
+                                       backgroundColor: '#ffffff',
+                                       overflowY: 'auto'
+                                     } : {})
+                                   }}>
 
                                     {/* Header Bar inside Expanded Screen Container */}
                                     <div style={{
@@ -2511,7 +2789,7 @@ export default function ReportingNewQueueView({
 
                                                   {/* 2. Current Stage */}
                                                   <td style={{ padding: '12px 14px' }}>
-                                                    <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#1D4ED8', backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE', padding: '3px 8px', borderRadius: '6px' }}>
+                                                    <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#0F172A', backgroundColor: '#F1F5F9', border: '1px solid #CBD5E1', padding: '3px 8px', borderRadius: '6px' }}>
                                                       {issue.currentLevel || 'Auditor Drafting'}
                                                     </span>
                                                   </td>
@@ -2546,78 +2824,137 @@ export default function ReportingNewQueueView({
                                                         <span>Edit</span>
                                                       </button>
 
-                                                      {/* Non-Auditor Roles get ALL remaining workflow actions */}
+                                                      {(() => {
+                                                        const isIssueCompleted = (issue.status === 'Completed' ||
+                                                          (issue.currentLevel || '').toLowerCase().includes('completed') ||
+                                                          (issue.currentLevel || '').toLowerCase().includes('signed off'));
+                                                        const nextStages = getAvailableNextStages(issue.currentLevel);
+
+                                                        if (isIssueCompleted) return null;
+
+                                                        return (
+                                                          <>
+                                                            {!isAuditor && nextStages.length > 0 && (
+                                                              <div style={{ position: 'relative', display: 'inline-block' }}>
+                                                                <button
+                                                                  onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setSendToDropdownIssueId(sendToDropdownIssueId === issue.id ? null : issue.id);
+                                                                  }}
+                                                                  style={{
+                                                                    padding: '5px 9px',
+                                                                    fontSize: '11px',
+                                                                    fontWeight: '700',
+                                                                    color: '#1D4ED8',
+                                                                    backgroundColor: '#EFF6FF',
+                                                                    border: '1px solid #BFDBFE',
+                                                                    borderRadius: '6px',
+                                                                    cursor: 'pointer',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '4px'
+                                                                  }}
+                                                                  title="Send to Role"
+                                                                >
+                                                                  <span>Send to</span>
+                                                                  <ChevronDown style={{
+                                                                    width: '12px',
+                                                                    height: '12px',
+                                                                    transform: sendToDropdownIssueId === issue.id ? 'rotate(180deg)' : 'rotate(0deg)',
+                                                                    transition: 'transform 0.15s ease'
+                                                                  }} />
+                                                                </button>
+
+                                                                {sendToDropdownIssueId === issue.id && (
+                                                                  <div
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    style={{
+                                                                      position: 'absolute',
+                                                                      top: 'calc(100% + 4px)',
+                                                                      left: 0,
+                                                                      zIndex: 1000,
+                                                                      minWidth: '190px',
+                                                                      backgroundColor: '#ffffff',
+                                                                      borderRadius: '8px',
+                                                                      border: '1px solid #CBD5E1',
+                                                                      boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.18), 0 4px 10px -2px rgba(15, 23, 42, 0.08)',
+                                                                      padding: '5px',
+                                                                      display: 'flex',
+                                                                      flexDirection: 'column',
+                                                                      gap: '2px'
+                                                                    }}
+                                                                  >
+                                                                    {nextStages.map((stg) => (
+                                                                      <button
+                                                                        key={stg.id}
+                                                                        onClick={(e) => handleSendToRole(job.id, issue.id, stg, e)}
+                                                                        style={{
+                                                                          display: 'flex',
+                                                                          alignItems: 'center',
+                                                                          justifyContent: 'space-between',
+                                                                          padding: '6px 10px',
+                                                                          fontSize: '11px',
+                                                                          fontWeight: '600',
+                                                                          color: '#334155',
+                                                                          backgroundColor: 'transparent',
+                                                                          border: 'none',
+                                                                          borderRadius: '6px',
+                                                                          cursor: 'pointer',
+                                                                          textAlign: 'left',
+                                                                          width: '100%',
+                                                                          transition: 'all 0.15s ease'
+                                                                        }}
+                                                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#EFF6FF'}
+                                                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                                      >
+                                                                        <span>{stg.label}</span>
+                                                                      </button>
+                                                                    ))}
+                                                                  </div>
+                                                                )}
+                                                              </div>
+                                                            )}
+                                                            {!isAuditor && (
+                                                              <button
+                                                                onClick={(e) => {
+                                                                  e.stopPropagation();
+                                                                  setJobs(prev => prev.map(j => {
+                                                                    if (j.id === job.id) {
+                                                                      return {
+                                                                        ...j,
+                                                                        status: 'In Progress',
+                                                                        issuesList: (j.issuesList || []).map(iss => iss.id === issue.id ? { ...iss, status: 'Completed', currentLevel: 'Completed & Signed Off' } : iss)
+                                                                      };
+                                                                    }
+                                                                    return j;
+                                                                  }));
+                                                                  setToastMessage({
+                                                                    title: "Issue Signed Off",
+                                                                    description: `${issue.id} marked as Completed & Signed Off.`
+                                                                  });
+                                                                }}
+                                                                style={{ padding: '5px 9px', fontSize: '11px', fontWeight: '700', color: '#15803D', backgroundColor: '#F0FDF4', border: '1px solid #BBF2D0', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                                                title="Sign-off Issue"
+                                                              >
+                                                                <CheckCircle style={{ width: '12px', height: '12px' }} />
+                                                                <span>Sign-off</span>
+                                                              </button>
+                                                            )}
+                                                          </>
+                                                        );
+                                                      })()}
                                                       {!isAuditor && (
-                                                        <>
-                                                          {/* 2. Submit for Next Level */}
-                                                          <button
-                                                            onClick={(e) => {
-                                                              e.stopPropagation();
-                                                              const levels = ['Auditor Drafting', 'TC Review', 'Manager Review', 'Director Review', 'VP Sign-Off', 'Completed & Signed Off'];
-                                                              const curIdx = levels.findIndex(l => (issue.currentLevel || '').toLowerCase().includes(l.toLowerCase()));
-                                                              const nextLevel = curIdx >= 0 && curIdx < levels.length - 1 ? levels[curIdx + 1] : 'Completed & Signed Off';
-
-                                                              setJobs(prev => prev.map(j => {
-                                                                if (j.id === job.id) {
-                                                                  return {
-                                                                    ...j,
-                                                                    status: 'In Progress',
-                                                                    issuesList: (j.issuesList || []).map(iss => iss.id === issue.id ? { ...iss, currentLevel: nextLevel, status: nextLevel === 'Completed & Signed Off' ? 'Completed' : 'In Review' } : iss)
-                                                                  };
-                                                                }
-                                                                return j;
-                                                              }));
-                                                              setToastMessage({
-                                                                title: "Submitted for Next Level",
-                                                                description: `${issue.id} promoted to ${nextLevel}.`
-                                                              });
-                                                            }}
-                                                            style={{ padding: '5px 9px', fontSize: '11px', fontWeight: '700', color: '#2563EB', backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                                                            title="Submit for Next Level"
-                                                          >
-                                                            <ArrowRight style={{ width: '12px', height: '12px' }} />
-                                                            <span>Submit Next Level</span>
-                                                          </button>
-
-                                                          {/* 3. Mark Completed */}
-                                                          <button
-                                                            onClick={(e) => {
-                                                              e.stopPropagation();
-                                                              setJobs(prev => prev.map(j => {
-                                                                if (j.id === job.id) {
-                                                                  return {
-                                                                    ...j,
-                                                                    status: 'In Progress',
-                                                                    issuesList: (j.issuesList || []).map(iss => iss.id === issue.id ? { ...iss, status: 'Completed', currentLevel: 'Completed & Signed Off' } : iss)
-                                                                  };
-                                                                }
-                                                                return j;
-                                                              }));
-                                                              setToastMessage({
-                                                                title: "Issue Fast-Tracked & Signed Off",
-                                                                description: `${issue.id} marked as Completed & Signed Off by ${userRole.toUpperCase()}.`
-                                                              });
-                                                            }}
-                                                            style={{ padding: '5px 9px', fontSize: '11px', fontWeight: '700', color: '#15803D', backgroundColor: '#F0FDF4', border: '1px solid #BBF2D0', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                                                            title="Mark Completed"
-                                                          >
-                                                            <CheckCircle style={{ width: '12px', height: '12px' }} />
-                                                            <span>Mark Completed</span>
-                                                          </button>
-
-                                                          {/* 4. Lineage History */}
-                                                          <button
-                                                            onClick={(e) => {
-                                                              e.stopPropagation();
-                                                              onOpenHistory && onOpenHistory(job);
-                                                            }}
-                                                            style={{ padding: '5px 9px', fontSize: '11px', fontWeight: '700', color: '#4338CA', backgroundColor: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                                                            title="Lineage History"
-                                                          >
-                                                            <Eye style={{ width: '12px', height: '12px' }} />
-                                                            <span>Lineage History</span>
-                                                          </button>
-                                                        </>
+                                                        <button
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onOpenHistory && onOpenHistory(job);
+                                                          }}
+                                                          style={{ padding: '5px 9px', fontSize: '11px', fontWeight: '700', color: '#4338CA', backgroundColor: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                                          title="Track Log Changes History"
+                                                        >
+                                                          <Eye style={{ width: '12px', height: '12px' }} />
+                                                          <span>History</span>
+                                                        </button>
                                                       )}
                                                     </div>
                                                   </td>
@@ -2741,7 +3078,7 @@ export default function ReportingNewQueueView({
                                             <span>Edit Issue</span>
                                           </button>
 
-                                          {/* 2. Mark Completed & Sign-Off (Early Override) */}
+                                          {/* 2. Sign-off */}
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
@@ -2756,8 +3093,8 @@ export default function ReportingNewQueueView({
                                                 return j;
                                               }));
                                               setToastMessage({
-                                                title: "Issue Fast-Tracked & Signed Off",
-                                                description: `${issue.id} marked as Completed & Signed Off by ${userRole.toUpperCase()}.`
+                                                title: "Issue Signed Off",
+                                                description: `${issue.id} marked as Completed & Signed Off.`
                                               });
                                             }}
                                             style={{
@@ -2773,13 +3110,13 @@ export default function ReportingNewQueueView({
                                               alignItems: 'center',
                                               gap: '5px'
                                             }}
-                                            title="Mark Completed & Sign-Off at Any Stage"
+                                            title="Sign-off Issue"
                                           >
                                             <CheckCircle style={{ width: '12px', height: '12px' }} />
-                                            <span>Mark Completed & Sign-Off</span>
+                                            <span>Sign-off</span>
                                           </button>
 
-                                          {/* 3. View Lineage History */}
+                                          {/* 3. View History */}
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
@@ -2798,9 +3135,10 @@ export default function ReportingNewQueueView({
                                               alignItems: 'center',
                                               gap: '5px'
                                             }}
+                                            title="Track Log Changes History"
                                           >
                                             <Eye style={{ width: '12px', height: '12px' }} />
-                                            <span>Lineage History</span>
+                                            <span>History</span>
                                           </button>
                                         </div>
                                       </div>
@@ -3100,21 +3438,35 @@ export default function ReportingNewQueueView({
         {/* Concept 3 RIGHT SLIDE-OVER WORKBENCH PANEL */}
         {viewMode === 'split-pane' && selectedJobForPanel && (
           <div style={{
-            flex: '0 0 45%',
-            width: '45%',
-            minWidth: '400px',
             backgroundColor: '#ffffff',
-            borderRadius: '12px',
-            border: '1px solid #CBD5E1',
-            boxShadow: '-6px 0 24px rgba(15, 23, 42, 0.12)',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
-            position: 'sticky',
-            top: '16px',
-            maxHeight: 'calc(100vh - 120px)',
-            flexShrink: 0,
-            animation: 'fadeIn 0.2s ease-out'
+            animation: 'fadeIn 0.2s ease-out',
+            ...(fullScreenJobId === selectedJobForPanel.id ? {
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 600,
+              borderRadius: 0,
+              border: 'none',
+              width: '100%',
+              flex: '1 1 100%',
+              maxHeight: '100%'
+            } : {
+              flex: '0 0 45%',
+              width: '45%',
+              minWidth: '400px',
+              borderRadius: '12px',
+              border: '1px solid #CBD5E1',
+              boxShadow: '-6px 0 24px rgba(15, 23, 42, 0.12)',
+              position: 'sticky',
+              top: '16px',
+              maxHeight: 'calc(100vh - 120px)',
+              flexShrink: 0
+            })
           }}>
 
             {/* Panel Top Header Bar */}
@@ -3155,7 +3507,10 @@ export default function ReportingNewQueueView({
 
               {/* Close Panel Button */}
               <button
-                onClick={() => setExpandedRowId(null)}
+                onClick={() => {
+                  setExpandedRowId(null);
+                  setFullScreenJobId(null);
+                }}
                 style={{
                   width: '28px',
                   height: '28px',
@@ -3257,6 +3612,51 @@ export default function ReportingNewQueueView({
                       <span>Executive Summary Report</span>
                     </button>
                   )}
+
+                {/* Icon-based Button for Full Screen View */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFullScreenJobId(fullScreenJobId === selectedJobForPanel.id ? null : selectedJobForPanel.id);
+                  }}
+                  style={{
+                    padding: '6px 10px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    color: fullScreenJobId === selectedJobForPanel.id ? '#D8001D' : '#475569',
+                    backgroundColor: fullScreenJobId === selectedJobForPanel.id ? '#FEF2F2' : '#F8FAFC',
+                    border: `1px solid ${fullScreenJobId === selectedJobForPanel.id ? '#FECDD3' : '#CBD5E1'}`,
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px',
+                    boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (fullScreenJobId !== selectedJobForPanel.id) {
+                      e.currentTarget.style.backgroundColor = '#FEF2F2';
+                      e.currentTarget.style.color = '#D8001D';
+                      e.currentTarget.style.borderColor = '#FECDD3';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (fullScreenJobId !== selectedJobForPanel.id) {
+                      e.currentTarget.style.backgroundColor = '#F8FAFC';
+                      e.currentTarget.style.color = '#475569';
+                      e.currentTarget.style.borderColor = '#CBD5E1';
+                    }
+                  }}
+                  title={fullScreenJobId === selectedJobForPanel.id ? "Exit Full Screen" : "Full Screen View"}
+                >
+                  {fullScreenJobId === selectedJobForPanel.id ? (
+                    <Minimize2 style={{ width: '13px', height: '13px' }} />
+                  ) : (
+                    <Maximize2 style={{ width: '13px', height: '13px' }} />
+                  )}
+                </button>
               </div>
 
               {/* Metric Filter Tabs inside Panel */}
@@ -3371,9 +3771,9 @@ export default function ReportingNewQueueView({
                             borderRadius: '6px',
                             fontSize: '11px',
                             fontWeight: '700',
-                            backgroundColor: '#EFF6FF',
-                            color: '#1D4ED8',
-                            border: '1px solid #BFDBFE'
+                            backgroundColor: '#F1F5F9',
+                            color: '#0F172A',
+                            border: '1px solid #CBD5E1'
                           }}>
                             {iss.currentLevel || 'Auditor Drafting'}
                           </span>
@@ -3415,55 +3815,136 @@ export default function ReportingNewQueueView({
                             <span>Edit</span>
                           </button>
 
-                          {!isAuditor && (
-                            <button
-                              onClick={() => setToastMessage && setToastMessage({
-                                title: "Submitted to Next Level",
-                                description: `Issue ${iss.id} has been advanced to the next review stage.`
-                              })}
-                              style={{
-                                padding: '4px 8px',
-                                fontSize: '11px',
-                                fontWeight: '700',
-                                color: '#1D4ED8',
-                                backgroundColor: '#EFF6FF',
-                                border: '1px solid #BFDBFE',
-                                borderRadius: '5px',
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px'
-                              }}
-                            >
-                              <ArrowRight style={{ width: '11px', height: '11px' }} />
-                              <span>Submit Next Level</span>
-                            </button>
-                          )}
+                          {(() => {
+                            const isIssueCompleted = (iss.status === 'Completed' ||
+                              (iss.currentLevel || '').toLowerCase().includes('completed') ||
+                              (iss.currentLevel || '').toLowerCase().includes('signed off'));
+                            const nextStages = getAvailableNextStages(iss.currentLevel);
 
-                          {!isAuditor && (
-                            <button
-                              onClick={() => setToastMessage && setToastMessage({
-                                title: "Issue Marked Completed",
-                                description: `Issue ${iss.id} status updated to Completed.`
-                              })}
-                              style={{
-                                padding: '4px 8px',
-                                fontSize: '11px',
-                                fontWeight: '700',
-                                color: '#15803D',
-                                backgroundColor: '#F0FDF4',
-                                border: '1px solid #BBF2D0',
-                                borderRadius: '5px',
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px'
-                              }}
-                            >
-                              <CheckCircle style={{ width: '11px', height: '11px' }} />
-                              <span>Mark Completed</span>
-                            </button>
-                          )}
+                            if (isIssueCompleted) return null;
+
+                            return (
+                              <>
+                                {!isAuditor && nextStages.length > 0 && (
+                                  <div style={{ position: 'relative', display: 'inline-block' }}>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSendToDropdownIssueId(sendToDropdownIssueId === iss.id ? null : iss.id);
+                                      }}
+                                      style={{
+                                        padding: '4px 8px',
+                                        fontSize: '11px',
+                                        fontWeight: '700',
+                                        color: '#1D4ED8',
+                                        backgroundColor: '#EFF6FF',
+                                        border: '1px solid #BFDBFE',
+                                        borderRadius: '5px',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                      }}
+                                      title="Send to Role"
+                                    >
+                                      <span>Send to</span>
+                                      <ChevronDown style={{
+                                        width: '11px',
+                                        height: '11px',
+                                        transform: sendToDropdownIssueId === iss.id ? 'rotate(180deg)' : 'rotate(0deg)',
+                                        transition: 'transform 0.15s ease'
+                                      }} />
+                                    </button>
+
+                                    {sendToDropdownIssueId === iss.id && (
+                                      <div
+                                        onClick={(e) => e.stopPropagation()}
+                                        style={{
+                                          position: 'absolute',
+                                          top: 'calc(100% + 4px)',
+                                          left: 0,
+                                          zIndex: 1000,
+                                          minWidth: '170px',
+                                          backgroundColor: '#ffffff',
+                                          borderRadius: '8px',
+                                          border: '1px solid #CBD5E1',
+                                          boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.18), 0 4px 10px -2px rgba(15, 23, 42, 0.08)',
+                                          padding: '5px',
+                                          display: 'flex',
+                                          flexDirection: 'column',
+                                          gap: '2px'
+                                        }}
+                                      >
+                                        {nextStages.map((stg) => (
+                                          <button
+                                            key={stg.id}
+                                            onClick={(e) => handleSendToRole(selectedJobForPanel.id, iss.id, stg, e)}
+                                            style={{
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'space-between',
+                                              padding: '6px 10px',
+                                              fontSize: '11px',
+                                              fontWeight: '600',
+                                              color: '#334155',
+                                              backgroundColor: 'transparent',
+                                              border: 'none',
+                                              borderRadius: '6px',
+                                              cursor: 'pointer',
+                                              textAlign: 'left',
+                                              width: '100%',
+                                              transition: 'all 0.15s ease'
+                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#EFF6FF'}
+                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                          >
+                                            <span>{stg.label}</span>
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                                {!isAuditor && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setJobs(prev => prev.map(j => {
+                                        if (j.id === selectedJobForPanel.id) {
+                                          return {
+                                            ...j,
+                                            issuesList: (j.issuesList || []).map(item => item.id === iss.id ? { ...item, status: 'Completed', currentLevel: 'Completed & Signed Off' } : item)
+                                          };
+                                        }
+                                        return j;
+                                      }));
+                                      setToastMessage && setToastMessage({
+                                        title: "Issue Signed Off",
+                                        description: `Issue ${iss.id} status updated to Completed & Signed Off.`
+                                      });
+                                    }}
+                                    style={{
+                                      padding: '4px 8px',
+                                      fontSize: '11px',
+                                      fontWeight: '700',
+                                      color: '#15803D',
+                                      backgroundColor: '#F0FDF4',
+                                      border: '1px solid #BBF2D0',
+                                      borderRadius: '5px',
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px'
+                                    }}
+                                    title="Sign-off Issue"
+                                  >
+                                    <CheckCircle style={{ width: '11px', height: '11px' }} />
+                                    <span>Sign-off</span>
+                                  </button>
+                                )}
+                              </>
+                            );
+                          })()}
 
                           {!isAuditor && (
                             <button
