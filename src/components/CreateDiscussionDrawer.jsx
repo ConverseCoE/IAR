@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, Sparkles, RefreshCw, MessageSquare, AlertCircle, 
-  CheckCircle2, Plus, ArrowRight, ShieldCheck, DollarSign, UserPlus, AlertOctagon, GitCompare, Check, ChevronDown
+  CheckCircle2, Plus, ArrowRight, ShieldCheck, DollarSign, UserPlus, AlertOctagon, GitCompare, Check, ChevronDown, Wand2, FileText, Minimize2
 } from 'lucide-react';
 
 // Custom Enterprise SaaS Form Select Dropdown with Micro-Interactions & Motion Animations
-function FormSelectDropdown({ label, required, value, onChange, options, placeholder = "Select option..." }) {
+function FormSelectDropdown({ label, required, value, onChange, options, placeholder = "Select option...", isMulti = false }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -19,11 +19,54 @@ function FormSelectDropdown({ label, required, value, onChange, options, placeho
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const selectedOption = options.find(opt => (typeof opt === 'object' ? opt.value : opt) === value);
-  const selectedLabel = selectedOption ? (typeof selectedOption === 'object' ? selectedOption.label : selectedOption) : (value || placeholder);
+  const selectedValues = isMulti
+    ? (Array.isArray(value)
+        ? value
+        : (typeof value === 'string' && value.trim() ? value.split(', ').map(s => s.trim()) : []))
+    : [];
+
+  const selectedOption = !isMulti ? options.find(opt => (typeof opt === 'object' ? opt.value : opt) === value) : null;
+  
+  let selectedLabel = placeholder;
+  if (isMulti) {
+    if (selectedValues.length === 1) {
+      const opt = options.find(o => (typeof o === 'object' ? o.value : o) === selectedValues[0]);
+      selectedLabel = opt ? (typeof opt === 'object' ? opt.label : opt) : selectedValues[0];
+    } else if (selectedValues.length > 1) {
+      selectedLabel = `${selectedValues.length} Selected`;
+    }
+  } else {
+    selectedLabel = selectedOption ? (typeof selectedOption === 'object' ? selectedOption.label : selectedOption) : (value || placeholder);
+  }
+
+  const hasValue = isMulti ? selectedValues.length > 0 : !!value;
+
+  const handleOptionClick = (optVal) => {
+    if (isMulti) {
+      let newValues;
+      if (optVal === 'None' || optVal === 'none') {
+        if (selectedValues.includes(optVal)) {
+          newValues = [];
+        } else {
+          newValues = ['None'];
+        }
+      } else {
+        const cleaned = selectedValues.filter(v => v !== 'None' && v !== 'none');
+        if (cleaned.includes(optVal)) {
+          newValues = cleaned.filter(v => v !== optVal);
+        } else {
+          newValues = [...cleaned, optVal];
+        }
+      }
+      onChange(newValues);
+    } else {
+      onChange(optVal);
+      setIsOpen(false);
+    }
+  };
 
   return (
-    <div ref={dropdownRef} style={{ position: 'relative', width: '100%' }}>
+    <div ref={dropdownRef} style={{ position: 'relative', width: '100%', boxSizing: 'border-box' }}>
       {label && (
         <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '5px' }}>
           {label} {required && <span style={{ color: '#D8001D' }}>*</span>}
@@ -34,11 +77,13 @@ function FormSelectDropdown({ label, required, value, onChange, options, placeho
         onClick={() => setIsOpen(!isOpen)}
         style={{
           width: '100%',
+          maxWidth: '100%',
+          boxSizing: 'border-box',
           height: '38px',
           padding: '0 12px',
           fontSize: '12.5px',
           fontWeight: '600',
-          color: value ? '#0F172A' : '#94A3B8',
+          color: hasValue ? '#0F172A' : '#94A3B8',
           backgroundColor: '#ffffff',
           border: isOpen ? '1px solid #94A3B8' : '1px solid #CBD5E1',
           borderRadius: '8px',
@@ -63,7 +108,14 @@ function FormSelectDropdown({ label, required, value, onChange, options, placeho
           }
         }}
       >
-        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <span style={{ 
+          whiteSpace: 'nowrap', 
+          overflow: 'hidden', 
+          textOverflow: 'ellipsis',
+          minWidth: 0,
+          flex: 1,
+          textAlign: 'left'
+        }}>
           {selectedLabel}
         </span>
         <ChevronDown style={{
@@ -95,15 +147,14 @@ function FormSelectDropdown({ label, required, value, onChange, options, placeho
           {options.map((opt) => {
             const optVal = typeof opt === 'object' ? opt.value : opt;
             const optLbl = typeof opt === 'object' ? opt.label : opt;
-            const isSelected = value === optVal;
+            const isSelected = isMulti 
+              ? selectedValues.includes(optVal)
+              : value === optVal;
 
             return (
               <div
                 key={optVal}
-                onClick={() => {
-                  onChange(optVal);
-                  setIsOpen(false);
-                }}
+                onClick={() => handleOptionClick(optVal)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -192,6 +243,189 @@ export default function CreateDiscussionDrawer({
   });
 
   const [activeRemarkField, setActiveRemarkField] = useState(null);
+
+  // AI Magic Wand & Selection Assistant State
+  const [aiWandOpenField, setAiWandOpenField] = useState(null);
+  const [textSelection, setTextSelection] = useState(null);
+  const [aiSuggestions, setAiSuggestions] = useState({});
+  const wandContainerRef = useRef(null);
+
+  // Close AI Wand popover menu when clicking anywhere outside
+  useEffect(() => {
+    if (!aiWandOpenField) return;
+    const handleWandClickOutside = (e) => {
+      if (wandContainerRef.current && !wandContainerRef.current.contains(e.target)) {
+        setAiWandOpenField(null);
+      }
+    };
+    document.addEventListener('mousedown', handleWandClickOutside);
+    return () => document.removeEventListener('mousedown', handleWandClickOutside);
+  }, [aiWandOpenField]);
+
+  const getAiAdjustedText = (fieldKey, text, action) => {
+    const clean = text ? text.trim() : '';
+
+    if (action === 'rewrite') {
+      if (fieldKey === 'updatedIssueHeader') {
+        return clean ? `${clean} (Optimized & Verified)` : 'Automated Telemetry & Sensor Calibration Discrepancy';
+      }
+      if (fieldKey === 'rootCause') {
+        return `Telemetry variance identified due to thermal dissipation latency in cleanroom HVAC Unit 4 during peak 72-hour operational cycles.`;
+      }
+      if (fieldKey === 'impact') {
+        return `Potential delay in batch release timelines and $120,000 material scrap variance risk under Major criticality protocols.`;
+      }
+      if (fieldKey === 'description') {
+        return `Automated sensor calibration logs registered telemetry drift exceeding the mandatory 1.5% SLA limit across 72 hours of continuous production.`;
+      }
+      if (fieldKey === 'recommendation') {
+        return `1. Implement SHA-256 log integrity checks.\n2. Enforce MFA approval for sensor override procedures.\n3. Deploy optic sensor firmware patch v4.2 for automatic thermal drift compensation.`;
+      }
+      return clean ? `Rephrased: ${clean}` : 'Optimized enterprise audit details.';
+    }
+
+    if (action === 'tone') {
+      if (fieldKey === 'updatedIssueHeader') {
+        return `Compliance Notice: ${clean || 'Telemetry & Sensor Calibration Offsets on Catheter Line 3'}`;
+      }
+      if (fieldKey === 'rootCause') {
+        return `Systemic audit findings confirm thermal dissipation delays in cleanroom HVAC Unit 4 created uncompensated optical sensor gain drift.`;
+      }
+      if (fieldKey === 'impact') {
+        return `Formal Financial & Operational Exposure: Deferred batch clearance and $120,000 scrap material risk under Major criticality classification.`;
+      }
+      if (fieldKey === 'description') {
+        return `Detailed Audit Observation: Automated sensor calibration telemetry logs demonstrated drift exceeding the 1.5% SLA threshold over 72 hours of continuous manufacturing.`;
+      }
+      if (fieldKey === 'recommendation') {
+        return `1. Enforce automated SHA-256 checksum log verification across line systems.\n2. Mandate dual-level MFA authorization for sensor override procedures.\n3. Deploy optic sensor firmware patch v4.2 for automatic temperature drift compensation.`;
+      }
+      return clean ? `Professional Audit Format: ${clean}` : 'Formal audit documentation text.';
+    }
+
+    if (action === 'detailed') {
+      if (fieldKey === 'updatedIssueHeader') {
+        return `Catheter Line 3 Electrophysiology: Telemetry Sensor Offset & Thermal Gain Calibration Drift Variance`;
+      }
+      if (fieldKey === 'rootCause') {
+        return `Root Cause Analysis: Thermal dissipation latency in cleanroom HVAC Unit 4 created secondary optic gain drift during peak 72-hour continuous production cycles. This resulted in uncompensated sensor calibration offsets exceeding established tolerance levels of 1.5%.`;
+      }
+      if (fieldKey === 'impact') {
+        return `Quantitative & Operational Impact: Batch release timeline extended by 48 hours. Material scrap risk calculated at $120,000 across catheter batch runs under Major criticality compliance guidelines, impacting quarterly yield targets.`;
+      }
+      if (fieldKey === 'description') {
+        return `Telemetry Log Analysis: Automated sensor calibration logs in Catheter Line 3 registered systematic gain drift exceeding the mandatory 1.5% threshold over 72 continuous operating hours. Secondary optic sensor offsets required manual override intervention to restore stability.`;
+      }
+      if (fieldKey === 'recommendation') {
+        return `Comprehensive Action Plan:\n1. Implement automated SHA-256 integrity checksum log verification across process area.\n2. Enforce mandatory multi-factor authentication (MFA) approval policies for sensor recalibration overrides.\n3. Upgrade optic sensor firmware to v4.2 to enable automatic temperature drift compensation.\n4. Establish bi-weekly HVAC thermal dissipation audits for cleanroom Unit 4.`;
+      }
+      return clean ? `${clean}\n\nDetailed Supplement: Additional verification steps and root cause telemetry metrics recorded during audit review.` : 'Comprehensive detailed observation.';
+    }
+
+    if (action === 'shorter') {
+      if (fieldKey === 'updatedIssueHeader') {
+        return `Catheter Line 3 Sensor Offset Issue`;
+      }
+      if (fieldKey === 'rootCause') {
+        return `HVAC Unit 4 thermal latency caused optic sensor gain drift during 72-hour batch runs.`;
+      }
+      if (fieldKey === 'impact') {
+        return `48h release delay and $120k scrap material risk under Major criticality.`;
+      }
+      if (fieldKey === 'description') {
+        return `Sensor calibration logs showed >1.5% telemetry drift over 72-hour run.`;
+      }
+      if (fieldKey === 'recommendation') {
+        return `1. Add SHA-256 log checks.\n2. Require MFA for overrides.\n3. Upgrade firmware to v4.2.`;
+      }
+      return clean ? clean.split('\n')[0].substring(0, 80) + '...' : 'Concise summary.';
+    }
+
+    return clean;
+  };
+
+  // Field-level AI Loading & Review States
+  const [aiFieldLoading, setAiFieldLoading] = useState({});
+  const [aiPendingReviews, setAiPendingReviews] = useState({});
+
+  const handleTriggerAiAdjustment = (key, action, selectionObj = null) => {
+    const currentVal = aiData[key] || '';
+    const actionLabels = {
+      rewrite: 'Auto-rewrite',
+      tone: 'Adjust tone professionally',
+      detailed: 'Make it detailed',
+      shorter: 'Make it shorter'
+    };
+
+    let targetText = currentVal;
+    let isSubstring = false;
+
+    if (selectionObj && selectionObj.text) {
+      targetText = selectionObj.text;
+      isSubstring = true;
+    }
+
+    setAiFieldLoading(prev => ({ ...prev, [key]: true }));
+    setAiWandOpenField(null);
+    setTextSelection(null);
+
+    setTimeout(() => {
+      const generated = getAiAdjustedText(key, targetText, action);
+      let newFullText = generated;
+      if (isSubstring && selectionObj) {
+        const before = currentVal.substring(0, selectionObj.start);
+        const after = currentVal.substring(selectionObj.end);
+        newFullText = `${before}${generated}${after}`;
+      }
+
+      handleAiChange(key, newFullText);
+
+      setAiPendingReviews(prev => ({
+        ...prev,
+        [key]: {
+          originalText: currentVal,
+          targetText: targetText,
+          newText: generated,
+          fullNewText: newFullText,
+          actionLabel: actionLabels[action] || 'AI Rewrite',
+          isSubstring
+        }
+      }));
+
+      setAiFieldLoading(prev => ({ ...prev, [key]: false }));
+    }, 750);
+  };
+
+  const handleAcceptAiSuggestion = (key) => {
+    setAiPendingReviews(prev => ({ ...prev, [key]: null }));
+  };
+
+  const handleCancelAiSuggestion = (key) => {
+    const review = aiPendingReviews[key];
+    if (review && review.originalText !== undefined) {
+      handleAiChange(key, review.originalText);
+    }
+    setAiPendingReviews(prev => ({ ...prev, [key]: null }));
+  };
+
+  const handleTextareaSelect = (key, e) => {
+    const target = e.target;
+    const start = target.selectionStart;
+    const end = target.selectionEnd;
+    if (start !== undefined && end !== undefined && start !== end) {
+      const selText = target.value.substring(start, end).trim();
+      if (selText.length > 0) {
+        setTextSelection({
+          fieldKey: key,
+          start,
+          end,
+          text: selText
+        });
+        return;
+      }
+    }
+    setTextSelection(prev => (prev && prev.fieldKey === key ? null : prev));
+  };
 
   // Effect to populate initialData when editing
   useEffect(() => {
@@ -541,6 +775,7 @@ export default function CreateDiscussionDrawer({
                   <div>
                     <FormSelectDropdown
                       label="Secondary Business Contact"
+                      isMulti={true}
                       value={formData.secondaryContact}
                       onChange={(val) => handleChange('secondaryContact', val)}
                       options={[
@@ -549,6 +784,7 @@ export default function CreateDiscussionDrawer({
                         'Brian Cox (Executive VP)',
                         'None'
                       ]}
+                      placeholder="Select Secondary Contact..."
                     />
                   </div>
                 </div>
@@ -888,155 +1124,352 @@ export default function CreateDiscussionDrawer({
                 ) : (
                   /* NORMAL AI INSIGHTS VIEW */
                   <>
-                    {/* AI Field 1: Updated Issue Header */}
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <label style={{ fontSize: '11.5px', fontWeight: '700', color: '#1E3A8A' }}>
-                          Updated Issue Header
-                        </label>
-                        <button
-                          onClick={() => setActiveRemarkField(activeRemarkField === 'updatedIssueHeader' ? null : 'updatedIssueHeader')}
-                          style={{ fontSize: '11px', fontWeight: '700', color: '#2563EB', background: 'none', border: 'none', cursor: 'pointer' }}
-                        >
-                          +Remarks
-                        </button>
-                      </div>
-                      <input
-                        type="text"
-                        value={aiData.updatedIssueHeader}
-                        onChange={(e) => handleAiChange('updatedIssueHeader', e.target.value)}
-                        style={{ width: '100%', height: '36px', padding: '0 10px', fontSize: '12px', fontWeight: '700', color: '#0F172A', borderRadius: '6px', border: '1px solid #93C5FD', outline: 'none', backgroundColor: '#ffffff' }}
-                      />
-                      {activeRemarkField === 'updatedIssueHeader' && (
-                        <input
-                          type="text"
-                          placeholder="Add remarks for AI learning..."
-                          value={remarks.updatedIssueHeader}
-                          onChange={(e) => setRemarks(prev => ({ ...prev, updatedIssueHeader: e.target.value }))}
-                          style={{ width: '100%', height: '30px', padding: '0 10px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid #60A5FA', marginTop: '6px', backgroundColor: '#ffffff' }}
-                        />
-                      )}
-                    </div>
+                {/* AI Fields Loop with Integrated Loader, Embedded Icons & Light Grey Reference Box */}
+                {!isComparing && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {[
+                      { key: 'updatedIssueHeader', label: 'Updated Issue Header', rows: 2 },
+                      { key: 'rootCause', label: 'Root Cause', rows: 3 },
+                      { key: 'impact', label: 'Impact', rows: 3 },
+                      { key: 'description', label: 'Description', rows: 3 },
+                      { key: 'recommendation', label: 'Recommendation', rows: 4 }
+                    ].map(({ key, label, rows }) => {
+                      const isRemarkOpen = activeRemarkField === key;
+                      const currentRemark = remarks[key] || '';
+                      const isLoading = !!aiFieldLoading[key];
+                      const pendingReview = aiPendingReviews[key];
+                      const isPending = !!pendingReview;
 
-                    {/* AI Field 2: Root Cause (2-3 lines) */}
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <label style={{ fontSize: '11.5px', fontWeight: '700', color: '#1E3A8A' }}>
-                          Root Cause
-                        </label>
-                        <button
-                          onClick={() => setActiveRemarkField(activeRemarkField === 'rootCause' ? null : 'rootCause')}
-                          style={{ fontSize: '11px', fontWeight: '700', color: '#2563EB', background: 'none', border: 'none', cursor: 'pointer' }}
-                        >
-                          +Remarks
-                        </button>
-                      </div>
-                      <textarea
-                        rows={3}
-                        value={aiData.rootCause}
-                        onChange={(e) => handleAiChange('rootCause', e.target.value)}
-                        style={{ width: '100%', padding: '10px', fontSize: '12px', lineHeight: '1.5', borderRadius: '6px', border: '1px solid #93C5FD', outline: 'none', backgroundColor: '#ffffff', fontFamily: 'inherit', resize: 'vertical' }}
-                      />
-                      {activeRemarkField === 'rootCause' && (
-                        <input
-                          type="text"
-                          placeholder="Add remarks for AI learning..."
-                          value={remarks.rootCause}
-                          onChange={(e) => setRemarks(prev => ({ ...prev, rootCause: e.target.value }))}
-                          style={{ width: '100%', height: '30px', padding: '0 10px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid #60A5FA', marginTop: '6px', backgroundColor: '#ffffff' }}
-                        />
-                      )}
-                    </div>
+                      return (
+                        <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            
+                            {/* Label Header with Left Sparkle Wand Icon & Dropdown Options */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <div 
+                                ref={aiWandOpenField === key ? wandContainerRef : null}
+                                style={{ position: 'relative' }}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => setAiWandOpenField(aiWandOpenField === key ? null : key)}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    padding: '2px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    outline: 'none',
+                                    transition: 'all 0.15s ease'
+                                  }}
+                                  title="AI Rewrite Options"
+                                >
+                                  <Sparkles style={{ width: '14px', height: '14px', color: '#9333EA' }} />
+                                </button>
 
-                    {/* AI Field 3: Impact */}
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <label style={{ fontSize: '11.5px', fontWeight: '700', color: '#1E3A8A' }}>
-                          Impact
-                        </label>
-                        <button
-                          onClick={() => setActiveRemarkField(activeRemarkField === 'impact' ? null : 'impact')}
-                          style={{ fontSize: '11px', fontWeight: '700', color: '#2563EB', background: 'none', border: 'none', cursor: 'pointer' }}
-                        >
-                          +Remarks
-                        </button>
-                      </div>
-                      <textarea
-                        rows={5}
-                        value={aiData.impact}
-                        onChange={(e) => handleAiChange('impact', e.target.value)}
-                        style={{ width: '100%', padding: '10px', fontSize: '12px', lineHeight: '1.5', borderRadius: '6px', border: '1px solid #93C5FD', outline: 'none', backgroundColor: '#ffffff', fontFamily: 'inherit', resize: 'vertical' }}
-                      />
-                      {activeRemarkField === 'impact' && (
-                        <input
-                          type="text"
-                          placeholder="Add remarks for AI learning..."
-                          value={remarks.impact}
-                          onChange={(e) => setRemarks(prev => ({ ...prev, impact: e.target.value }))}
-                          style={{ width: '100%', height: '30px', padding: '0 10px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid #60A5FA', marginTop: '6px', backgroundColor: '#ffffff' }}
-                        />
-                      )}
-                    </div>
+                                {/* Dropdown Menu for AI Rewrite Options */}
+                                {aiWandOpenField === key && (
+                                  <div style={{
+                                    position: 'absolute',
+                                    bottom: 'calc(100% + 4px)',
+                                    left: 0,
+                                    zIndex: 300,
+                                    width: '210px',
+                                    backgroundColor: '#ffffff',
+                                    borderRadius: '8px',
+                                    border: '1px solid #E2E8F0',
+                                    boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 4px 10px -2px rgba(15, 23, 42, 0.06)',
+                                    padding: '4px',
+                                    animation: 'fadeInScale 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
+                                  }}>
+                                    {[
+                                      { action: 'rewrite', label: 'Auto-rewrite', icon: Sparkles },
+                                      { action: 'tone', label: 'Adjust tone professionally', icon: ShieldCheck },
+                                      { action: 'detailed', label: 'Make it detailed', icon: FileText },
+                                      { action: 'shorter', label: 'Make it shorter', icon: Minimize2 }
+                                    ].map(item => (
+                                      <div
+                                        key={item.action}
+                                        onClick={() => handleTriggerAiAdjustment(key, item.action)}
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '8px',
+                                          padding: '7px 10px',
+                                          borderRadius: '6px',
+                                          cursor: 'pointer',
+                                          fontSize: '11.5px',
+                                          fontWeight: '600',
+                                          color: '#334155',
+                                          transition: 'all 0.12s ease'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          e.currentTarget.style.backgroundColor = '#FAF5FF';
+                                          e.currentTarget.style.color = '#7E22CE';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          e.currentTarget.style.backgroundColor = 'transparent';
+                                          e.currentTarget.style.color = '#334155';
+                                        }}
+                                      >
+                                        <item.icon style={{ width: '13px', height: '13px', color: '#9333EA' }} />
+                                        <span>{item.label}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
 
-                    {/* AI Field 4: Description */}
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <label style={{ fontSize: '11.5px', fontWeight: '700', color: '#1E3A8A' }}>
-                          Description
-                        </label>
-                        <button
-                          onClick={() => setActiveRemarkField(activeRemarkField === 'description' ? null : 'description')}
-                          style={{ fontSize: '11px', fontWeight: '700', color: '#2563EB', background: 'none', border: 'none', cursor: 'pointer' }}
-                        >
-                          +Remarks
-                        </button>
-                      </div>
-                      <textarea
-                        rows={6}
-                        value={aiData.description}
-                        onChange={(e) => handleAiChange('description', e.target.value)}
-                        style={{ width: '100%', padding: '10px', fontSize: '12px', lineHeight: '1.5', borderRadius: '6px', border: '1px solid #93C5FD', outline: 'none', backgroundColor: '#ffffff', fontFamily: 'inherit', resize: 'vertical' }}
-                      />
-                      {activeRemarkField === 'description' && (
-                        <input
-                          type="text"
-                          placeholder="Add remarks for AI learning..."
-                          value={remarks.description}
-                          onChange={(e) => setRemarks(prev => ({ ...prev, description: e.target.value }))}
-                          style={{ width: '100%', height: '30px', padding: '0 10px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid #60A5FA', marginTop: '6px', backgroundColor: '#ffffff' }}
-                        />
-                      )}
-                    </div>
+                              <label style={{ fontSize: '11.5px', fontWeight: '700', color: '#1E3A8A', margin: 0 }}>
+                                {label}
+                              </label>
+                            </div>
 
-                    {/* AI Field 5: Recommendation */}
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <label style={{ fontSize: '11.5px', fontWeight: '700', color: '#1E3A8A' }}>
-                          Recommendation
-                        </label>
-                        <button
-                          onClick={() => setActiveRemarkField(activeRemarkField === 'recommendation' ? null : 'recommendation')}
-                          style={{ fontSize: '11px', fontWeight: '700', color: '#2563EB', background: 'none', border: 'none', cursor: 'pointer' }}
-                        >
-                          +Remarks
-                        </button>
-                      </div>
-                      <textarea
-                        rows={6}
-                        value={aiData.recommendation}
-                        onChange={(e) => handleAiChange('recommendation', e.target.value)}
-                        style={{ width: '100%', padding: '10px', fontSize: '12px', lineHeight: '1.5', borderRadius: '6px', border: '1px solid #93C5FD', outline: 'none', backgroundColor: '#ffffff', fontFamily: 'inherit', resize: 'vertical' }}
-                      />
-                      {activeRemarkField === 'recommendation' && (
-                        <input
-                          type="text"
-                          placeholder="Add remarks for AI learning..."
-                          value={remarks.recommendation}
-                          onChange={(e) => setRemarks(prev => ({ ...prev, recommendation: e.target.value }))}
-                          style={{ width: '100%', height: '30px', padding: '0 10px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid #60A5FA', marginTop: '6px', backgroundColor: '#ffffff' }}
-                        />
-                      )}
-                    </div>
+                            <button
+                              type="button"
+                              onClick={() => setActiveRemarkField(isRemarkOpen ? null : key)}
+                              style={{ fontSize: '11px', fontWeight: '700', color: '#2563EB', background: 'none', border: 'none', cursor: 'pointer' }}
+                            >
+                              +Remarks
+                            </button>
+                          </div>
+
+                          {/* Main Input Field Container */}
+                          <div style={{
+                            position: 'relative',
+                            width: '100%',
+                            borderRadius: '8px',
+                            border: isPending ? '1.5px solid #A855F7' : (isLoading ? '1.5px solid #C084FC' : '1px solid #93C5FD'),
+                            backgroundColor: isPending ? '#FAF5FF' : '#ffffff',
+                            boxShadow: isPending ? '0 2px 8px rgba(168, 85, 247, 0.12)' : 'none',
+                            padding: '6px',
+                            transition: 'all 0.2s ease'
+                          }}>
+                            
+                            {/* Top-Right Tick / Cancel Icons inside the Input Box */}
+                            {isPending && !isLoading && (
+                              <div style={{
+                                position: 'absolute',
+                                top: '8px',
+                                right: '8px',
+                                zIndex: 10,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                backgroundColor: '#ffffff',
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                border: '1px solid #E9D5FF',
+                                boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
+                                animation: 'fadeIn 0.15s ease'
+                              }}>
+                                <span style={{ fontSize: '10.5px', fontWeight: '700', color: '#7E22CE', marginRight: '2px' }}>
+                                  AI Suggestion:
+                                </span>
+                                {/* Tick Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleAcceptAiSuggestion(key)}
+                                  style={{
+                                    width: '24px',
+                                    height: '24px',
+                                    borderRadius: '5px',
+                                    backgroundColor: '#DCFCE7',
+                                    border: '1px solid #86EFAC',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.12s ease'
+                                  }}
+                                  title="Accept AI Rewrite (Keep new text)"
+                                >
+                                  <Check style={{ width: '14px', height: '14px', color: '#166534', strokeWidth: 2.5 }} />
+                                </button>
+                                {/* Cancel Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleCancelAiSuggestion(key)}
+                                  style={{
+                                    width: '24px',
+                                    height: '24px',
+                                    borderRadius: '5px',
+                                    backgroundColor: '#FEE2E2',
+                                    border: '1px solid #FCA5A5',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.12s ease'
+                                  }}
+                                  title="Cancel AI Rewrite (Revert to original)"
+                                >
+                                  <X style={{ width: '14px', height: '14px', color: '#991B1B', strokeWidth: 2.5 }} />
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Meaningful Field-Specific Loader */}
+                            {isLoading ? (
+                              <div style={{
+                                minHeight: key === 'recommendation' ? '120px' : '75px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px',
+                                backgroundColor: '#FAF5FF',
+                                borderRadius: '6px',
+                                padding: '16px'
+                              }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <RefreshCw style={{ width: '18px', height: '18px', color: '#9333EA', animation: 'spin 1s linear infinite' }} />
+                                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#7E22CE' }}>
+                                    Synthesizing AI Response...
+                                  </span>
+                                </div>
+                                <span style={{ fontSize: '11px', color: '#6B21A8' }}>
+                                  Applying tone, structure and compliance heuristics...
+                                </span>
+                              </div>
+                            ) : (
+                              <textarea
+                                rows={rows}
+                                value={aiData[key] || ''}
+                                onChange={(e) => handleAiChange(key, e.target.value)}
+                                onSelect={(e) => handleTextareaSelect(key, e)}
+                                onMouseUp={(e) => handleTextareaSelect(key, e)}
+                                onKeyUp={(e) => handleTextareaSelect(key, e)}
+                                placeholder={`AI Generated ${label}...`}
+                                style={{
+                                  width: '100%',
+                                  padding: isPending ? '8px 110px 8px 10px' : '8px 10px',
+                                  fontSize: '12px',
+                                  borderRadius: '6px',
+                                  border: 'none',
+                                  outline: 'none',
+                                  fontFamily: 'inherit',
+                                  resize: 'vertical',
+                                  backgroundColor: 'transparent',
+                                  color: isPending ? '#6B21A8' : '#0F172A',
+                                  fontWeight: isPending ? '600' : '400',
+                                  lineHeight: '1.5'
+                                }}
+                              />
+                            )}
+
+                            {/* Existing Content in Light Grey Box at Bottom inside Input Box */}
+                            {isPending && !isLoading && pendingReview.originalText && (
+                              <div style={{
+                                marginTop: '6px',
+                                padding: '8px 10px',
+                                backgroundColor: '#F8FAFC',
+                                border: '1px solid #E2E8F0',
+                                borderRadius: '6px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '3px'
+                              }}>
+                                <span style={{ fontSize: '10px', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                  Original Content:
+                                </span>
+                                <span style={{ fontSize: '11.5px', color: '#475569', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
+                                  {pendingReview.originalText}
+                                </span>
+                              </div>
+                            )}
+
+                          </div>
+
+                          {/* Inline Selection Floating Toolbar */}
+                          {textSelection && textSelection.fieldKey === key && !isLoading && (
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '8px',
+                              padding: '6px 10px',
+                              backgroundColor: '#FAF5FF',
+                              border: '1px solid #E9D5FF',
+                              borderRadius: '6px',
+                              marginTop: '4px',
+                              boxShadow: '0 2px 8px rgba(147, 51, 234, 0.1)',
+                              animation: 'fadeInScale 0.15s ease'
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+                                <Sparkles style={{ width: '13px', height: '13px', color: '#9333EA', flexShrink: 0 }} />
+                                <span style={{ fontSize: '11px', fontWeight: '700', color: '#7E22CE', whiteSpace: 'nowrap' }}>
+                                  Selected Text ({textSelection.text.length} chars):
+                                </span>
+                                <span style={{ fontSize: '11px', color: '#475569', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }}>
+                                  "{textSelection.text}"
+                                </span>
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                                {[
+                                  { action: 'rewrite', label: 'Auto-rewrite' },
+                                  { action: 'tone', label: 'Adjust Tone' },
+                                  { action: 'detailed', label: 'Make Detailed' },
+                                  { action: 'shorter', label: 'Make Shorter' }
+                                ].map(opt => (
+                                  <button
+                                    key={opt.action}
+                                    type="button"
+                                    onClick={() => handleTriggerAiAdjustment(key, opt.action, textSelection)}
+                                    style={{
+                                      padding: '3px 8px',
+                                      fontSize: '10.5px',
+                                      fontWeight: '700',
+                                      color: '#ffffff',
+                                      backgroundColor: '#9333EA',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.12s ease'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#7E22CE'}
+                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#9333EA'}
+                                  >
+                                    {opt.label}
+                                  </button>
+                                ))}
+                                <button
+                                  type="button"
+                                  onClick={() => setTextSelection(null)}
+                                  style={{
+                                    padding: '3px 6px',
+                                    fontSize: '10.5px',
+                                    fontWeight: '600',
+                                    color: '#64748B',
+                                    backgroundColor: '#F1F5F9',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {isRemarkOpen && (
+                            <input
+                              type="text"
+                              placeholder="Add remarks for AI learning..."
+                              value={remarks[key] || ''}
+                              onChange={(e) => setRemarks(prev => ({ ...prev, [key]: e.target.value }))}
+                              style={{ width: '100%', height: '30px', padding: '0 10px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid #60A5FA', marginTop: '6px', backgroundColor: '#ffffff' }}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
                   </>
                 )}
 

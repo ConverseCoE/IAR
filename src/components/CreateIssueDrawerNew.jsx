@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, Sparkles, RefreshCw, MessageSquare, AlertCircle, 
-  CheckCircle2, Plus, ArrowRight, ShieldCheck, DollarSign, UserPlus, AlertOctagon, GitCompare, Check, ChevronDown, AlertTriangle, Eye
+  CheckCircle2, Plus, ArrowRight, ShieldCheck, DollarSign, UserPlus, AlertOctagon, GitCompare, Check, ChevronDown, AlertTriangle, Eye, Wand2, FileText, Minimize2
 } from 'lucide-react';
 
 // Custom Enterprise SaaS Form Select Dropdown
-function FormSelectDropdown({ label, required, value, onChange, options, placeholder = "Select option..." }) {
+function FormSelectDropdown({ label, required, value, onChange, options, placeholder = "Select option...", isMulti = false }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -19,11 +19,54 @@ function FormSelectDropdown({ label, required, value, onChange, options, placeho
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const selectedOption = options.find(opt => (typeof opt === 'object' ? opt.value : opt) === value);
-  const selectedLabel = selectedOption ? (typeof selectedOption === 'object' ? selectedOption.label : selectedOption) : (value || placeholder);
+  const selectedValues = isMulti
+    ? (Array.isArray(value)
+        ? value
+        : (typeof value === 'string' && value.trim() ? value.split(', ').map(s => s.trim()) : []))
+    : [];
+
+  const selectedOption = !isMulti ? options.find(opt => (typeof opt === 'object' ? opt.value : opt) === value) : null;
+  
+  let selectedLabel = placeholder;
+  if (isMulti) {
+    if (selectedValues.length === 1) {
+      const opt = options.find(o => (typeof o === 'object' ? o.value : o) === selectedValues[0]);
+      selectedLabel = opt ? (typeof opt === 'object' ? opt.label : opt) : selectedValues[0];
+    } else if (selectedValues.length > 1) {
+      selectedLabel = `${selectedValues.length} Selected`;
+    }
+  } else {
+    selectedLabel = selectedOption ? (typeof selectedOption === 'object' ? selectedOption.label : selectedOption) : (value || placeholder);
+  }
+
+  const hasValue = isMulti ? selectedValues.length > 0 : !!value;
+
+  const handleOptionClick = (optVal) => {
+    if (isMulti) {
+      let newValues;
+      if (optVal === 'None' || optVal === 'none') {
+        if (selectedValues.includes(optVal)) {
+          newValues = [];
+        } else {
+          newValues = ['None'];
+        }
+      } else {
+        const cleaned = selectedValues.filter(v => v !== 'None' && v !== 'none');
+        if (cleaned.includes(optVal)) {
+          newValues = cleaned.filter(v => v !== optVal);
+        } else {
+          newValues = [...cleaned, optVal];
+        }
+      }
+      onChange(newValues);
+    } else {
+      onChange(optVal);
+      setIsOpen(false);
+    }
+  };
 
   return (
-    <div ref={dropdownRef} style={{ position: 'relative', width: '100%' }}>
+    <div ref={dropdownRef} style={{ position: 'relative', width: '100%', boxSizing: 'border-box' }}>
       {label && (
         <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '5px' }}>
           {label} {required && <span style={{ color: '#D8001D' }}>*</span>}
@@ -34,11 +77,13 @@ function FormSelectDropdown({ label, required, value, onChange, options, placeho
         onClick={() => setIsOpen(!isOpen)}
         style={{
           width: '100%',
+          maxWidth: '100%',
+          boxSizing: 'border-box',
           height: '38px',
           padding: '0 12px',
           fontSize: '12.5px',
           fontWeight: '600',
-          color: value ? '#0F172A' : '#94A3B8',
+          color: hasValue ? '#0F172A' : '#94A3B8',
           backgroundColor: '#ffffff',
           border: isOpen ? '1px solid #94A3B8' : '1px solid #CBD5E1',
           borderRadius: '8px',
@@ -63,7 +108,14 @@ function FormSelectDropdown({ label, required, value, onChange, options, placeho
           }
         }}
       >
-        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <span style={{ 
+          whiteSpace: 'nowrap', 
+          overflow: 'hidden', 
+          textOverflow: 'ellipsis',
+          minWidth: 0,
+          flex: 1,
+          textAlign: 'left'
+        }}>
           {selectedLabel}
         </span>
         <ChevronDown style={{
@@ -95,15 +147,14 @@ function FormSelectDropdown({ label, required, value, onChange, options, placeho
           {options.map((opt) => {
             const optVal = typeof opt === 'object' ? opt.value : opt;
             const optLbl = typeof opt === 'object' ? opt.label : opt;
-            const isSelected = value === optVal;
+            const isSelected = isMulti 
+              ? selectedValues.includes(optVal)
+              : value === optVal;
 
             return (
               <div
                 key={optVal}
-                onClick={() => {
-                  onChange(optVal);
-                  setIsOpen(false);
-                }}
+                onClick={() => handleOptionClick(optVal)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -272,6 +323,239 @@ export default function CreateIssueDrawerNew({
   });
 
   const [activeRemarkField, setActiveRemarkField] = useState(null);
+
+  // AI Magic Wand & Selection Assistant State
+  const [aiWandOpenField, setAiWandOpenField] = useState(null);
+  const [selectionWandOpen, setSelectionWandOpen] = useState(false);
+  const [textSelection, setTextSelection] = useState(null);
+  const [aiSuggestions, setAiSuggestions] = useState({});
+  const wandContainerRef = useRef(null);
+  const selectionWandRef = useRef(null);
+
+  // Close AI Wand popover menu and floating selection button when clicking anywhere outside
+  useEffect(() => {
+    if (!aiWandOpenField && !selectionWandOpen && !textSelection) return;
+    const handleWandClickOutside = (e) => {
+      if (wandContainerRef.current && !wandContainerRef.current.contains(e.target)) {
+        setAiWandOpenField(null);
+      }
+      if (selectionWandRef.current && !selectionWandRef.current.contains(e.target)) {
+        setSelectionWandOpen(false);
+        setTextSelection(null);
+      }
+    };
+    document.addEventListener('mousedown', handleWandClickOutside);
+    return () => document.removeEventListener('mousedown', handleWandClickOutside);
+  }, [aiWandOpenField, selectionWandOpen, textSelection]);
+
+  const getAiAdjustedText = (fieldKey, text, action) => {
+    const clean = text ? text.trim() : '';
+
+    if (action === 'rewrite') {
+      if (fieldKey === 'updatedIssueHeader') {
+        return clean ? `${clean} (Optimized & Verified)` : 'Automated Telemetry & Sensor Calibration Discrepancy';
+      }
+      if (fieldKey === 'rootCause') {
+        return `Telemetry variance identified due to thermal dissipation latency in cleanroom HVAC Unit 4 during peak 72-hour operational cycles.`;
+      }
+      if (fieldKey === 'impact') {
+        return `Potential delay in batch release timelines and $120,000 material scrap variance risk under Major criticality protocols.`;
+      }
+      if (fieldKey === 'description') {
+        return `Automated sensor calibration logs registered telemetry drift exceeding the mandatory 1.5% SLA limit across 72 hours of continuous production.`;
+      }
+      if (fieldKey === 'recommendation') {
+        return `1. Implement SHA-256 log integrity checks.\n2. Enforce MFA approval for sensor override procedures.\n3. Deploy optic sensor firmware patch v4.2 for automatic thermal drift compensation.`;
+      }
+      return clean ? `Rephrased: ${clean}` : 'Optimized enterprise audit details.';
+    }
+
+    if (action === 'tone') {
+      if (fieldKey === 'updatedIssueHeader') {
+        return `Compliance Notice: ${clean || 'Telemetry & Sensor Calibration Offsets on Catheter Line 3'}`;
+      }
+      if (fieldKey === 'rootCause') {
+        return `Systemic audit findings confirm thermal dissipation delays in cleanroom HVAC Unit 4 created uncompensated optical sensor gain drift.`;
+      }
+      if (fieldKey === 'impact') {
+        return `Formal Financial & Operational Exposure: Deferred batch clearance and $120,000 scrap material risk under Major criticality classification.`;
+      }
+      if (fieldKey === 'description') {
+        return `Detailed Audit Observation: Automated sensor calibration telemetry logs demonstrated drift exceeding the 1.5% SLA threshold over 72 hours of continuous manufacturing.`;
+      }
+      if (fieldKey === 'recommendation') {
+        return `1. Enforce automated SHA-256 checksum log verification across line systems.\n2. Mandate dual-level MFA authorization for sensor override procedures.\n3. Deploy optic sensor firmware patch v4.2 for automatic temperature drift compensation.`;
+      }
+      return clean ? `Professional Audit Format: ${clean}` : 'Formal audit documentation text.';
+    }
+
+    if (action === 'detailed') {
+      if (fieldKey === 'updatedIssueHeader') {
+        return `Catheter Line 3 Electrophysiology: Telemetry Sensor Offset & Thermal Gain Calibration Drift Variance`;
+      }
+      if (fieldKey === 'rootCause') {
+        return `Root Cause Analysis: Thermal dissipation latency in cleanroom HVAC Unit 4 created secondary optic gain drift during peak 72-hour continuous production cycles. This resulted in uncompensated sensor calibration offsets exceeding established tolerance levels of 1.5%.`;
+      }
+      if (fieldKey === 'impact') {
+        return `Quantitative & Operational Impact: Batch release timeline extended by 48 hours. Material scrap risk calculated at $120,000 across catheter batch runs under Major criticality compliance guidelines, impacting quarterly yield targets.`;
+      }
+      if (fieldKey === 'description') {
+        return `Telemetry Log Analysis: Automated sensor calibration logs in Catheter Line 3 registered systematic gain drift exceeding the mandatory 1.5% threshold over 72 continuous operating hours. Secondary optic sensor offsets required manual override intervention to restore stability.`;
+      }
+      if (fieldKey === 'recommendation') {
+        return `Comprehensive Action Plan:\n1. Implement automated SHA-256 integrity checksum log verification across process area.\n2. Enforce mandatory multi-factor authentication (MFA) approval policies for sensor recalibration overrides.\n3. Upgrade optic sensor firmware to v4.2 to enable automatic temperature drift compensation.\n4. Establish bi-weekly HVAC thermal dissipation audits for cleanroom Unit 4.`;
+      }
+      return clean ? `${clean}\n\nDetailed Supplement: Additional verification steps and root cause telemetry metrics recorded during audit review.` : 'Comprehensive detailed observation.';
+    }
+
+    if (action === 'shorter') {
+      if (fieldKey === 'updatedIssueHeader') {
+        return `Catheter Line 3 Sensor Offset Issue`;
+      }
+      if (fieldKey === 'rootCause') {
+        return `HVAC Unit 4 thermal latency caused optic sensor gain drift during 72-hour batch runs.`;
+      }
+      if (fieldKey === 'impact') {
+        return `48h release delay and $120k scrap material risk under Major criticality.`;
+      }
+      if (fieldKey === 'description') {
+        return `Sensor calibration logs showed >1.5% telemetry drift over 72-hour run.`;
+      }
+      if (fieldKey === 'recommendation') {
+        return `1. Add SHA-256 log checks.\n2. Require MFA for overrides.\n3. Upgrade firmware to v4.2.`;
+      }
+      return clean ? clean.split('\n')[0].substring(0, 80) + '...' : 'Concise summary.';
+    }
+
+    return clean;
+  };
+
+  // Field-level AI Loading & Review States
+  const [aiFieldLoading, setAiFieldLoading] = useState({});
+  const [aiPendingReviews, setAiPendingReviews] = useState({});
+
+  const handleTriggerAiAdjustment = (key, action, selectionObj = null) => {
+    const currentVal = aiData[key] || '';
+    const actionLabels = {
+      rewrite: 'Auto-rewrite',
+      tone: 'Adjust tone professionally',
+      detailed: 'Make it detailed',
+      shorter: 'Make it shorter'
+    };
+
+    let targetText = currentVal;
+    let isSubstring = false;
+    let beforeText = '';
+    let afterText = '';
+
+    if (selectionObj && selectionObj.text) {
+      targetText = selectionObj.text;
+      isSubstring = true;
+      beforeText = currentVal.substring(0, selectionObj.start);
+      afterText = currentVal.substring(selectionObj.end);
+    }
+
+    setAiFieldLoading(prev => ({ ...prev, [key]: true }));
+    setAiWandOpenField(null);
+    setTextSelection(null);
+
+    // Immediately set pending review state with isSubstring flag
+    setAiPendingReviews(prev => ({
+      ...prev,
+      [key]: {
+        isSubstring,
+        beforeText,
+        afterText,
+        originalText: targetText,
+        fullOriginalText: currentVal,
+        newText: '',
+        fullNewText: currentVal,
+        actionLabel: actionLabels[action] || 'AI Rewrite'
+      }
+    }));
+
+    setTimeout(() => {
+      const generated = getAiAdjustedText(key, targetText, action);
+      let newFullText = generated;
+      if (isSubstring) {
+        newFullText = `${beforeText}${generated}${afterText}`;
+      } else {
+        handleAiChange(key, generated);
+      }
+
+      setAiPendingReviews(prev => ({
+        ...prev,
+        [key]: {
+          isSubstring,
+          beforeText,
+          afterText,
+          originalText: targetText,
+          fullOriginalText: currentVal,
+          newText: generated,
+          fullNewText: newFullText,
+          actionLabel: actionLabels[action] || 'AI Rewrite'
+        }
+      }));
+
+      setAiFieldLoading(prev => ({ ...prev, [key]: false }));
+    }, 750);
+  };
+
+  const handleAcceptAiSuggestion = (key) => {
+    const review = aiPendingReviews[key];
+    if (review) {
+      if (review.isSubstring) {
+        const finalVal = `${review.beforeText || ''}${review.newText || ''}${review.afterText || ''}`;
+        handleAiChange(key, finalVal);
+      }
+    }
+    setAiPendingReviews(prev => ({ ...prev, [key]: null }));
+  };
+
+  const handleCancelAiSuggestion = (key) => {
+    const review = aiPendingReviews[key];
+    if (review) {
+      if (review.isSubstring) {
+        const revertedVal = `${review.beforeText || ''}${review.originalText || ''}${review.afterText || ''}`;
+        handleAiChange(key, revertedVal);
+      } else if (review.fullOriginalText !== undefined) {
+        handleAiChange(key, review.fullOriginalText);
+      }
+    }
+    setAiPendingReviews(prev => ({ ...prev, [key]: null }));
+  };
+
+  const handleAiChange = (field, val) => {
+    setAiData(prev => ({
+      ...prev,
+      [field]: val
+    }));
+  };
+
+  const handleTextareaSelect = (key, e) => {
+    const target = e.target;
+    const start = target.selectionStart;
+    const end = target.selectionEnd;
+    if (start !== undefined && end !== undefined && start !== end) {
+      const selText = target.value.substring(start, end).trim();
+      if (selText.length > 0) {
+        const linesBefore = target.value.substring(0, start).split('\n');
+        const lineNumber = linesBefore.length - 1;
+        const topOffset = Math.min(lineNumber * 18 + 6, 100);
+
+        setTextSelection({
+          fieldKey: key,
+          start,
+          end,
+          text: selText,
+          topOffset
+        });
+      }
+    } else if (start === end && e.type === 'click') {
+      setTextSelection(prev => (prev && prev.fieldKey === key ? null : prev));
+      setSelectionWandOpen(false);
+    }
+  };
 
   // Populate initialData when editing
   useEffect(() => {
@@ -739,6 +1023,7 @@ export default function CreateIssueDrawerNew({
                   <div>
                     <FormSelectDropdown
                       label="Secondary Business Contact"
+                      isMulti={true}
                       value={formData.secondaryContact}
                       onChange={(val) => handleChange('secondaryContact', val)}
                       options={[
@@ -816,7 +1101,7 @@ export default function CreateIssueDrawerNew({
                   </button>
                 </div>
 
-                {/* AI Field Helper Renderer with Top-Right Remarks Provision */}
+                {/* AI Field Helper Renderer with Integrated Loader, Embedded Icons & Light Grey Reference Box */}
                 {[
                   { key: 'updatedIssueHeader', label: 'Updated Issue Header', rows: 2 },
                   { key: 'rootCause', label: 'Root Cause', rows: 3 },
@@ -826,13 +1111,99 @@ export default function CreateIssueDrawerNew({
                 ].map(({ key, label, rows }) => {
                   const isRemarkOpen = activeRemarkField === key;
                   const currentRemark = remarks[key] || '';
+                  const isLoading = !!aiFieldLoading[key];
+                  const pendingReview = aiPendingReviews[key];
+                  const isPending = !!pendingReview;
+                  const isSubstringReview = pendingReview && pendingReview.isSubstring;
+                  const isWholePending = isPending && !isSubstringReview;
+                  const isWholeLoading = isLoading && !isSubstringReview;
 
                   return (
                     <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <label style={{ fontSize: '11.5px', fontWeight: '700', color: '#475569', margin: 0 }}>
-                          {label} <span style={{ color: '#D8001D' }}>*</span>
-                        </label>
+                        
+                        {/* Label Header with Left Sparkle Wand Icon & Dropdown Options */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div 
+                            ref={aiWandOpenField === key ? wandContainerRef : null}
+                            style={{ position: 'relative' }}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => setAiWandOpenField(aiWandOpenField === key ? null : key)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                padding: '2px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                outline: 'none',
+                                transition: 'all 0.15s ease'
+                              }}
+                              title="AI Rewrite Options"
+                            >
+                              <Sparkles style={{ width: '14px', height: '14px', color: '#9333EA' }} />
+                            </button>
+
+                            {/* Dropdown Menu for AI Rewrite Options */}
+                            {aiWandOpenField === key && (
+                              <div style={{
+                                position: 'absolute',
+                                bottom: 'calc(100% + 4px)',
+                                left: 0,
+                                zIndex: 300,
+                                width: '210px',
+                                backgroundColor: '#ffffff',
+                                borderRadius: '8px',
+                                border: '1px solid #E2E8F0',
+                                boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 4px 10px -2px rgba(15, 23, 42, 0.06)',
+                                padding: '4px',
+                                animation: 'fadeInScale 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
+                              }}>
+                                {[
+                                  { action: 'rewrite', label: 'Auto-rewrite', icon: Sparkles },
+                                  { action: 'tone', label: 'Adjust tone professionally', icon: ShieldCheck },
+                                  { action: 'detailed', label: 'Make it detailed', icon: FileText },
+                                  { action: 'shorter', label: 'Make it shorter', icon: Minimize2 }
+                                ].map(item => (
+                                  <div
+                                    key={item.action}
+                                    onClick={() => handleTriggerAiAdjustment(key, item.action)}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '8px',
+                                      padding: '7px 10px',
+                                      borderRadius: '6px',
+                                      cursor: 'pointer',
+                                      fontSize: '11.5px',
+                                      fontWeight: '600',
+                                      color: '#334155',
+                                      transition: 'all 0.12s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#FAF5FF';
+                                      e.currentTarget.style.color = '#7E22CE';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = 'transparent';
+                                      e.currentTarget.style.color = '#334155';
+                                    }}
+                                  >
+                                    <item.icon style={{ width: '13px', height: '13px', color: '#9333EA' }} />
+                                    <span>{item.label}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          <label style={{ fontSize: '11.5px', fontWeight: '700', color: '#475569', margin: 0 }}>
+                            {label} <span style={{ color: '#D8001D' }}>*</span>
+                          </label>
+                        </div>
 
                         {/* Top-Right Add Remark Button (Only when no remark has been added yet) */}
                         {!currentRemark && (
@@ -859,30 +1230,401 @@ export default function CreateIssueDrawerNew({
                         )}
                       </div>
 
-                      {(() => {
-                        const lineCount = (aiData[key] || '').split('\n').length;
-                        const dynamicRows = key === 'recommendation' ? Math.max(5, lineCount + 1) : rows;
-                        return (
-                          <textarea
-                            rows={dynamicRows}
-                            value={aiData[key] || ''}
-                            onChange={(e) => handleAiChange(key, e.target.value)}
-                            placeholder={`AI Generated ${label}...`}
-                            style={{
-                              width: '100%',
+                      {/* Main Input Field Container */}
+                      <div style={{
+                        position: 'relative',
+                        width: '100%',
+                        borderRadius: '8px',
+                        border: isWholePending ? '1.5px solid #A855F7' : (isWholeLoading ? '1.5px solid #C084FC' : '1px solid #CBD5E1'),
+                        backgroundColor: isWholePending ? '#FAF5FF' : '#ffffff',
+                        boxShadow: isWholePending ? '0 2px 8px rgba(168, 85, 247, 0.12)' : 'none',
+                        padding: '6px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px',
+                        transition: 'all 0.2s ease'
+                      }}>
+                        
+                        {/* Top-Left Clean Tick / Cancel Icons (Only for Whole Field AI Rewrites) */}
+                        {isWholePending && !isLoading && (
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'flex-start',
+                            gap: '6px',
+                            padding: '2px 4px 2px 4px'
+                          }}>
+                            {/* Tick Button */}
+                            <button
+                              type="button"
+                              onClick={() => handleAcceptAiSuggestion(key)}
+                              style={{
+                                width: '22px',
+                                height: '22px',
+                                borderRadius: '4px',
+                                backgroundColor: '#DCFCE7',
+                                border: '1px solid #86EFAC',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                transition: 'all 0.12s ease'
+                              }}
+                              title="Accept AI Rewrite (Keep new text)"
+                            >
+                              <Check style={{ width: '13px', height: '13px', color: '#166534', strokeWidth: 2.5 }} />
+                            </button>
+                            {/* Cancel Button */}
+                            <button
+                              type="button"
+                              onClick={() => handleCancelAiSuggestion(key)}
+                              style={{
+                                width: '22px',
+                                height: '22px',
+                                borderRadius: '4px',
+                                backgroundColor: '#FEE2E2',
+                                border: '1px solid #FCA5A5',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                transition: 'all 0.12s ease'
+                              }}
+                              title="Cancel AI Rewrite (Revert to original)"
+                            >
+                              <X style={{ width: '13px', height: '13px', color: '#991B1B', strokeWidth: 2.5 }} />
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Meaningful Field-Specific Loader or Substring Review Box vs Standard Textarea */}
+                        {isLoading && (!pendingReview || !pendingReview.isSubstring) ? (
+                          <div style={{
+                            minHeight: key === 'recommendation' ? '120px' : '75px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            backgroundColor: '#FAF5FF',
+                            borderRadius: '6px',
+                            padding: '16px'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <RefreshCw style={{ width: '18px', height: '18px', color: '#9333EA', animation: 'spin 1s linear infinite' }} />
+                              <span style={{ fontSize: '12px', fontWeight: '700', color: '#7E22CE' }}>
+                                Synthesizing AI Response...
+                              </span>
+                            </div>
+                            <span style={{ fontSize: '11px', color: '#6B21A8' }}>
+                              Applying tone, structure and compliance heuristics...
+                            </span>
+                          </div>
+                        ) : pendingReview && pendingReview.isSubstring ? (
+                          /* INLINE SUBSTRING SELECTION REVIEW BOX IN-BETWEEN BEFORE & AFTER TEXT */
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {/* Before Text Area */}
+                            {pendingReview.beforeText && (
+                              <textarea
+                                rows={Math.max(1, pendingReview.beforeText.split('\n').length)}
+                                value={pendingReview.beforeText}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setAiPendingReviews(prev => ({
+                                    ...prev,
+                                    [key]: { ...pendingReview, beforeText: val }
+                                  }));
+                                }}
+                                style={{
+                                  width: '100%',
+                                  padding: '4px 6px',
+                                  fontSize: '12px',
+                                  borderRadius: '4px',
+                                  border: 'none',
+                                  outline: 'none',
+                                  fontFamily: 'inherit',
+                                  resize: 'none',
+                                  backgroundColor: 'transparent',
+                                  color: '#0F172A',
+                                  lineHeight: '1.5'
+                                }}
+                              />
+                            )}
+
+                            {/* Inline Selection Review Box In-Between */}
+                            <div style={{
                               padding: '8px 10px',
-                              fontSize: '12px',
-                              borderRadius: '6px',
-                              border: '1px solid #CBD5E1',
-                              outline: 'none',
-                              fontFamily: 'inherit',
-                              resize: 'vertical',
-                              backgroundColor: '#ffffff',
-                              minHeight: key === 'recommendation' ? '120px' : 'auto'
+                              backgroundColor: '#FAF5FF',
+                              border: '1.5px solid #A855F7',
+                              borderRadius: '8px',
+                              boxShadow: '0 2px 8px rgba(168, 85, 247, 0.12)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '6px',
+                              animation: 'fadeInScale 0.15s ease'
+                            }}>
+                              {/* Inside Box Top Row: Tick & Cancel Icons on Top-Left */}
+                              {!isLoading && (
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '6px' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAcceptAiSuggestion(key)}
+                                    style={{
+                                      width: '22px', height: '22px', borderRadius: '4px',
+                                      backgroundColor: '#DCFCE7', border: '1px solid #86EFAC',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
+                                    }}
+                                    title="Accept AI Rewrite for Selection"
+                                  >
+                                    <Check style={{ width: '13px', height: '13px', color: '#166534', strokeWidth: 2.5 }} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCancelAiSuggestion(key)}
+                                    style={{
+                                      width: '22px', height: '22px', borderRadius: '4px',
+                                      backgroundColor: '#FEE2E2', border: '1px solid #FCA5A5',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
+                                    }}
+                                    title="Cancel AI Rewrite (Revert Selection)"
+                                  >
+                                    <X style={{ width: '13px', height: '13px', color: '#991B1B', strokeWidth: 2.5 }} />
+                                  </button>
+                                </div>
+                              )}
+
+                              {/* Loader inside this in-between box */}
+                              {isLoading ? (
+                                <div style={{ padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                  <RefreshCw style={{ width: '16px', height: '16px', color: '#9333EA', animation: 'spin 1s linear infinite' }} />
+                                  <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#7E22CE' }}>
+                                    Rewriting selected text...
+                                  </span>
+                                </div>
+                              ) : (
+                                <>
+                                  {/* New AI Generated Content for Selection */}
+                                  <textarea
+                                    rows={Math.max(2, (pendingReview.newText || '').split('\n').length)}
+                                    value={pendingReview.newText || ''}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setAiPendingReviews(prev => ({
+                                        ...prev,
+                                        [key]: { ...pendingReview, newText: val }
+                                      }));
+                                    }}
+                                    style={{
+                                      width: '100%',
+                                      padding: '6px 8px',
+                                      fontSize: '12px',
+                                      borderRadius: '6px',
+                                      border: '1px solid #D8B4FE',
+                                      outline: 'none',
+                                      backgroundColor: '#ffffff',
+                                      color: '#6B21A8',
+                                      fontWeight: '600',
+                                      lineHeight: '1.5',
+                                      resize: 'vertical'
+                                    }}
+                                  />
+
+                                  {/* Selected Previous Content in Grey Box */}
+                                  <div style={{
+                                    padding: '6px 8px',
+                                    backgroundColor: '#F8FAFC',
+                                    border: '1px solid #E2E8F0',
+                                    borderRadius: '6px'
+                                  }}>
+                                    <span style={{ fontSize: '11.5px', color: '#475569', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
+                                      {pendingReview.originalText}
+                                    </span>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+
+                            {/* After Text Area */}
+                            {pendingReview.afterText && (
+                              <textarea
+                                rows={Math.max(1, pendingReview.afterText.split('\n').length)}
+                                value={pendingReview.afterText}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setAiPendingReviews(prev => ({
+                                    ...prev,
+                                    [key]: { ...pendingReview, afterText: val }
+                                  }));
+                                }}
+                                style={{
+                                  width: '100%',
+                                  padding: '4px 6px',
+                                  fontSize: '12px',
+                                  borderRadius: '4px',
+                                  border: 'none',
+                                  outline: 'none',
+                                  fontFamily: 'inherit',
+                                  resize: 'none',
+                                  backgroundColor: 'transparent',
+                                  color: '#0F172A',
+                                  lineHeight: '1.5'
+                                }}
+                              />
+                            )}
+                          </div>
+                        ) : (
+                          (() => {
+                            const lineCount = (aiData[key] || '').split('\n').length;
+                            const dynamicRows = key === 'recommendation' ? Math.max(5, lineCount + 1) : rows;
+                            return (
+                              <textarea
+                                rows={dynamicRows}
+                                value={aiData[key] || ''}
+                                onChange={(e) => handleAiChange(key, e.target.value)}
+                                onSelect={(e) => handleTextareaSelect(key, e)}
+                                onMouseUp={(e) => handleTextareaSelect(key, e)}
+                                onKeyUp={(e) => handleTextareaSelect(key, e)}
+                                placeholder={`AI Generated ${label}...`}
+                                style={{
+                                  width: '100%',
+                                  padding: '6px 8px',
+                                  fontSize: '12px',
+                                  borderRadius: '6px',
+                                  border: 'none',
+                                  outline: 'none',
+                                  fontFamily: 'inherit',
+                                  resize: 'vertical',
+                                  backgroundColor: 'transparent',
+                                  color: isPending ? '#6B21A8' : '#0F172A',
+                                  fontWeight: isPending ? '600' : '400',
+                                  minHeight: key === 'recommendation' ? '120px' : 'auto',
+                                  lineHeight: '1.5'
+                                }}
+                              />
+                            );
+                          })()
+                        )}
+
+                        {/* Floating Selection Sparkles Icon near Selected Text */}
+                        {textSelection && textSelection.fieldKey === key && !isLoading && !isPending && (
+                          <div 
+                            ref={selectionWandRef}
+                            style={{
+                              position: 'absolute',
+                              top: `${Math.max(6, textSelection.topOffset || 6)}px`,
+                              right: '12px',
+                              zIndex: 200,
+                              animation: 'fadeInScale 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
                             }}
-                          />
-                        );
-                      })()}
+                          >
+                            <div style={{ position: 'relative' }}>
+                              <button
+                                type="button"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectionWandOpen(prev => !prev);
+                                }}
+                                style={{
+                                  backgroundColor: '#9333EA',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  borderRadius: '16px',
+                                  padding: '3px 8px',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                  boxShadow: '0 4px 12px rgba(147, 51, 234, 0.35)',
+                                  transition: 'all 0.15s ease'
+                                }}
+                                title="AI Rewrite Selected Text"
+                              >
+                                <Sparkles style={{ width: '12px', height: '12px', color: '#ffffff' }} />
+                                <span>Rewrite</span>
+                              </button>
+
+                              {/* Popover Menu for Selected Text AI Rewrite Options */}
+                              {selectionWandOpen && (
+                                <div style={{
+                                  position: 'absolute',
+                                  bottom: 'calc(100% + 4px)',
+                                  right: 0,
+                                  zIndex: 300,
+                                  width: '210px',
+                                  backgroundColor: '#ffffff',
+                                  borderRadius: '8px',
+                                  border: '1px solid #E2E8F0',
+                                  boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.15), 0 4px 10px -2px rgba(15, 23, 42, 0.08)',
+                                  padding: '4px',
+                                  animation: 'fadeInScale 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
+                                }}>
+                                  {[
+                                    { action: 'rewrite', label: 'Auto-rewrite', icon: Sparkles },
+                                    { action: 'tone', label: 'Adjust tone professionally', icon: ShieldCheck },
+                                    { action: 'detailed', label: 'Make it detailed', icon: FileText },
+                                    { action: 'shorter', label: 'Make it shorter', icon: Minimize2 }
+                                  ].map(item => (
+                                    <div
+                                      key={item.action}
+                                      onClick={() => {
+                                        setSelectionWandOpen(false);
+                                        handleTriggerAiAdjustment(key, item.action, textSelection);
+                                      }}
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        padding: '7px 10px',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        fontSize: '11.5px',
+                                        fontWeight: '600',
+                                        color: '#334155',
+                                        transition: 'all 0.12s ease'
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#FAF5FF';
+                                        e.currentTarget.style.color = '#7E22CE';
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                        e.currentTarget.style.color = '#334155';
+                                      }}
+                                    >
+                                      <item.icon style={{ width: '13px', height: '13px', color: '#9333EA' }} />
+                                      <span>{item.label}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Whole-Field Original Content in Light Grey Box at Bottom */}
+                        {isPending && !pendingReview?.isSubstring && !isLoading && pendingReview.originalText && (
+                          <div style={{
+                            marginTop: '4px',
+                            padding: '8px 10px',
+                            backgroundColor: '#F8FAFC',
+                            border: '1px solid #E2E8F0',
+                            borderRadius: '6px'
+                          }}>
+                            <span style={{ fontSize: '11.5px', color: '#475569', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
+                              {pendingReview.originalText}
+                            </span>
+                          </div>
+                        )}
+
+                      </div>
+
+
 
                       {/* Inline Multiline Auto-Height Remark Textarea */}
                       {isRemarkOpen && (
