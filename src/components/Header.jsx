@@ -66,20 +66,6 @@ export default function Header({ currentPhase, onPhaseChange, userRole = 'manage
         
         {/* Brand & Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{
-            backgroundColor: '#D8001D',
-            color: '#ffffff',
-            padding: '4px 10px',
-            borderRadius: '6px',
-            fontWeight: 'bold',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            boxShadow: '0 2px 4px rgba(216, 0, 29, 0.2)'
-          }}>
-            <span style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize: '16px', fontWeight: '900' }}>J&J</span>
-            <span style={{ fontSize: '10px', letterSpacing: '1px', background: 'rgba(255,255,255,0.2)', padding: '1px 4px', borderRadius: '3px' }}>IAR</span>
-          </div>
           <div>
             <h1 style={{ fontSize: '14px', fontWeight: '800', color: '#0F172A', lineHeight: '1' }}>
               Johnson & Johnson
