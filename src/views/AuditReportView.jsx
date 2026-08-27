@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { mockAuditReportIssues } from '../data/reportIssuesData';
 
-export default function WorkOnReportNewView({ job, onClose }) {
+export default function AuditReportView({ job, onClose }) {
   const [issues, setIssues] = useState(mockAuditReportIssues);
   // Default to null so NO row is selected initially and the full report (ALL issues) is displayed in PDF preview
   const [expandedIssueId, setExpandedIssueId] = useState(null);
@@ -502,10 +502,7 @@ export default function WorkOnReportNewView({ job, onClose }) {
             </span>
           )}
 
-          {/* Active Design Mode Indicator */}
-          <span style={{ fontSize: '11px', fontWeight: '800', color: '#1E40AF', backgroundColor: '#EFF6FF', padding: '2px 8px', borderRadius: '4px', border: '1px solid #BFDBFE' }}>
-            Mode: {designMode === 'default' ? 'Inline Table' : designMode === '3pane' ? '3-Pane Master-Detail' : designMode === 'slideover' ? 'Left Slide-over Drawer' : 'Tabbed Multi-Step'}
-          </span>
+
         </div>
 
         {/* Top Right Job-Level Actions + Three-Dots Design Switcher Menu */}
@@ -574,150 +571,7 @@ export default function WorkOnReportNewView({ job, onClose }) {
             <span>{isTrackChangesActive ? "Track Changes (Active)" : "Track Changes"}</span>
           </button>
 
-          {/* THREE-DOTS DESIGN SWITCHER MENU BUTTON */}
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={() => setIsDesignMenuOpen(!isDesignMenuOpen)}
-              style={{
-                padding: '6px 8px',
-                borderRadius: '6px',
-                border: '1px solid #CBD5E1',
-                backgroundColor: isDesignMenuOpen ? '#F1F5F9' : '#ffffff',
-                color: '#0F172A',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-              title="Switch Design Layout for Demo Presentation"
-            >
-              <MoreVertical style={{ width: '18px', height: '18px', color: '#0F172A' }} />
-            </button>
 
-            {/* THREE-DOTS DROPDOWN MENU */}
-            {isDesignMenuOpen && (
-              <div style={{
-                position: 'absolute',
-                top: 'calc(100% + 6px)',
-                right: 0,
-                width: '260px',
-                backgroundColor: '#ffffff',
-                border: '1px solid #CBD5E1',
-                borderRadius: '10px',
-                boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
-                zIndex: 1100,
-                padding: '6px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px'
-              }}>
-                <div style={{ padding: '8px 12px', fontSize: '11px', fontWeight: '800', color: '#64748B', borderBottom: '1px solid #F1F5F9', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Select UX Design Layout
-                </div>
-
-                {/* Option 1: Default Inline */}
-                <button
-                  onClick={() => { setDesignMode('default'); setIsDesignMenuOpen(false); }}
-                  style={{
-                    padding: '8px 12px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    textAlign: 'left',
-                    borderRadius: '6px',
-                    border: 'none',
-                    backgroundColor: designMode === 'default' ? '#FFF0F2' : 'transparent',
-                    color: designMode === 'default' ? '#D8001D' : '#1E293B',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Layout style={{ width: '15px', height: '15px', color: designMode === 'default' ? '#D8001D' : '#64748B' }} />
-                    <span>Default Inline Table</span>
-                  </div>
-                  {designMode === 'default' && <Check style={{ width: '14px', height: '14px', color: '#D8001D' }} />}
-                </button>
-
-                {/* Option 2: 3-Pane Master-Detail */}
-                <button
-                  onClick={() => { setDesignMode('3pane'); setIsDesignMenuOpen(false); }}
-                  style={{
-                    padding: '8px 12px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    textAlign: 'left',
-                    borderRadius: '6px',
-                    border: 'none',
-                    backgroundColor: designMode === '3pane' ? '#EFF6FF' : 'transparent',
-                    color: designMode === '3pane' ? '#2563EB' : '#1E293B',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Columns style={{ width: '15px', height: '15px', color: designMode === '3pane' ? '#2563EB' : '#64748B' }} />
-                    <span>3-Pane Master-Detail</span>
-                  </div>
-                  {designMode === '3pane' && <Check style={{ width: '14px', height: '14px', color: '#2563EB' }} />}
-                </button>
-
-                {/* Option 3: Left Slide-over Drawer */}
-                <button
-                  onClick={() => { setDesignMode('slideover'); setIsDesignMenuOpen(false); }}
-                  style={{
-                    padding: '8px 12px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    textAlign: 'left',
-                    borderRadius: '6px',
-                    border: 'none',
-                    backgroundColor: designMode === 'slideover' ? '#ECFDF5' : 'transparent',
-                    color: designMode === 'slideover' ? '#059669' : '#1E293B',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <PanelLeft style={{ width: '15px', height: '15px', color: designMode === 'slideover' ? '#059669' : '#64748B' }} />
-                    <span>Left Slide-over Drawer</span>
-                  </div>
-                  {designMode === 'slideover' && <Check style={{ width: '14px', height: '14px', color: '#059669' }} />}
-                </button>
-
-                {/* Option 4: Tabbed Multi-Step */}
-                <button
-                  onClick={() => { setDesignMode('tabbed'); setIsDesignMenuOpen(false); }}
-                  style={{
-                    padding: '8px 12px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    textAlign: 'left',
-                    borderRadius: '6px',
-                    border: 'none',
-                    backgroundColor: designMode === 'tabbed' ? '#F3E8FF' : 'transparent',
-                    color: designMode === 'tabbed' ? '#7C3AED' : '#1E293B',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Layers style={{ width: '15px', height: '15px', color: designMode === 'tabbed' ? '#7C3AED' : '#64748B' }} />
-                    <span>Tabbed Multi-Step Form</span>
-                  </div>
-                  {designMode === 'tabbed' && <Check style={{ width: '14px', height: '14px', color: '#7C3AED' }} />}
-                </button>
-
-              </div>
-            )}
-          </div>
 
         </div>
       </div>

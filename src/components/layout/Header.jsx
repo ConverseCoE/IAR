@@ -49,7 +49,6 @@ export default function Header({ currentPhase, onPhaseChange, userRole = 'manage
     { id: "planning", label: "Planning" },
     { id: "fieldwork", label: "Fieldwork" },
     { id: "reporting", label: "Reporting" },
-    { id: "reporting-new", label: "Reporting - New" },
     { id: "wrap-up", label: "Wrap-up" },
     { id: "dashboards", label: "Dashboards" }
   ];

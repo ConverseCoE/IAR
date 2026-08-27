@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { mockExecutiveSummaryData } from '../data/execReportData';
 
-export default function WorkOnExecReportNewView({ job, onClose }) {
+export default function ExecutiveReportView({ job, onClose }) {
   const [execData, setExecData] = useState(mockExecutiveSummaryData);
   
   // Accordion Expand States: 'scope', 'criticalMajor', or null
@@ -226,66 +226,6 @@ export default function WorkOnExecReportNewView({ job, onClose }) {
             <History style={{ width: '14px', height: '14px' }} />
             <span>{isTrackChangesActive ? "Track Changes (Active)" : "Track Changes"}</span>
           </button>
-
-          {/* Three-Dots Menu Button for Design Layout Switcher */}
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={() => setIsDesignMenuOpen(!isDesignMenuOpen)}
-              style={{
-                padding: '6px 8px',
-                borderRadius: '6px',
-                border: '1px solid #CBD5E1',
-                backgroundColor: isDesignMenuOpen ? '#F1F5F9' : '#ffffff',
-                color: '#0F172A',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-              title="Switch Design Layout for Presentation"
-            >
-              <MoreVertical style={{ width: '18px', height: '18px', color: '#0F172A' }} />
-            </button>
-
-            {isDesignMenuOpen && (
-              <div style={{
-                position: 'absolute',
-                top: 'calc(100% + 6px)',
-                right: 0,
-                width: '240px',
-                backgroundColor: '#ffffff',
-                border: '1px solid #CBD5E1',
-                borderRadius: '10px',
-                boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
-                zIndex: 1100,
-                padding: '6px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px'
-              }}>
-                <div style={{ padding: '8px 12px', fontSize: '11px', fontWeight: '800', color: '#64748B', borderBottom: '1px solid #F1F5F9', textTransform: 'uppercase' }}>
-                  Select UX Design Layout
-                </div>
-
-                <button
-                  onClick={() => { setDesignMode('default'); setIsDesignMenuOpen(false); }}
-                  style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '700', borderRadius: '6px', border: 'none', backgroundColor: designMode === 'default' ? '#FFF0F2' : 'transparent', color: designMode === 'default' ? '#D8001D' : '#1E293B', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-                >
-                  <span>Default Accordions</span>
-                  {designMode === 'default' && <Check style={{ width: '14px', height: '14px', color: '#D8001D' }} />}
-                </button>
-
-                <button
-                  onClick={() => { setDesignMode('3pane'); setIsDesignMenuOpen(false); }}
-                  style={{ padding: '8px 12px', fontSize: '12px', fontWeight: '700', borderRadius: '6px', border: 'none', backgroundColor: designMode === '3pane' ? '#EFF6FF' : 'transparent', color: designMode === '3pane' ? '#2563EB' : '#1E293B', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-                >
-                  <span>3-Pane Split View</span>
-                  {designMode === '3pane' && <Check style={{ width: '14px', height: '14px', color: '#2563EB' }} />}
-                </button>
-              </div>
-            )}
-          </div>
-
         </div>
       </div>
 

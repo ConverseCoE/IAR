@@ -1,7 +1,7 @@
 import React from 'react';
 import { X, History, User, Clock, CheckCircle2, ShieldCheck, FileText, ArrowRight } from 'lucide-react';
 
-export default function HistoryModal({ isOpen, report, onClose }) {
+export default function IssueLogsModal({ isOpen, report, onClose }) {
   if (!isOpen) return null;
 
   const fileName = report ? report.fileName : "BiosenseWebster_Catheters_Audit";

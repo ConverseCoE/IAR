@@ -1,35 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import Header from './components/Header';
-import JobQueueView from './components/JobQueueView';
-import AuditDetailDrawer from './components/AuditDetailDrawer';
-import DiscussionModal from './components/DiscussionModal';
-import IssueModal from './components/IssueModal';
-import WorkflowModal from './components/WorkflowModal';
-import HistoryModal from './components/HistoryModal';
-import DiscussionPointsView from './views/DiscussionPointsView';
-import DiscussionPointsNewView from './views/DiscussionPointsNewView';
-import ReportingQueueView from './views/ReportingQueueView';
-import ReportingNewQueueView from './views/ReportingNewQueueView';
-import WorkOnReportView from './views/WorkOnReportView';
-import WorkOnReportNewView from './views/WorkOnReportNewView';
-import WorkOnExecReportView from './views/WorkOnExecReportView';
-import WorkOnExecReportNewView from './views/WorkOnExecReportNewView';
-import ReportingDetailDrawer from './components/ReportingDetailDrawer';
-import ReportingNewDetailDrawer from './components/ReportingNewDetailDrawer';
-import CreateIssueDrawerNew from './components/CreateIssueDrawerNew';
+import Header from './components/layout/Header';
+import DiscussionModal from './components/issues/DiscussionModal';
+import IssueModal from './components/issues/IssueModal';
+import WorkflowModal from './components/reporting/WorkflowModal';
+import IssueLogsModal from './components/issues/IssueLogsModal';
+import AuditIssuesView from './views/AuditIssuesView';
+import MyAuditsView from './views/MyAuditsView';
+import AuditReportView from './views/AuditReportView';
+import ExecutiveReportView from './views/ExecutiveReportView';
+import ReportingNewDetailDrawer from './components/reporting/ReportingNewDetailDrawer';
+import CreateIssueDrawerNew from './components/issues/CreateIssueDrawerNew';
 import { initialReports } from './data/mockData';
-import { mockReportingJobs } from './data/reportingMockData';
 import { mockReportingNewJobs } from './data/reportingNewMockData';
 import {
   PrePlanningView,
   PlanningView,
   WrapUpView,
   DashboardsView
-} from './components/PhaseViews';
+} from './components/layout/PhaseViews';
 import { MoreVertical, Check, CheckCircle2, X } from 'lucide-react';
 
 export default function App() {
-  const [currentPhase, setCurrentPhase] = useState('reporting-new');
+  const [currentPhase, setCurrentPhase] = useState('reporting');
   const [reports, setReports] = useState(initialReports);
   const [selectedReportId, setSelectedReportId] = useState("REP-2026-006"); // BiosenseWebster_Catheters_Audit as default
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -79,7 +71,7 @@ export default function App() {
   // Application Active User Role: 'auditor' | 'team-coordinator' | 'manager' | 'director' | 'vp' | 'business-head' | 'primary-business-contact'
   const [userRole, setUserRole] = useState('it-manager');
 
-  // Audit Queue Title Banner Dropdown State: 'default' | 'with-substatus' | 'inline-action' | 'expand-action' | 'issue-cards'
+  // Audit Queue Title Banner Dropdown State
   const [auditQueueViewMode, setAuditQueueViewMode] = useState('concept1-edge-to-edge');
   const [isTitleMenuOpen, setIsTitleMenuOpen] = useState(false);
   const titleMenuRef = React.useRef(null);
@@ -121,12 +113,9 @@ export default function App() {
   });
 
   const activeReportingNewJob = mockReportingNewJobs.find(j => j.id === selectedReportId || j.id === selectedReportingJobId || j.reportId === selectedReportId) || null;
-  const selectedReport = (currentPhase === 'reporting-new' && activeReportingNewJob)
-    ? activeReportingNewJob
-    : (reports.find(r => r.id === selectedReportId) || reports.find(r => r.id === "REP-2026-006") || reports[0]);
+  const selectedReport = activeReportingNewJob || (reports.find(r => r.id === selectedReportId) || reports.find(r => r.id === "REP-2026-006") || reports[0]);
 
-  const reportingJobsList = currentPhase === 'reporting-new' ? mockReportingNewJobs : mockReportingJobs;
-  const selectedReportingJob = reportingJobsList.find(j => j.id === selectedReportingJobId) || null;
+  const selectedReportingJob = mockReportingNewJobs.find(j => j.id === selectedReportingJobId) || null;
 
   const handleSelectReport = (reportId) => {
     setSelectedReportId(reportId);
@@ -232,7 +221,7 @@ export default function App() {
     });
   };
 
-  const isCurrentDrawerOpen = (currentPhase === 'fieldwork' && isDrawerOpen) || ((currentPhase === 'reporting' || currentPhase === 'reporting-new') && !!selectedReportingJobId);
+  const isCurrentDrawerOpen = (currentPhase === 'reporting' && !!selectedReportingJobId);
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--slate-50)', overflow: 'hidden' }}>
@@ -252,150 +241,31 @@ export default function App() {
       {/* 2. Main Content View Switcher */}
       {activeWorkOnReportJob ? (
         /* INTERACTIVE STUDIOS FOR AUDIT REPORT VS EXECUTIVE SUMMARY REPORT */
-        currentPhase === 'reporting-new' ? (
-          activeWorkOnReportJob.type === 'executive' ? (
-            <WorkOnExecReportNewView
-              job={activeWorkOnReportJob.job}
-              onClose={() => setActiveWorkOnReportJob(null)}
-            />
-          ) : (
-            <WorkOnReportNewView
-              job={activeWorkOnReportJob.job}
-              onClose={() => setActiveWorkOnReportJob(null)}
-            />
-          )
+        activeWorkOnReportJob.type === 'executive' ? (
+          <ExecutiveReportView
+            job={activeWorkOnReportJob.job}
+            onClose={() => setActiveWorkOnReportJob(null)}
+          />
         ) : (
-          activeWorkOnReportJob.type === 'executive' ? (
-            <WorkOnExecReportView
-              job={activeWorkOnReportJob.job}
-              onClose={() => setActiveWorkOnReportJob(null)}
-            />
-          ) : (
-            <WorkOnReportView
-              job={activeWorkOnReportJob.job}
-              onClose={() => setActiveWorkOnReportJob(null)}
-            />
-          )
+          <AuditReportView
+            job={activeWorkOnReportJob.job}
+            onClose={() => setActiveWorkOnReportJob(null)}
+          />
         )
       ) : activeView === 'discussion-points' ? (
-        currentPhase === 'reporting-new' ? (
-          <DiscussionPointsNewView
-            report={selectedReport}
-            initialFunction={discussionFuncFilter}
-            onBackToQueue={handleBackToQueue}
-            onOpenHistoryModal={handleOpenHistoryModal}
-          />
-        ) : (
-          <DiscussionPointsView
-            report={selectedReport}
-            initialFunction={discussionFuncFilter}
-            onBackToQueue={handleBackToQueue}
-            onOpenHistoryModal={handleOpenHistoryModal}
-          />
-        )
+        <AuditIssuesView
+          report={selectedReport}
+          initialFunction={discussionFuncFilter}
+          onBackToQueue={handleBackToQueue}
+          onOpenHistoryModal={handleOpenHistoryModal}
+        />
       ) : (
         /* QUEUE TABLE & DRAWER WORKSPACE */
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-          {currentPhase === 'fieldwork' && activeView === 'queue' && (
-            <div className="job-queue-title-banner">
-              <h2>Job Queue</h2>
-            </div>
-          )}
-
-          {(currentPhase === 'reporting' || currentPhase === 'reporting-new') && activeView === 'queue' && (
+          {currentPhase === 'reporting' && activeView === 'queue' && (
             <div className="job-queue-title-banner" style={{ position: 'relative' }}>
-              <h2>{currentPhase === 'reporting-new' ? 'Audit Queue' : 'Reporting Queue'}</h2>
-
-              {currentPhase === 'reporting-new' && (
-                <div ref={titleMenuRef} style={{ position: 'relative' }}>
-                  <button
-                    onClick={() => setIsTitleMenuOpen(!isTitleMenuOpen)}
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.15)',
-                      border: '1px solid rgba(255, 255, 255, 0.3)',
-                      borderRadius: '6px',
-                      color: '#ffffff',
-                      padding: '5px 8px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      transition: 'all 0.15s ease',
-                      zIndex: 3
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.25)'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'}
-                    title="Queue View Options"
-                  >
-                    <MoreVertical style={{ width: '18px', height: '18px' }} />
-                  </button>
-
-                  {isTitleMenuOpen && (
-                    <div style={{
-                      position: 'absolute',
-                      top: 'calc(100% + 8px)',
-                      right: 0,
-                      zIndex: 1100,
-                      minWidth: '190px',
-                      backgroundColor: '#ffffff',
-                      borderRadius: '8px',
-                      border: '1px solid #CBD5E1',
-                      boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.2)',
-                      padding: '6px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '2px',
-                      animation: 'fadeIn 0.15s ease-out'
-                    }}>
-                      {[
-                        { id: 'concept1-edge-to-edge', label: 'Expanding View' },
-                        { id: 'split-pane', label: 'Split View' },
-                        { id: 'with-substatus', label: 'Drawer View' }
-                      ].map(option => (
-                        <button
-                          key={option.id}
-                          onClick={() => {
-                            setAuditQueueViewMode(option.id);
-                            setIsTitleMenuOpen(false);
-                          }}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            width: '100%',
-                            padding: '8px 12px',
-                            fontSize: '12.5px',
-                            fontWeight: auditQueueViewMode === option.id ? '700' : '500',
-                            color: auditQueueViewMode === option.id ? '#D8001D' : '#334155',
-                            backgroundColor: auditQueueViewMode === option.id ? '#FEF2F2' : 'transparent',
-                            border: 'none',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            textAlign: 'left',
-                            transition: 'background-color 0.15s ease'
-                          }}
-                          onMouseEnter={(e) => {
-                            if (auditQueueViewMode !== option.id) {
-                              e.currentTarget.style.backgroundColor = '#F1F5F9';
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (auditQueueViewMode !== option.id) {
-                              e.currentTarget.style.backgroundColor = 'transparent';
-                            }
-                          }}
-                        >
-                          <span>{option.label}</span>
-                          {auditQueueViewMode === option.id && (
-                            <Check style={{ width: '14px', height: '14px', color: '#D8001D' }} />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+              <h2>My Audits</h2>
             </div>
           )}
 
@@ -403,27 +273,12 @@ export default function App() {
 
             {/* Left Content Area */}
             <main className="main-container">
-              {currentPhase === 'fieldwork' ? (
-                <JobQueueView
-                  reports={reports}
-                  selectedReportId={selectedReportId}
-                  onSelectReport={handleSelectReport}
-                  onOpenITModal={handleOpenITModal}
-                  onOpenFinOpsModal={handleOpenFinOpsModal}
-                  onOpenIssueModal={handleOpenIssueModal}
-                  isDrawerOpen={isDrawerOpen}
-                />
-              ) : currentPhase === 'pre-planning' ? (
+              {currentPhase === 'pre-planning' ? (
                 <PrePlanningView />
-              ) : currentPhase === 'planning' ? (
+              ) : (currentPhase === 'planning' || currentPhase === 'fieldwork') ? (
                 <PlanningView />
               ) : currentPhase === 'reporting' ? (
-                <ReportingQueueView
-                  selectedJobId={selectedReportingJobId}
-                  onSelectJob={handleSelectReportingJob}
-                />
-              ) : currentPhase === 'reporting-new' ? (
-                <ReportingNewQueueView
+                <MyAuditsView
                   selectedJobId={selectedReportingJobId}
                   onSelectJob={handleSelectReportingJob}
                   viewMode={auditQueueViewMode}
@@ -457,68 +312,8 @@ export default function App() {
               ) : null}
             </main>
 
-            {/* Right Audit Detail Drawer Panel (For Fieldwork phase) */}
-            {currentPhase === 'fieldwork' && isDrawerOpen && (
-              <AuditDetailDrawer
-                isOpen={isDrawerOpen}
-                report={selectedReport}
-                onClose={handleCloseDrawer}
-                onOpenITModal={handleOpenITModal}
-                onOpenFinOpsModal={handleOpenFinOpsModal}
-                onOpenIssueModal={handleOpenIssueModal}
-                onOpenWorkflowModal={handleOpenWorkflowModal}
-                onOpenHistoryModal={handleOpenHistoryModal}
-                onOpenDiscussionPointsView={handleOpenDiscussionPointsView}
-                onOpenWorkflowOverlay={(type) => handleOpenWorkflowOverlay(type, selectedReport)}
-                onWorkOnReport={(report, type = 'audit') => {
-                  const job = {
-                    id: report.id,
-                    fileName: report.fileName,
-                    engagement: report.engagement || report.fileName,
-                    status: report.status,
-                    currentQueue: report.currentQueue,
-                    auditReport: { executionStatus: 'Completed', genAiExtractionDateTime: '2026-08-01 09:30 AM', validationStatus: 'Validated' },
-                    executiveSummaryReport: { executionStatus: 'Completed', genAiExtractionDateTime: '2026-08-01 09:30 AM', validationStatus: 'Validated' },
-                    discussionPoints: { count: report.issueIndicator?.count || 3, status: 'Active' }
-                  };
-                  setActiveWorkOnReportJob({ job, type });
-                }}
-              />
-            )}
-
             {/* Right Reporting Detail Drawer Panel (For Reporting phase) */}
             {currentPhase === 'reporting' && selectedReportingJob && (
-              <ReportingDetailDrawer
-                isOpen={!!selectedReportingJob}
-                job={selectedReportingJob}
-                userRole={userRole}
-                onClose={handleCloseReportingDrawer}
-                onOpenDiscussionPoints={(job) => {
-                  const matchingReport = reports.find(r =>
-                    r.id === job.id ||
-                    r.fileName === job.fileName ||
-                    r.engagement === job.engagement ||
-                    (r.fileName && job.fileName && r.fileName.toLowerCase() === job.fileName.toLowerCase())
-                  ) || reports.find(r => r.id === "REP-2026-006") || reports[0];
-
-                  setSelectedReportId(matchingReport.id);
-                  setDiscussionFuncFilter('All');
-                  setActiveView('discussion-points');
-                }}
-                onOpenWorkflow={(job) => handleOpenWorkflowModal({
-                  title: `${job.id} — Workflow Stages`,
-                  workflows: [
-                    { groupTitle: "Audit Report Workflow", status: job.auditReport.validationStatus, steps: [] },
-                    { groupTitle: "Executive Report Workflow", status: job.executiveSummaryReport.validationStatus, steps: [] }
-                  ]
-                })}
-                onOpenHistory={(job) => handleOpenHistoryModal({ id: job.id, header: job.engagement })}
-                onWorkOnReport={(job, type = 'audit') => setActiveWorkOnReportJob({ job, type })}
-              />
-            )}
-
-            {/* Right Reporting Detail Drawer Panel (For Reporting - New phase) */}
-            {currentPhase === 'reporting-new' && selectedReportingJob && (
               <ReportingNewDetailDrawer
                 isOpen={!!selectedReportingJob}
                 job={selectedReportingJob}
@@ -551,12 +346,9 @@ export default function App() {
                   ]
                 })}
                 onOpenHistory={(job) => handleOpenHistoryModal({ id: job.id, header: job.engagement })}
-                onWorkOnReport={(job, type = 'audit') => setActiveWorkOnReportJob({ job, type })}
               />
             )}
-
           </div>
-
         </div>
       )}
 
@@ -693,8 +485,8 @@ export default function App() {
         onClose={() => setWorkflowModal({ isOpen: false, title: '', workflows: [] })}
       />
 
-      {/* History & Edit Log Pop-up Modal */}
-      <HistoryModal
+      {/* Issue Audit Log Pop-up Modal */}
+      <IssueLogsModal
         isOpen={historyModal.isOpen}
         report={historyModal.report}
         onClose={() => setHistoryModal({ isOpen: false, report: null })}

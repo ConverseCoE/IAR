@@ -4,9 +4,9 @@ import {
   Filter, ArrowUpDown, MoreVertical, Edit2, ChevronDown, Check, X, AlertTriangle, CheckCircle2
 } from 'lucide-react';
 import { mockDiscussionPointsNew, mockDiscussionPointsByReport } from '../data/reportingNewMockData';
-import CreateIssueDrawerNew from '../components/CreateIssueDrawerNew';
+import CreateIssueDrawerNew from '../components/issues/CreateIssueDrawerNew';
 
-export default function DiscussionPointsNewView({ 
+export default function AuditIssuesView({ 
   report, 
   initialFunction = 'All', 
   onBackToQueue,
@@ -458,7 +458,7 @@ export default function DiscussionPointsNewView({
             }}
             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.25)'}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)'}
-            title="Back to Audit Queue"
+            title="Back to My Audits"
           >
             <ArrowLeft style={{ width: '16px', height: '16px' }} />
           </button>

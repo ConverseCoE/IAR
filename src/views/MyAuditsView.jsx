@@ -6,7 +6,7 @@ import {
   UserCheck, Users, AlertCircle, CheckCircle, GitCommit, Eye, User, Layers, ArrowRight, CheckCircle2, Edit2, ExternalLink, Maximize2, Minimize2
 } from 'lucide-react';
 import { mockReportingNewJobs } from '../data/reportingNewMockData';
-import CreateIssueDrawerNew from '../components/CreateIssueDrawerNew';
+import CreateIssueDrawerNew from '../components/issues/CreateIssueDrawerNew';
 
 const STATUS_OPTIONS = [
   { id: 'Not Started', label: 'Not Started', color: '#64748B', bg: '#F8FAFC', border: '#E2E8F0' },
@@ -36,7 +36,7 @@ const formatUSDateTime = (dateTimeStr) => {
   return `${formattedDate}, ${formattedTime}`;
 };
 
-export default function ReportingNewQueueView({
+export default function MyAuditsView({
   selectedJobId,
   onSelectJob,
   viewMode = 'concept1-edge-to-edge',
@@ -843,7 +843,7 @@ export default function ReportingNewQueueView({
               {includeCompletedAudits && <Check style={{ width: '12px', height: '12px', color: '#ffffff', strokeWidth: 3 }} />}
             </div>
             <span style={{ fontSize: '12px', fontWeight: '700', color: includeCompletedAudits ? '#166534' : '#475569' }}>
-              Include Completed Audits
+              Include Completed
             </span>
             <span style={{
               fontSize: '10.5px',
