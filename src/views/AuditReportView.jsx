@@ -4,7 +4,7 @@ import {
   AlertOctagon, CheckCircle2, RefreshCw, FileText, ArrowUp, ArrowDown, Sparkles,
   MoreVertical, Check, Layout, Columns, PanelLeft, Layers, X,
   ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen,
-  Lock, Clock, ShieldAlert
+  Lock, Clock, ShieldAlert, MessageSquare
 } from 'lucide-react';
 import { mockAuditReportIssues } from '../data/reportIssuesData';
 import IssueLogsModal from '../components/issues/IssueLogsModal';
@@ -69,11 +69,128 @@ export default function AuditReportView({ job, onClose }) {
     };
   }, [isDraggingSplitter1, isDraggingSplitter2, pane1Width, isPane1Collapsed]);
 
-  // Click outside to close three-dots more actions menu
+  // Field Level Comments State & Mock Collaboration Data
+  const [fieldComments, setFieldComments] = useState({
+    "ISSUE-001": {
+      "title": [
+        {
+          id: "c-101",
+          user: "Marcus Vance",
+          role: "Lead Compliance Auditor",
+          avatar: "MV",
+          avatarBg: "#7C3AED",
+          timestamp: "15 mins ago",
+          comment: "Ensure the 10 business days threshold aligns with IAPP S-07 deprovisioning policy."
+        }
+      ],
+      "criticality": [
+        {
+          id: "c-102",
+          user: "Kevin Zhang",
+          role: "IT Audit Lead",
+          avatar: "KZ",
+          avatarBg: "#2563EB",
+          timestamp: "2 hours ago",
+          comment: "Categorized as Major due to potential unauthorized access window."
+        }
+      ],
+      "rootCause": [
+        {
+          id: "c-103",
+          user: "Kevin Zhang",
+          role: "IT Audit Lead",
+          avatar: "KZ",
+          avatarBg: "#2563EB",
+          timestamp: "1 hour ago",
+          comment: "Manual HR termination notice gap identified during Q2 access sampling review."
+        },
+        {
+          id: "c-104",
+          user: "Dr. Alexander Wright",
+          role: "Compliance Director",
+          avatar: "AW",
+          avatarBg: "#059669",
+          timestamp: "25 mins ago",
+          comment: "Approved wording. Note the automated Active Directory API sync dependency."
+        }
+      ],
+      "recommendation": [
+        {
+          id: "c-105",
+          user: "Rachel Green",
+          role: "Quality Assurance",
+          avatar: "RG",
+          avatarBg: "#D97706",
+          timestamp: "Yesterday",
+          comment: "Please specify bi-weekly access recertification audit scope."
+        }
+      ]
+    },
+    "ISSUE-002": {
+      "title": [
+        {
+          id: "c-201",
+          user: "Marcus Vance",
+          role: "Lead Compliance Auditor",
+          avatar: "MV",
+          avatarBg: "#7C3AED",
+          timestamp: "12 mins ago",
+          comment: "Drift percentage updated to 4.2% based on latest calibration telemetry run."
+        }
+      ],
+      "rootCause": [
+        {
+          id: "c-202",
+          user: "Marcus Vance",
+          role: "Lead Compliance Auditor",
+          avatar: "MV",
+          avatarBg: "#7C3AED",
+          timestamp: "10 mins ago",
+          comment: "Currently extracting cleanroom thermal logs to cross-verify sensor gain response."
+        }
+      ]
+    }
+  });
+
+  const [activeCommentField, setActiveCommentField] = useState(null); // e.g. "ISSUE-001_rootCause"
+  const [newCommentInput, setNewCommentInput] = useState('');
+
+  const handleAddFieldComment = (issueId, fieldKey) => {
+    if (!newCommentInput.trim()) return;
+
+    const newEntry = {
+      id: "c-" + Date.now(),
+      user: "You",
+      role: "Compliance Auditor",
+      avatar: "ME",
+      avatarBg: "#059669",
+      timestamp: "Just now",
+      comment: newCommentInput.trim()
+    };
+
+    setFieldComments(prev => {
+      const issueComments = prev[issueId] || {};
+      const fieldList = issueComments[fieldKey] || [];
+      return {
+        ...prev,
+        [issueId]: {
+          ...issueComments,
+          [fieldKey]: [...fieldList, newEntry]
+        }
+      };
+    });
+
+    setNewCommentInput('');
+  };
+
+  // Click outside to close menus and active comment popovers
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (actionMenuRef.current && !actionMenuRef.current.contains(e.target)) {
         setIsMoreMenuOpen(false);
+      }
+      if (!e.target.closest('[data-field-comment-container]')) {
+        setActiveCommentField(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -82,6 +199,7 @@ export default function AuditReportView({ job, onClose }) {
 
   useEffect(() => {
     setIsMoreMenuOpen(false);
+    setActiveCommentField(null);
   }, [expandedIssueId]);
 
   // Slide-over & Tabbed Modal Active Tab States
@@ -372,6 +490,306 @@ export default function AuditReportView({ job, onClose }) {
     );
   };
 
+  // Helper to render Field-Level Comments in Top-Right Space of Input Boxes
+  const renderFieldCommentTrigger = (issueId, fieldKey, fieldLabel, isReadOnly) => {
+    const comments = (fieldComments[issueId] && fieldComments[issueId][fieldKey]) || [];
+    const fieldIdentifier = `${issueId}_${fieldKey}`;
+    const isOpen = activeCommentField === fieldIdentifier;
+    const latestComment = comments.length > 0 ? comments[comments.length - 1] : null;
+
+    return (
+      <div data-field-comment-container="true" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+        {comments.length > 0 ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveCommentField(isOpen ? null : fieldIdentifier);
+              setNewCommentInput('');
+            }}
+            title={`Comments on ${fieldLabel}\n${comments.length} comment(s). Click to view thread & reply.`}
+            style={{
+              padding: '2px 7px',
+              fontSize: '10px',
+              fontWeight: '700',
+              borderRadius: '12px',
+              border: isOpen ? '1.5px solid #2563EB' : '1px solid #BFDBFE',
+              backgroundColor: isOpen ? '#DBEAFE' : '#EFF6FF',
+              color: '#1E40AF',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              boxShadow: '0 1px 2px rgba(37,99,235,0.08)',
+              transition: 'all 0.15s ease',
+              maxWidth: '220px'
+            }}
+          >
+            {/* Avatar of Latest Commenter */}
+            <span style={{
+              width: '14px',
+              height: '14px',
+              borderRadius: '50%',
+              backgroundColor: latestComment.avatarBg || '#2563EB',
+              color: '#ffffff',
+              fontSize: '8px',
+              fontWeight: '800',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}>
+              {latestComment.avatar || 'U'}
+            </span>
+
+            {/* Commenter Name & Comment Snippet */}
+            <span style={{
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: '120px',
+              fontSize: '9.5px',
+              color: '#1E3A8A'
+            }}>
+              <strong>{latestComment.user.split(' ')[0]}:</strong> "{latestComment.comment}"
+            </span>
+
+            {/* Total Count Badge */}
+            <span style={{
+              backgroundColor: '#2563EB',
+              color: '#ffffff',
+              borderRadius: '8px',
+              padding: '0 4px',
+              fontSize: '9px',
+              fontWeight: '800',
+              lineHeight: '12px'
+            }}>
+              {comments.length}
+            </span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveCommentField(isOpen ? null : fieldIdentifier);
+              setNewCommentInput('');
+            }}
+            title={`Add a comment on ${fieldLabel}`}
+            style={{
+              padding: '1px 6px',
+              fontSize: '9.5px',
+              fontWeight: '600',
+              borderRadius: '10px',
+              border: isOpen ? '1px solid #2563EB' : '1px dashed #CBD5E1',
+              backgroundColor: isOpen ? '#EFF6FF' : '#F8FAFC',
+              color: isOpen ? '#2563EB' : '#64748B',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '3px',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <MessageSquare style={{ width: '9px', height: '9px', color: isOpen ? '#2563EB' : '#94A3B8' }} />
+            <span>+ Comment</span>
+          </button>
+        )}
+
+        {/* FIELD COMMENTS POPOVER */}
+        {isOpen && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'absolute',
+              top: 'calc(100% + 4px)',
+              right: 0,
+              width: '320px',
+              maxWidth: '90vw',
+              backgroundColor: '#ffffff',
+              borderRadius: '8px',
+              border: '1px solid #CBD5E1',
+              boxShadow: '0 12px 28px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.06)',
+              zIndex: 200,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              textAlign: 'left'
+            }}
+          >
+            {/* Popover Header */}
+            <div style={{
+              padding: '9px 12px',
+              backgroundColor: '#0F172A',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <MessageSquare style={{ width: '13px', height: '13px', color: '#60A5FA' }} />
+                <span style={{ fontSize: '11.5px', fontWeight: '800', letterSpacing: '0.2px' }}>
+                  {fieldLabel} Comments
+                </span>
+                <span style={{
+                  backgroundColor: '#1E293B',
+                  color: '#94A3B8',
+                  fontSize: '9.5px',
+                  fontWeight: '700',
+                  padding: '1px 5px',
+                  borderRadius: '10px'
+                }}>
+                  {comments.length}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveCommentField(null)}
+                style={{
+                  border: 'none',
+                  background: 'none',
+                  color: '#94A3B8',
+                  cursor: 'pointer',
+                  padding: '2px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <X style={{ width: '14px', height: '14px' }} />
+              </button>
+            </div>
+
+            {/* Comments List */}
+            <div style={{
+              maxHeight: '220px',
+              overflowY: 'auto',
+              padding: '10px 12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              backgroundColor: '#F8FAFC'
+            }}>
+              {comments.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '16px 8px', color: '#94A3B8', fontSize: '11px' }}>
+                  No comments yet on this field.<br />
+                  Be the first to leave a review note below!
+                </div>
+              ) : (
+                comments.map(c => (
+                  <div key={c.id} style={{
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '6px',
+                    padding: '8px 10px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{
+                          width: '18px',
+                          height: '18px',
+                          borderRadius: '50%',
+                          backgroundColor: c.avatarBg || '#2563EB',
+                          color: '#ffffff',
+                          fontSize: '9px',
+                          fontWeight: '800',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          {c.avatar || 'U'}
+                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontSize: '11px', fontWeight: '700', color: '#0F172A' }}>
+                            {c.user}
+                          </span>
+                          {c.role && (
+                            <span style={{ fontSize: '9px', color: '#64748B' }}>
+                              {c.role}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: '9.5px', color: '#94A3B8', whiteSpace: 'nowrap' }}>
+                        {c.timestamp}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: '11px', color: '#334155', margin: '2px 0 0 0', lineHeight: '1.4', wordBreak: 'break-word' }}>
+                      {c.comment}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Add New Comment Box */}
+            <div style={{
+              padding: '10px 12px',
+              borderTop: '1px solid #E2E8F0',
+              backgroundColor: '#ffffff',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px'
+            }}>
+              <textarea
+                rows={2}
+                placeholder={`Type a comment on ${fieldLabel}...`}
+                value={newCommentInput}
+                onChange={(e) => setNewCommentInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    handleAddFieldComment(issueId, fieldKey);
+                  }
+                }}
+                style={{
+                  width: '100%',
+                  padding: '6px 8px',
+                  fontSize: '11.5px',
+                  borderRadius: '5px',
+                  border: '1px solid #CBD5E1',
+                  outline: 'none',
+                  fontFamily: 'inherit',
+                  resize: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '9.5px', color: '#94A3B8' }}>
+                  Press Ctrl+Enter to post
+                </span>
+                <button
+                  type="button"
+                  disabled={!newCommentInput.trim()}
+                  onClick={() => handleAddFieldComment(issueId, fieldKey)}
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    color: '#ffffff',
+                    backgroundColor: newCommentInput.trim() ? '#2563EB' : '#94A3B8',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: newCommentInput.trim() ? 'pointer' : 'not-allowed',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <Send style={{ width: '10.5px', height: '10.5px' }} />
+                  <span>Post Comment</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Helper to render Form Fields for an issue
   const renderFormFields = (item) => {
     const isReadOnly = !!item.isLocked;
@@ -435,8 +853,11 @@ export default function AuditReportView({ job, onClose }) {
         {/* Form Row 1: Issue Title */}
         <div>
           <label style={labelStyle}>
-            <span>Issue Title</span>
-            {isReadOnly && <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '700' }}>🔒 Read Only</span>}
+            <span style={{ fontWeight: '700' }}>Issue Title</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {isReadOnly && <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '700' }}>🔒 Read Only</span>}
+              {renderFieldCommentTrigger(item.id, 'title', 'Issue Title', isReadOnly)}
+            </div>
           </label>
           <input
             type="text"
@@ -452,8 +873,11 @@ export default function AuditReportView({ job, onClose }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
           <div>
             <label style={labelStyle}>
-              <span>Criticality</span>
-              {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+              <span style={{ fontWeight: '700' }}>Criticality</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+                {renderFieldCommentTrigger(item.id, 'criticality', 'Criticality', isReadOnly)}
+              </div>
             </label>
             <select
               disabled={isReadOnly}
@@ -469,8 +893,11 @@ export default function AuditReportView({ job, onClose }) {
 
           <div>
             <label style={labelStyle}>
-              <span>Function</span>
-              {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+              <span style={{ fontWeight: '700' }}>Function</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+                {renderFieldCommentTrigger(item.id, 'function', 'Function', isReadOnly)}
+              </div>
             </label>
             <select
               disabled={isReadOnly}
@@ -485,8 +912,11 @@ export default function AuditReportView({ job, onClose }) {
 
           <div>
             <label style={labelStyle}>
-              <span>Process Area</span>
-              {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+              <span style={{ fontWeight: '700' }}>Process Area</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+                {renderFieldCommentTrigger(item.id, 'processArea', 'Process Area', isReadOnly)}
+              </div>
             </label>
             <input
               type="text"
@@ -503,8 +933,11 @@ export default function AuditReportView({ job, onClose }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
           <div>
             <label style={labelStyle}>
-              <span>SOX Reportable</span>
-              {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+              <span style={{ fontWeight: '700' }}>SOX Reportable</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+                {renderFieldCommentTrigger(item.id, 'soxReportable', 'SOX Reportable', isReadOnly)}
+              </div>
             </label>
             <select
               disabled={isReadOnly}
@@ -519,8 +952,11 @@ export default function AuditReportView({ job, onClose }) {
 
           <div>
             <label style={labelStyle}>
-              <span>Repeat Finding</span>
-              {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+              <span style={{ fontWeight: '700' }}>Repeat Finding</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+                {renderFieldCommentTrigger(item.id, 'repeatFinding', 'Repeat Finding', isReadOnly)}
+              </div>
             </label>
             <select
               disabled={isReadOnly}
@@ -535,8 +971,11 @@ export default function AuditReportView({ job, onClose }) {
 
           <div>
             <label style={labelStyle}>
-              <span>Issue Cause Type</span>
-              {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+              <span style={{ fontWeight: '700' }}>Issue Cause Type</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+                {renderFieldCommentTrigger(item.id, 'issueCauseType', 'Cause Type', isReadOnly)}
+              </div>
             </label>
             <input
               type="text"
@@ -552,8 +991,11 @@ export default function AuditReportView({ job, onClose }) {
         {/* Textarea 1: Issue Description */}
         <div>
           <label style={labelStyle}>
-            <span>Issue Description</span>
-            {isReadOnly && <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '700' }}>🔒 Read Only</span>}
+            <span style={{ fontWeight: '700' }}>Issue Description</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {isReadOnly && <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '700' }}>🔒 Read Only</span>}
+              {renderFieldCommentTrigger(item.id, 'issue', 'Description', isReadOnly)}
+            </div>
           </label>
           <textarea
             rows={3}
@@ -568,8 +1010,11 @@ export default function AuditReportView({ job, onClose }) {
         {/* Textarea 2: Root Cause */}
         <div>
           <label style={labelStyle}>
-            <span>Root Cause</span>
-            {isReadOnly && <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '700' }}>🔒 Read Only</span>}
+            <span style={{ fontWeight: '700' }}>Root Cause</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {isReadOnly && <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '700' }}>🔒 Read Only</span>}
+              {renderFieldCommentTrigger(item.id, 'rootCause', 'Root Cause', isReadOnly)}
+            </div>
           </label>
           <textarea
             rows={3}
@@ -584,8 +1029,11 @@ export default function AuditReportView({ job, onClose }) {
         {/* Textarea 3: Impact */}
         <div>
           <label style={labelStyle}>
-            <span>Impact</span>
-            {isReadOnly && <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '700' }}>🔒 Read Only</span>}
+            <span style={{ fontWeight: '700' }}>Impact</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {isReadOnly && <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '700' }}>🔒 Read Only</span>}
+              {renderFieldCommentTrigger(item.id, 'impact', 'Impact', isReadOnly)}
+            </div>
           </label>
           <textarea
             rows={3}
@@ -600,8 +1048,11 @@ export default function AuditReportView({ job, onClose }) {
         {/* Textarea 4: Recommendation */}
         <div>
           <label style={labelStyle}>
-            <span>Recommendation</span>
-            {isReadOnly && <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '700' }}>🔒 Read Only</span>}
+            <span style={{ fontWeight: '700' }}>Recommendation</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {isReadOnly && <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '700' }}>🔒 Read Only</span>}
+              {renderFieldCommentTrigger(item.id, 'recommendation', 'Recommendation', isReadOnly)}
+            </div>
           </label>
           <textarea
             rows={3}
