@@ -31,7 +31,17 @@ export const mockAuditReportIssues = [
     issue: "Optic sensor telemetry gain calibration drift exceeding 4.2% tolerance threshold during continuous electrophysiology catheter assembly runs across 72 consecutive operating hours.",
     rootCause: "Thermal dissipation latency in cleanroom HVAC Unit 4 created secondary optic gain drift during peak batch cycles, causing uncompensated sensor offsets.",
     impact: "• Potential delay in batch release and risk of $120,000 material scrap variance if unmitigated.\n• Risk of non-compliance with FDA GxP 21 CFR Part 11 electronic telemetry records.",
-    recommendation: "1. Upgrade sensor firmware to v4.2 enabling auto thermal offset compensation.\n2. Establish real-time telemetry threshold alerts on IT Monitoring Console.\n3. Enforce dual MFA authorization for manual sensor override calibrations."
+    recommendation: "1. Upgrade sensor firmware to v4.2 enabling auto thermal offset compensation.\n2. Establish real-time telemetry threshold alerts on IT Monitoring Console.\n3. Enforce dual MFA authorization for manual sensor override calibrations.",
+    isLocked: true,
+    lockedBy: {
+      name: "Marcus Vance",
+      email: "mvance@its.jnj.com",
+      role: "Lead Compliance Auditor",
+      avatar: "MV",
+      avatarBg: "#7C3AED",
+      timestamp: "12 mins ago",
+      activity: "Drafting technical root cause analysis & recommendations"
+    }
   },
   {
     id: "ISSUE-003",

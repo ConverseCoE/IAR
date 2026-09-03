@@ -3,15 +3,20 @@ import {
   ArrowLeft, Plus, Minus, Download, Save, Send, GitBranch, History, 
   AlertOctagon, CheckCircle2, RefreshCw, FileText, ArrowUp, ArrowDown, Sparkles,
   MoreVertical, Check, Layout, Columns, PanelLeft, Layers, X,
-  ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen
+  ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen,
+  Lock, Clock, ShieldAlert
 } from 'lucide-react';
 import { mockAuditReportIssues } from '../data/reportIssuesData';
+import IssueLogsModal from '../components/issues/IssueLogsModal';
 
 export default function AuditReportView({ job, onClose }) {
   const [issues, setIssues] = useState(mockAuditReportIssues);
   // Default to null so NO row is selected initially and the full report (ALL issues) is displayed in PDF preview
   const [expandedIssueId, setExpandedIssueId] = useState(null);
   const [isTrackChangesActive, setIsTrackChangesActive] = useState(false);
+  const [isIssueLogsModalOpen, setIsIssueLogsModalOpen] = useState(false);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const actionMenuRef = useRef(null);
 
   // Multi-Design Mode State ('default', '3pane', 'slideover', 'tabbed')
   const [designMode, setDesignMode] = useState('3pane');
@@ -64,6 +69,21 @@ export default function AuditReportView({ job, onClose }) {
     };
   }, [isDraggingSplitter1, isDraggingSplitter2, pane1Width, isPane1Collapsed]);
 
+  // Click outside to close three-dots more actions menu
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target)) {
+        setIsMoreMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    setIsMoreMenuOpen(false);
+  }, [expandedIssueId]);
+
   // Slide-over & Tabbed Modal Active Tab States
   const [slideoverTab, setSlideoverTab] = useState('metadata'); // 'metadata', 'analysis', 'actions'
   const [tabbedStep, setTabbedStep] = useState(1); // 1, 2, 3
@@ -84,6 +104,10 @@ export default function AuditReportView({ job, onClose }) {
 
   // Field change handler (Instant real-time update to live HTML PDF preview)
   const handleIssueFieldChange = (issueId, field, val) => {
+    // Prevent modifications if issue is locked by another user
+    const target = issues.find(i => i.id === issueId);
+    if (target?.isLocked) return;
+
     setIssues(prev => prev.map(item => {
       if (item.id === issueId) {
         return { ...item, [field]: val };
@@ -101,8 +125,20 @@ export default function AuditReportView({ job, onClose }) {
     alert(`Issue ${issueId} submitted for management review.`);
   };
 
-  const handleRerouteIssue = (issueId) => {
-    alert(`Issue ${issueId} rerouted to Lead Compliance Auditor.`);
+  const handleSendToIssue = (issueId) => {
+    alert(`Issue ${issueId} sent to Lead Compliance Auditor.`);
+  };
+
+  const handleRerouteIssue = handleSendToIssue;
+
+  const handleSignOffIssue = (issueId) => {
+    setIssues(prev => prev.map(item => {
+      if (item.id === issueId) {
+        return { ...item, status: 'Signed Off' };
+      }
+      return item;
+    }));
+    alert(`Issue ${issueId} successfully signed off!`);
   };
 
   const handleMarkNotAnIssue = (issueId) => {
@@ -253,196 +289,502 @@ export default function AuditReportView({ job, onClose }) {
     </div>
   );
 
+  // Helper to render Locked / Blocked Warning Banner
+  const renderLockedBanner = (item) => {
+    if (!item?.isLocked) return null;
+    const lockedBy = item.lockedBy || {
+      name: 'Marcus Vance',
+      role: 'Lead Compliance Auditor',
+      timestamp: '12 mins ago',
+      activity: 'Drafting technical root cause analysis & recommendations'
+    };
+
+    return (
+      <div style={{
+        padding: '12px 16px',
+        borderRadius: '8px',
+        backgroundColor: '#FFFBEB',
+        border: '1.5px solid #F59E0B',
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '12px',
+        boxShadow: '0 2px 8px rgba(245, 158, 11, 0.08)'
+      }}>
+        <div style={{
+          width: '34px',
+          height: '34px',
+          borderRadius: '7px',
+          backgroundColor: '#FEF3C7',
+          color: '#D97706',
+          border: '1px solid #FDE68A',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          marginTop: '1px'
+        }}>
+          <Lock style={{ width: '17px', height: '17px' }} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', marginBottom: '3px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h4 style={{ fontSize: '12.5px', fontWeight: '800', color: '#92400E', margin: 0 }}>
+                Issue Blocked &amp; Locked by {lockedBy.name}
+              </h4>
+              <span style={{
+                fontSize: '9.5px',
+                fontWeight: '800',
+                color: '#92400E',
+                backgroundColor: '#FDE68A',
+                padding: '2px 7px',
+                borderRadius: '4px',
+                letterSpacing: '0.5px'
+              }}>
+                READ-ONLY MODE
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#B45309', fontWeight: '600' }}>
+              <Clock style={{ width: '12px', height: '12px' }} />
+              <span>Locked {lockedBy.timestamp || 'recently'}</span>
+            </div>
+          </div>
+          <p style={{ fontSize: '11.5px', color: '#78350F', margin: '0 0 6px 0', lineHeight: '1.45' }}>
+            <strong>{lockedBy.name}</strong> ({lockedBy.role || 'Compliance Auditor'}) is currently working on this issue. All form fields are disabled in read-only mode and action buttons have been hidden to prevent concurrent overwrite conflicts.
+          </p>
+          {lockedBy.activity && (
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '11px',
+              color: '#92400E',
+              backgroundColor: 'rgba(245, 158, 11, 0.15)',
+              padding: '3px 8px',
+              borderRadius: '4px',
+              fontWeight: '600'
+            }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#D97706', display: 'inline-block' }} />
+              <span>Active Work: {lockedBy.activity}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   // Helper to render Form Fields for an issue
-  const renderFormFields = (item) => (
-    <>
-      {/* Form Row 1: Issue Title */}
-      <div>
-        <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Issue Title</label>
-        <input
-          type="text"
-          value={item.title}
-          onChange={(e) => handleIssueFieldChange(item.id, 'title', e.target.value)}
-          style={{ width: '100%', height: '34px', padding: '0 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none' }}
-        />
-      </div>
+  const renderFormFields = (item) => {
+    const isReadOnly = !!item.isLocked;
 
-      {/* Form Row 2: Criticality, Function, Process Area */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-        <div>
-          <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Criticality</label>
-          <select
-            value={item.criticality}
-            onChange={(e) => handleIssueFieldChange(item.id, 'criticality', e.target.value)}
-            style={{ width: '100%', height: '34px', padding: '0 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', backgroundColor: '#ffffff' }}
-          >
-            <option value="Critical">Critical</option>
-            <option value="Major">Major</option>
-            <option value="Minor">Minor</option>
-          </select>
-        </div>
+    const inputBaseStyle = {
+      width: '100%',
+      height: '34px',
+      padding: '0 10px',
+      fontSize: '12px',
+      borderRadius: '6px',
+      border: isReadOnly ? '1px solid #E2E8F0' : '1px solid #CBD5E1',
+      backgroundColor: isReadOnly ? '#F8FAFC' : '#ffffff',
+      color: isReadOnly ? '#64748B' : '#0F172A',
+      cursor: isReadOnly ? 'not-allowed' : 'text',
+      outline: 'none',
+      boxSizing: 'border-box'
+    };
 
-        <div>
-          <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Function</label>
-          <select
-            value={item.function}
-            onChange={(e) => handleIssueFieldChange(item.id, 'function', e.target.value)}
-            style={{ width: '100%', height: '34px', padding: '0 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', backgroundColor: '#ffffff' }}
-          >
-            <option value="IT">IT</option>
-            <option value="FinOps">FinOps</option>
-          </select>
-        </div>
+    const selectBaseStyle = {
+      width: '100%',
+      height: '34px',
+      padding: '0 8px',
+      fontSize: '12px',
+      borderRadius: '6px',
+      border: isReadOnly ? '1px solid #E2E8F0' : '1px solid #CBD5E1',
+      backgroundColor: isReadOnly ? '#F8FAFC' : '#ffffff',
+      color: isReadOnly ? '#64748B' : '#0F172A',
+      cursor: isReadOnly ? 'not-allowed' : 'pointer',
+      outline: 'none',
+      boxSizing: 'border-box'
+    };
 
+    const textareaBaseStyle = {
+      width: '100%',
+      padding: '8px 10px',
+      fontSize: '12px',
+      borderRadius: '6px',
+      border: isReadOnly ? '1px solid #E2E8F0' : '1px solid #CBD5E1',
+      backgroundColor: isReadOnly ? '#F8FAFC' : '#ffffff',
+      color: isReadOnly ? '#64748B' : '#0F172A',
+      cursor: isReadOnly ? 'not-allowed' : 'text',
+      fontFamily: 'inherit',
+      resize: isReadOnly ? 'none' : 'vertical',
+      outline: 'none',
+      lineHeight: '1.5',
+      boxSizing: 'border-box'
+    };
+
+    const labelStyle = {
+      fontSize: '11px',
+      fontWeight: '700',
+      color: isReadOnly ? '#64748B' : '#334155',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: '4px'
+    };
+
+    return (
+      <>
+        {/* Form Row 1: Issue Title */}
         <div>
-          <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Process Area</label>
+          <label style={labelStyle}>
+            <span>Issue Title</span>
+            {isReadOnly && <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '700' }}>🔒 Read Only</span>}
+          </label>
           <input
             type="text"
-            value={item.processArea}
-            onChange={(e) => handleIssueFieldChange(item.id, 'processArea', e.target.value)}
-            style={{ width: '100%', height: '34px', padding: '0 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1' }}
+            disabled={isReadOnly}
+            readOnly={isReadOnly}
+            value={item.title}
+            onChange={(e) => handleIssueFieldChange(item.id, 'title', e.target.value)}
+            style={inputBaseStyle}
           />
         </div>
-      </div>
 
-      {/* Form Row 3: SOX Reportable, Repeat Finding, Issue Cause Type */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-        <div>
-          <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>SOX Reportable</label>
-          <select
-            value={item.soxReportable}
-            onChange={(e) => handleIssueFieldChange(item.id, 'soxReportable', e.target.value)}
-            style={{ width: '100%', height: '34px', padding: '0 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', backgroundColor: '#ffffff' }}
-          >
-            <option value="No">No</option>
-            <option value="Yes">Yes</option>
-          </select>
+        {/* Form Row 2: Criticality, Function, Process Area */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+          <div>
+            <label style={labelStyle}>
+              <span>Criticality</span>
+              {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+            </label>
+            <select
+              disabled={isReadOnly}
+              value={item.criticality}
+              onChange={(e) => handleIssueFieldChange(item.id, 'criticality', e.target.value)}
+              style={selectBaseStyle}
+            >
+              <option value="Critical">Critical</option>
+              <option value="Major">Major</option>
+              <option value="Minor">Minor</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>
+              <span>Function</span>
+              {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+            </label>
+            <select
+              disabled={isReadOnly}
+              value={item.function}
+              onChange={(e) => handleIssueFieldChange(item.id, 'function', e.target.value)}
+              style={selectBaseStyle}
+            >
+              <option value="IT">IT</option>
+              <option value="FinOps">FinOps</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>
+              <span>Process Area</span>
+              {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+            </label>
+            <input
+              type="text"
+              disabled={isReadOnly}
+              readOnly={isReadOnly}
+              value={item.processArea}
+              onChange={(e) => handleIssueFieldChange(item.id, 'processArea', e.target.value)}
+              style={inputBaseStyle}
+            />
+          </div>
         </div>
 
-        <div>
-          <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Repeat Finding</label>
-          <select
-            value={item.repeatFinding}
-            onChange={(e) => handleIssueFieldChange(item.id, 'repeatFinding', e.target.value)}
-            style={{ width: '100%', height: '34px', padding: '0 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', backgroundColor: '#ffffff' }}
-          >
-            <option value="No">No</option>
-            <option value="Yes">Yes</option>
-          </select>
+        {/* Form Row 3: SOX Reportable, Repeat Finding, Issue Cause Type */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+          <div>
+            <label style={labelStyle}>
+              <span>SOX Reportable</span>
+              {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+            </label>
+            <select
+              disabled={isReadOnly}
+              value={item.soxReportable}
+              onChange={(e) => handleIssueFieldChange(item.id, 'soxReportable', e.target.value)}
+              style={selectBaseStyle}
+            >
+              <option value="No">No</option>
+              <option value="Yes">Yes</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>
+              <span>Repeat Finding</span>
+              {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+            </label>
+            <select
+              disabled={isReadOnly}
+              value={item.repeatFinding}
+              onChange={(e) => handleIssueFieldChange(item.id, 'repeatFinding', e.target.value)}
+              style={selectBaseStyle}
+            >
+              <option value="No">No</option>
+              <option value="Yes">Yes</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>
+              <span>Issue Cause Type</span>
+              {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+            </label>
+            <input
+              type="text"
+              disabled={isReadOnly}
+              readOnly={isReadOnly}
+              value={item.issueCauseType}
+              onChange={(e) => handleIssueFieldChange(item.id, 'issueCauseType', e.target.value)}
+              style={inputBaseStyle}
+            />
+          </div>
         </div>
 
+        {/* Textarea 1: Issue Description */}
         <div>
-          <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Issue Cause Type</label>
-          <input
-            type="text"
-            value={item.issueCauseType}
-            onChange={(e) => handleIssueFieldChange(item.id, 'issueCauseType', e.target.value)}
-            style={{ width: '100%', height: '34px', padding: '0 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1' }}
+          <label style={labelStyle}>
+            <span>Issue Description</span>
+            {isReadOnly && <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '700' }}>🔒 Read Only</span>}
+          </label>
+          <textarea
+            rows={3}
+            disabled={isReadOnly}
+            readOnly={isReadOnly}
+            value={item.issue}
+            onChange={(e) => handleIssueFieldChange(item.id, 'issue', e.target.value)}
+            style={textareaBaseStyle}
           />
         </div>
-      </div>
 
-      {/* Textarea 1: Issue Description */}
-      <div>
-        <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Issue Description</label>
-        <textarea
-          rows={3}
-          value={item.issue}
-          onChange={(e) => handleIssueFieldChange(item.id, 'issue', e.target.value)}
-          style={{ width: '100%', padding: '8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontFamily: 'inherit', resize: 'vertical' }}
-        />
-      </div>
+        {/* Textarea 2: Root Cause */}
+        <div>
+          <label style={labelStyle}>
+            <span>Root Cause</span>
+            {isReadOnly && <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '700' }}>🔒 Read Only</span>}
+          </label>
+          <textarea
+            rows={3}
+            disabled={isReadOnly}
+            readOnly={isReadOnly}
+            value={item.rootCause}
+            onChange={(e) => handleIssueFieldChange(item.id, 'rootCause', e.target.value)}
+            style={textareaBaseStyle}
+          />
+        </div>
 
-      {/* Textarea 2: Root Cause */}
-      <div>
-        <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Root Cause</label>
-        <textarea
-          rows={3}
-          value={item.rootCause}
-          onChange={(e) => handleIssueFieldChange(item.id, 'rootCause', e.target.value)}
-          style={{ width: '100%', padding: '8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontFamily: 'inherit', resize: 'vertical' }}
-        />
-      </div>
+        {/* Textarea 3: Impact */}
+        <div>
+          <label style={labelStyle}>
+            <span>Impact</span>
+            {isReadOnly && <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '700' }}>🔒 Read Only</span>}
+          </label>
+          <textarea
+            rows={3}
+            disabled={isReadOnly}
+            readOnly={isReadOnly}
+            value={item.impact}
+            onChange={(e) => handleIssueFieldChange(item.id, 'impact', e.target.value)}
+            style={textareaBaseStyle}
+          />
+        </div>
 
-      {/* Textarea 3: Impact */}
-      <div>
-        <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Impact</label>
-        <textarea
-          rows={3}
-          value={item.impact}
-          onChange={(e) => handleIssueFieldChange(item.id, 'impact', e.target.value)}
-          style={{ width: '100%', padding: '8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontFamily: 'inherit', resize: 'vertical' }}
-        />
-      </div>
-
-      {/* Textarea 4: Recommendation */}
-      <div>
-        <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Recommendation</label>
-        <textarea
-          rows={3}
-          value={item.recommendation}
-          onChange={(e) => handleIssueFieldChange(item.id, 'recommendation', e.target.value)}
-          style={{ width: '100%', padding: '8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontFamily: 'inherit', resize: 'vertical' }}
-        />
-      </div>
-    </>
-  );
+        {/* Textarea 4: Recommendation */}
+        <div>
+          <label style={labelStyle}>
+            <span>Recommendation</span>
+            {isReadOnly && <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '700' }}>🔒 Read Only</span>}
+          </label>
+          <textarea
+            rows={3}
+            disabled={isReadOnly}
+            readOnly={isReadOnly}
+            value={item.recommendation}
+            onChange={(e) => handleIssueFieldChange(item.id, 'recommendation', e.target.value)}
+            style={textareaBaseStyle}
+          />
+        </div>
+      </>
+    );
+  };
 
   // Helper to render Issue Action Toolbar Buttons
+  // Helper to render Issue Action Toolbar Buttons
   const renderActionToolbar = (issueId) => (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', paddingBottom: '4px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: '8px', paddingBottom: '4px' }}>
       
-      {/* Left End: Mark Not an Issue & Mark Exclude Issue */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      {/* Three Dots More Actions Menu (Track Changes, Mark Not an Issue, Mark Exclude Issue) */}
+      <div style={{ position: 'relative' }} ref={actionMenuRef}>
         <button
-          onClick={() => handleMarkNotAnIssue(issueId)}
-          style={{ padding: '7px 12px', fontSize: '11.5px', fontWeight: '800', color: '#047857', backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '6px', cursor: 'pointer' }}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsMoreMenuOpen(!isMoreMenuOpen);
+          }}
+          style={{
+            padding: '7px 9px',
+            fontSize: '11.5px',
+            fontWeight: '700',
+            color: isMoreMenuOpen ? '#1E293B' : '#475569',
+            backgroundColor: isMoreMenuOpen ? '#F1F5F9' : '#ffffff',
+            border: '1px solid #CBD5E1',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+            transition: 'all 0.15s ease'
+          }}
+          title="More actions"
         >
-          Mark Not an Issue
+          <MoreVertical style={{ width: '15px', height: '15px' }} />
         </button>
 
-        <button
-          onClick={() => handleMarkExcludeIssue(issueId)}
-          style={{ padding: '7px 12px', fontSize: '11.5px', fontWeight: '800', color: '#991B1B', backgroundColor: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '6px', cursor: 'pointer' }}
-        >
-          Mark Exclude Issue
-        </button>
+        {isMoreMenuOpen && (
+          <div style={{
+            position: 'absolute',
+            top: 'calc(100% + 4px)',
+            left: 0,
+            backgroundColor: '#ffffff',
+            borderRadius: '8px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.15), 0 2px 6px rgba(0,0,0,0.08)',
+            border: '1px solid #E2E8F0',
+            width: '185px',
+            padding: '4px',
+            zIndex: 100,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2px'
+          }}>
+            <button
+              onClick={() => {
+                setIsMoreMenuOpen(false);
+                setIsIssueLogsModalOpen(true);
+              }}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                fontSize: '11.5px',
+                fontWeight: '700',
+                color: '#D8001D',
+                backgroundColor: 'transparent',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                textAlign: 'left'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#FFF0F2'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <History style={{ width: '14px', height: '14px', color: '#D8001D' }} />
+              <span>Track Changes</span>
+            </button>
+
+            <div style={{ height: '1px', backgroundColor: '#F1F5F9', margin: '2px 0' }} />
+
+            <button
+              onClick={() => {
+                setIsMoreMenuOpen(false);
+                handleMarkNotAnIssue(issueId);
+              }}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                fontSize: '11.5px',
+                fontWeight: '700',
+                color: '#047857',
+                backgroundColor: 'transparent',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                textAlign: 'left'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#ECFDF5'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <CheckCircle2 style={{ width: '14px', height: '14px', color: '#047857' }} />
+              <span>Mark Not an Issue</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setIsMoreMenuOpen(false);
+                handleMarkExcludeIssue(issueId);
+              }}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                fontSize: '11.5px',
+                fontWeight: '700',
+                color: '#991B1B',
+                backgroundColor: 'transparent',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                textAlign: 'left'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#FEF2F2'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <AlertOctagon style={{ width: '14px', height: '14px', color: '#991B1B' }} />
+              <span>Mark Exclude Issue</span>
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Right End: Track Changes -> Reroute -> Submit -> Save (Reading Right-to-Left: Save is rightmost) */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <button
-          onClick={() => setIsTrackChangesActive(!isTrackChangesActive)}
-          style={{ padding: '7px 14px', fontSize: '11.5px', fontWeight: '800', color: '#D8001D', backgroundColor: '#ffffff', border: '1.5px solid #D8001D', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
-        >
-          <History style={{ width: '13.5px', height: '13.5px' }} />
-          <span>Track Changes</span>
-        </button>
+      {/* Send To Button (renamed from Reroute) */}
+      <button
+        onClick={() => handleSendToIssue(issueId)}
+        style={{ padding: '7px 14px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#7C3AED', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 1px 3px rgba(124,58,237,0.2)' }}
+      >
+        <GitBranch style={{ width: '13.5px', height: '13.5px' }} />
+        <span>Send To</span>
+      </button>
 
-        <button
-          onClick={() => handleRerouteIssue(issueId)}
-          style={{ padding: '7px 14px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#7C3AED', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 1px 3px rgba(124,58,237,0.2)' }}
-        >
-          <GitBranch style={{ width: '13.5px', height: '13.5px' }} />
-          <span>Reroute</span>
-        </button>
+      {/* Sign off Button (new) */}
+      <button
+        onClick={() => handleSignOffIssue(issueId)}
+        style={{ padding: '7px 14px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#0D9488', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 1px 3px rgba(13,148,136,0.2)' }}
+      >
+        <CheckCircle2 style={{ width: '13.5px', height: '13.5px' }} />
+        <span>Sign off</span>
+      </button>
 
-        <button
-          onClick={() => handleSubmitIssue(issueId)}
-          style={{ padding: '7px 14px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#059669', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 1px 3px rgba(5,150,105,0.2)' }}
-        >
-          <Send style={{ width: '13.5px', height: '13.5px' }} />
-          <span>Submit</span>
-        </button>
+      {/* Submit Button */}
+      <button
+        onClick={() => handleSubmitIssue(issueId)}
+        style={{ padding: '7px 14px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#059669', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 1px 3px rgba(5,150,105,0.2)' }}
+      >
+        <Send style={{ width: '13.5px', height: '13.5px' }} />
+        <span>Submit</span>
+      </button>
 
-        <button
-          onClick={() => handleSaveIssue(issueId)}
-          style={{ padding: '7px 14px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#2563EB', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 1px 3px rgba(37,99,235,0.2)' }}
-        >
-          <Save style={{ width: '13.5px', height: '13.5px' }} />
-          <span>Save</span>
-        </button>
-      </div>
+      {/* Save Button */}
+      <button
+        onClick={() => handleSaveIssue(issueId)}
+        style={{ padding: '7px 14px', fontSize: '11.5px', fontWeight: '800', color: '#ffffff', backgroundColor: '#2563EB', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 1px 3px rgba(37,99,235,0.2)' }}
+      >
+        <Save style={{ width: '13.5px', height: '13.5px' }} />
+        <span>Save</span>
+      </button>
 
     </div>
   );
@@ -497,9 +839,16 @@ export default function AuditReportView({ job, onClose }) {
 
           {/* Editing Pill Badge (Shows only when an issue is selected) */}
           {selectedIssue && (
-            <span style={{ fontSize: '12px', fontWeight: '700', color: '#D8001D', backgroundColor: '#FFF0F2', padding: '2px 10px', borderRadius: '9999px', border: '1px solid #FCA5A5' }}>
-              Editing: {selectedIssue.id}
-            </span>
+            selectedIssue.isLocked ? (
+              <span style={{ fontSize: '11.5px', fontWeight: '800', color: '#92400E', backgroundColor: '#FEF3C7', padding: '2px 10px', borderRadius: '9999px', border: '1px solid #FCD34D', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <Lock style={{ width: '12px', height: '12px' }} />
+                Locked by {selectedIssue.lockedBy?.name || 'Another User'} (Read-Only)
+              </span>
+            ) : (
+              <span style={{ fontSize: '12px', fontWeight: '700', color: '#D8001D', backgroundColor: '#FFF0F2', padding: '2px 10px', borderRadius: '9999px', border: '1px solid #FCA5A5' }}>
+                Editing: {selectedIssue.id}
+              </span>
+            )
           )}
 
 
@@ -529,7 +878,7 @@ export default function AuditReportView({ job, onClose }) {
             <span>Generate Report</span>
           </button>
 
-          {/* Download Button */}
+          {/* Download PDF Button */}
           <button
             onClick={() => alert(`Downloading PDF Report for ${job?.id || 'JOB-2026-881'}`)}
             style={{
@@ -550,15 +899,36 @@ export default function AuditReportView({ job, onClose }) {
             <span>Download PDF</span>
           </button>
 
+          {/* Download Word Button */}
+          <button
+            onClick={() => alert(`Downloading Word (.docx) Report for ${job?.fileName || job?.id || 'JOB-2026-881'}`)}
+            style={{
+              padding: '6px 14px',
+              fontSize: '12px',
+              fontWeight: '700',
+              color: '#1E293B',
+              backgroundColor: '#F1F5F9',
+              border: '1px solid #CBD5E1',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <FileText style={{ width: '14px', height: '14px', color: '#1D4ED8' }} />
+            <span>Download Word</span>
+          </button>
+
           {/* Track Changes Button */}
           <button
-            onClick={() => setIsTrackChangesActive(!isTrackChangesActive)}
+            onClick={() => setIsIssueLogsModalOpen(true)}
             style={{
               padding: '6px 14px',
               fontSize: '12px',
               fontWeight: '800',
-              color: isTrackChangesActive ? '#ffffff' : '#D8001D',
-              backgroundColor: isTrackChangesActive ? '#D8001D' : '#ffffff',
+              color: isIssueLogsModalOpen ? '#ffffff' : '#D8001D',
+              backgroundColor: isIssueLogsModalOpen ? '#D8001D' : '#ffffff',
               border: '1.5px solid #D8001D',
               borderRadius: '6px',
               cursor: 'pointer',
@@ -568,7 +938,7 @@ export default function AuditReportView({ job, onClose }) {
             }}
           >
             <History style={{ width: '14px', height: '14px' }} />
-            <span>{isTrackChangesActive ? "Track Changes (Active)" : "Track Changes"}</span>
+            <span>Track Changes</span>
           </button>
 
 
@@ -621,7 +991,17 @@ export default function AuditReportView({ job, onClose }) {
                                 {isExpanded ? <Minus style={{ width: '15px', height: '15px' }} /> : <Plus style={{ width: '15px', height: '15px' }} />}
                               </button>
                             </td>
-                            <td style={{ padding: '12px 16px', fontWeight: '700', color: '#0F172A' }}>{item.title}</td>
+                            <td style={{ padding: '12px 16px', fontWeight: '700', color: '#0F172A' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <span>{item.title}</span>
+                                {item.isLocked && (
+                                  <span style={{ fontSize: '10px', fontWeight: '800', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', display: 'inline-flex', alignItems: 'center', gap: '3px', whiteSpace: 'nowrap' }}>
+                                    <Lock style={{ width: '9.5px', height: '9.5px' }} />
+                                    LOCKED ({item.lockedBy?.name || 'In Use'})
+                                  </span>
+                                )}
+                              </div>
+                            </td>
                             <td style={{ padding: '12px 16px', color: '#475569' }}>{item.function}</td>
                             <td style={{ padding: '12px 16px', color: '#475569' }}>{item.processArea}</td>
                             <td style={{ padding: '12px 16px' }}>{renderCriticalityBadge(item.criticality)}</td>
@@ -642,7 +1022,7 @@ export default function AuditReportView({ job, onClose }) {
                             <tr>
                               <td colSpan="7" style={{ padding: '16px', backgroundColor: '#FAFAFA', borderBottom: '2px solid #CBD5E1' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                  {renderActionToolbar(item.id)}
+                                  {item.isLocked ? renderLockedBanner(item) : renderActionToolbar(item.id)}
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '8px', padding: '16px' }}>
                                     {renderFormFields(item)}
                                   </div>
@@ -718,15 +1098,17 @@ export default function AuditReportView({ job, onClose }) {
               </div>
             ) : (
               <div style={{
-                width: `${pane1Width}%`,
+                flexGrow: (isPane2Collapsed && isPane3Collapsed) ? 1 : 0,
+                flexShrink: (isPane2Collapsed && isPane3Collapsed) ? 1 : 0,
+                flexBasis: (isPane2Collapsed && isPane3Collapsed) ? 'auto' : `${pane1Width}%`,
+                width: (isPane2Collapsed && isPane3Collapsed) ? 'auto' : `${pane1Width}%`,
                 minWidth: '160px',
-                maxWidth: '500px',
+                maxWidth: (isPane2Collapsed && isPane3Collapsed) ? 'none' : '500px',
                 borderRight: '1px solid #CBD5E1',
                 backgroundColor: '#F8FAFC',
                 display: 'flex',
                 flexDirection: 'column',
-                overflow: 'hidden',
-                flexShrink: 0
+                overflow: 'hidden'
               }}>
                 <div style={{ padding: '12px 14px', borderBottom: '1px solid #E2E8F0', backgroundColor: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <h3 style={{ fontSize: '12.5px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
@@ -754,6 +1136,7 @@ export default function AuditReportView({ job, onClose }) {
                 <div style={{ flex: 1, overflowY: 'auto', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {issues.map(item => {
                     const isSelected = expandedIssueId === item.id;
+                    const isLocked = !!item.isLocked;
                     return (
                       <div
                         key={item.id}
@@ -761,24 +1144,91 @@ export default function AuditReportView({ job, onClose }) {
                         style={{
                           padding: '10px 12px',
                           borderRadius: '8px',
-                          backgroundColor: '#ffffff',
-                          border: isSelected ? '2px solid #2563EB' : '1px solid #E2E8F0',
-                          boxShadow: isSelected ? '0 4px 12px rgba(37,99,235,0.15)' : '0 1px 3px rgba(0,0,0,0.03)',
+                          backgroundColor: isLocked ? (isSelected ? '#FFFBEB' : '#FFFDF5') : '#ffffff',
+                          border: isSelected 
+                            ? (isLocked ? '2px solid #D97706' : '2px solid #2563EB')
+                            : (isLocked ? '1.5px solid #FCD34D' : '1px solid #E2E8F0'),
+                          boxShadow: isSelected 
+                            ? (isLocked ? '0 4px 12px rgba(217, 119, 6, 0.18)' : '0 4px 12px rgba(37,99,235,0.15)')
+                            : '0 1px 3px rgba(0,0,0,0.03)',
                           cursor: 'pointer',
                           transition: 'all 0.15s ease'
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                          <span style={{ fontSize: '11px', fontWeight: '800', color: isSelected ? '#2563EB' : '#64748B' }}>{item.id}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '11px', fontWeight: '800', color: isSelected ? (isLocked ? '#B45309' : '#2563EB') : '#64748B' }}>
+                              {item.id}
+                            </span>
+                            {isLocked && (
+                              <span style={{
+                                fontSize: '9.5px',
+                                fontWeight: '800',
+                                padding: '1px 6px',
+                                borderRadius: '4px',
+                                backgroundColor: '#FEF3C7',
+                                color: '#92400E',
+                                border: '1px solid #FDE68A',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                letterSpacing: '0.4px'
+                              }}>
+                                <Lock style={{ width: '9px', height: '9px' }} />
+                                LOCKED
+                              </span>
+                            )}
+                          </div>
                           {renderCriticalityBadge(item.criticality)}
                         </div>
-                        <h4 style={{ fontSize: '12px', fontWeight: '700', color: '#0F172A', lineHeight: '1.3', margin: '0 0 4px 0' }}>
+
+                        <h4 style={{ fontSize: '12px', fontWeight: '700', color: '#0F172A', lineHeight: '1.3', margin: '0 0 6px 0' }}>
                           {item.title}
                         </h4>
+
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '10.5px', color: '#64748B' }}>
                           <span>{item.function}</span>
                           {renderStatusBadge(item.status)}
                         </div>
+
+                        {/* Locked user badge on the card */}
+                        {isLocked && (
+                          <div style={{
+                            marginTop: '8px',
+                            padding: '5px 8px',
+                            backgroundColor: '#FEF3C7',
+                            borderRadius: '5px',
+                            border: '1px dashed #F59E0B',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontSize: '10.5px'
+                          }}>
+                            <div style={{
+                              width: '18px',
+                              height: '18px',
+                              borderRadius: '50%',
+                              backgroundColor: item.lockedBy?.avatarBg || '#7C3AED',
+                              color: '#ffffff',
+                              fontSize: '9px',
+                              fontWeight: '800',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0
+                            }}>
+                              {item.lockedBy?.avatar || 'MV'}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <span style={{ fontWeight: '700', color: '#92400E' }}>
+                                {item.lockedBy?.name || 'Another User'}
+                              </span>
+                              <span style={{ color: '#B45309', marginLeft: '4px', fontSize: '10px' }}>
+                                is working on this
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -861,18 +1311,32 @@ export default function AuditReportView({ job, onClose }) {
               </div>
             ) : (
               <div style={{
-                width: `${pane2Width}%`,
+                flexGrow: isPane3Collapsed ? 1 : 0,
+                flexShrink: isPane3Collapsed ? 1 : 0,
+                flexBasis: isPane3Collapsed ? 'auto' : `${pane2Width}%`,
+                width: isPane3Collapsed ? 'auto' : `${pane2Width}%`,
                 minWidth: '200px',
                 borderRight: '1px solid #CBD5E1',
                 backgroundColor: '#FAFAFA',
                 display: 'flex',
                 flexDirection: 'column',
-                overflow: 'hidden',
-                flexShrink: 0
+                overflow: 'hidden'
               }}>
                 <div style={{ padding: '12px 14px', borderBottom: '1px solid #E2E8F0', backgroundColor: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <h3 style={{ fontSize: '12.5px', fontWeight: '800', color: '#0F172A', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {selectedIssue ? `Form Editor: ${selectedIssue.id}` : "Select an Issue from Master List"}
+                  <h3 style={{ fontSize: '12.5px', fontWeight: '800', color: '#0F172A', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {selectedIssue ? (
+                      <>
+                        <span>Form Editor: {selectedIssue.id}</span>
+                        {selectedIssue.isLocked && (
+                          <span style={{ fontSize: '10px', fontWeight: '800', color: '#92400E', backgroundColor: '#FEF3C7', padding: '1px 6px', borderRadius: '4px', border: '1px solid #FDE68A', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                            <Lock style={{ width: '9.5px', height: '9.5px' }} />
+                            LOCKED (READ-ONLY)
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      "Select an Issue from Master List"
+                    )}
                   </h3>
                   <button
                     onClick={() => setIsPane2Collapsed(true)}
@@ -896,7 +1360,11 @@ export default function AuditReportView({ job, onClose }) {
 
                 {selectedIssue ? (
                   <div style={{ flex: 1, overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {renderActionToolbar(selectedIssue.id)}
+                    {selectedIssue.isLocked ? (
+                      renderLockedBanner(selectedIssue)
+                    ) : (
+                      renderActionToolbar(selectedIssue.id)
+                    )}
                     <div style={{ backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '8px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {renderFormFields(selectedIssue)}
                     </div>
@@ -961,17 +1429,27 @@ export default function AuditReportView({ job, onClose }) {
                   </thead>
                   <tbody>
                     {issues.map(item => (
-                      <tr key={item.id} style={{ borderBottom: '1px solid #E2E8F0' }}>
-                        <td style={{ padding: '14px 16px', fontWeight: '700', color: '#0F172A' }}>{item.title}</td>
+                      <tr key={item.id} style={{ borderBottom: '1px solid #E2E8F0', backgroundColor: item.isLocked ? '#FFFDF5' : 'transparent' }}>
+                        <td style={{ padding: '14px 16px', fontWeight: '700', color: '#0F172A' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <span>{item.title}</span>
+                            {item.isLocked && (
+                              <span style={{ fontSize: '10px', fontWeight: '800', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                <Lock style={{ width: '9.5px', height: '9.5px' }} />
+                                LOCKED
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td style={{ padding: '14px 16px', color: '#475569' }}>{item.function}</td>
                         <td style={{ padding: '14px 16px' }}>{renderCriticalityBadge(item.criticality)}</td>
                         <td style={{ padding: '14px 16px' }}>{renderStatusBadge(item.status)}</td>
                         <td style={{ padding: '14px 16px', textAlign: 'right' }}>
                           <button
                             onClick={() => setExpandedIssueId(item.id)}
-                            style={{ padding: '6px 12px', fontSize: '11.5px', fontWeight: '800', color: '#059669', backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '6px', cursor: 'pointer' }}
+                            style={{ padding: '6px 12px', fontSize: '11.5px', fontWeight: '800', color: item.isLocked ? '#92400E' : '#059669', backgroundColor: item.isLocked ? '#FEF3C7' : '#ECFDF5', border: item.isLocked ? '1px solid #FDE68A' : '1px solid #A7F3D0', borderRadius: '6px', cursor: 'pointer' }}
                           >
-                            Edit Drawer
+                            {item.isLocked ? 'View Locked' : 'Edit Drawer'}
                           </button>
                         </td>
                       </tr>
@@ -993,13 +1471,18 @@ export default function AuditReportView({ job, onClose }) {
                   animation: 'slideInLeft 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
                 }}>
                   {/* Drawer Header */}
-                  <div style={{ padding: '14px 20px', backgroundColor: '#065F46', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ padding: '14px 20px', backgroundColor: selectedIssue.isLocked ? '#92400E' : '#065F46', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <button onClick={() => setExpandedIssueId(null)} style={{ border: 'none', background: 'none', color: '#ffffff', cursor: 'pointer' }}>
                         <ArrowLeft style={{ width: '18px', height: '18px' }} />
                       </button>
-                      <h3 style={{ fontSize: '14px', fontWeight: '800', margin: 0 }}>
-                        Slide-over Drawer: {selectedIssue.id}
+                      <h3 style={{ fontSize: '14px', fontWeight: '800', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>Slide-over Drawer: {selectedIssue.id}</span>
+                        {selectedIssue.isLocked && (
+                          <span style={{ fontSize: '10.5px', fontWeight: '800', backgroundColor: '#FEF3C7', color: '#92400E', padding: '1px 6px', borderRadius: '4px' }}>
+                            READ-ONLY
+                          </span>
+                        )}
                       </h3>
                     </div>
                     <button onClick={() => setExpandedIssueId(null)} style={{ border: 'none', background: 'none', color: '#ffffff', cursor: 'pointer' }}>
@@ -1011,19 +1494,19 @@ export default function AuditReportView({ job, onClose }) {
                   <div style={{ padding: '12px 20px 0 20px', borderBottom: '1px solid #E2E8F0', display: 'flex', gap: '8px' }}>
                     <button
                       onClick={() => setSlideoverTab('metadata')}
-                      style={{ padding: '8px 14px', fontSize: '12px', fontWeight: '700', borderRadius: '6px 6px 0 0', border: 'none', cursor: 'pointer', backgroundColor: slideoverTab === 'metadata' ? '#059669' : '#F1F5F9', color: slideoverTab === 'metadata' ? '#ffffff' : '#475569' }}
+                      style={{ padding: '8px 14px', fontSize: '12px', fontWeight: '700', borderRadius: '6px 6px 0 0', border: 'none', cursor: 'pointer', backgroundColor: slideoverTab === 'metadata' ? (selectedIssue.isLocked ? '#92400E' : '#059669') : '#F1F5F9', color: slideoverTab === 'metadata' ? '#ffffff' : '#475569' }}
                     >
                       1. General Metadata
                     </button>
                     <button
                       onClick={() => setSlideoverTab('analysis')}
-                      style={{ padding: '8px 14px', fontSize: '12px', fontWeight: '700', borderRadius: '6px 6px 0 0', border: 'none', cursor: 'pointer', backgroundColor: slideoverTab === 'analysis' ? '#059669' : '#F1F5F9', color: slideoverTab === 'analysis' ? '#ffffff' : '#475569' }}
+                      style={{ padding: '8px 14px', fontSize: '12px', fontWeight: '700', borderRadius: '6px 6px 0 0', border: 'none', cursor: 'pointer', backgroundColor: slideoverTab === 'analysis' ? (selectedIssue.isLocked ? '#92400E' : '#059669') : '#F1F5F9', color: slideoverTab === 'analysis' ? '#ffffff' : '#475569' }}
                     >
                       2. AI Analysis &amp; Cause
                     </button>
                     <button
                       onClick={() => setSlideoverTab('actions')}
-                      style={{ padding: '8px 14px', fontSize: '12px', fontWeight: '700', borderRadius: '6px 6px 0 0', border: 'none', cursor: 'pointer', backgroundColor: slideoverTab === 'actions' ? '#059669' : '#F1F5F9', color: slideoverTab === 'actions' ? '#ffffff' : '#475569' }}
+                      style={{ padding: '8px 14px', fontSize: '12px', fontWeight: '700', borderRadius: '6px 6px 0 0', border: 'none', cursor: 'pointer', backgroundColor: slideoverTab === 'actions' ? (selectedIssue.isLocked ? '#92400E' : '#059669') : '#F1F5F9', color: slideoverTab === 'actions' ? '#ffffff' : '#475569' }}
                     >
                       3. Action Plan &amp; Approvals
                     </button>
@@ -1031,7 +1514,11 @@ export default function AuditReportView({ job, onClose }) {
 
                   {/* Tab Body */}
                   <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    {renderActionToolbar(selectedIssue.id)}
+                    {selectedIssue.isLocked ? (
+                      renderLockedBanner(selectedIssue)
+                    ) : (
+                      renderActionToolbar(selectedIssue.id)
+                    )}
                     <div style={{ border: '1px solid #E2E8F0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                       {renderFormFields(selectedIssue)}
                     </div>
@@ -1094,24 +1581,40 @@ export default function AuditReportView({ job, onClose }) {
 
                   {/* Step Form Body */}
                   <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    {renderActionToolbar(selectedIssue.id)}
+                    {selectedIssue.isLocked ? (
+                      renderLockedBanner(selectedIssue)
+                    ) : (
+                      renderActionToolbar(selectedIssue.id)
+                    )}
 
                     <div style={{ backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                       {tabbedStep === 1 && (
                         <>
-                          <h4 style={{ fontSize: '13px', fontWeight: '800', color: '#7C3AED', margin: 0, borderBottom: '1px solid #DDD6FE', paddingBottom: '6px' }}>
-                            Step 1: General Metadata &amp; Categorization
+                          <h4 style={{ fontSize: '13px', fontWeight: '800', color: selectedIssue.isLocked ? '#92400E' : '#7C3AED', margin: 0, borderBottom: '1px solid #DDD6FE', paddingBottom: '6px' }}>
+                            Step 1: General Metadata &amp; Categorization {selectedIssue.isLocked && "(Read-Only)"}
                           </h4>
                           {/* Title */}
                           <div>
                             <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Issue Title</label>
-                            <input type="text" value={selectedIssue.title} onChange={(e) => handleIssueFieldChange(selectedIssue.id, 'title', e.target.value)} style={{ width: '100%', height: '34px', padding: '0 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1' }} />
+                            <input
+                              type="text"
+                              disabled={selectedIssue.isLocked}
+                              readOnly={selectedIssue.isLocked}
+                              value={selectedIssue.title}
+                              onChange={(e) => handleIssueFieldChange(selectedIssue.id, 'title', e.target.value)}
+                              style={{ width: '100%', height: '34px', padding: '0 10px', fontSize: '12px', borderRadius: '6px', border: selectedIssue.isLocked ? '1px solid #E2E8F0' : '1px solid #CBD5E1', backgroundColor: selectedIssue.isLocked ? '#F8FAFC' : '#ffffff', cursor: selectedIssue.isLocked ? 'not-allowed' : 'text' }}
+                            />
                           </div>
                           {/* Function, Process Area, Criticality */}
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                             <div>
                               <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Criticality</label>
-                              <select value={selectedIssue.criticality} onChange={(e) => handleIssueFieldChange(selectedIssue.id, 'criticality', e.target.value)} style={{ width: '100%', height: '34px', padding: '0 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1' }}>
+                              <select
+                                disabled={selectedIssue.isLocked}
+                                value={selectedIssue.criticality}
+                                onChange={(e) => handleIssueFieldChange(selectedIssue.id, 'criticality', e.target.value)}
+                                style={{ width: '100%', height: '34px', padding: '0 8px', fontSize: '12px', borderRadius: '6px', border: selectedIssue.isLocked ? '1px solid #E2E8F0' : '1px solid #CBD5E1', backgroundColor: selectedIssue.isLocked ? '#F8FAFC' : '#ffffff', cursor: selectedIssue.isLocked ? 'not-allowed' : 'pointer' }}
+                              >
                                 <option value="Critical">Critical</option>
                                 <option value="Major">Major</option>
                                 <option value="Minor">Minor</option>
@@ -1119,14 +1622,26 @@ export default function AuditReportView({ job, onClose }) {
                             </div>
                             <div>
                               <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Function</label>
-                              <select value={selectedIssue.function} onChange={(e) => handleIssueFieldChange(selectedIssue.id, 'function', e.target.value)} style={{ width: '100%', height: '34px', padding: '0 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1' }}>
+                              <select
+                                disabled={selectedIssue.isLocked}
+                                value={selectedIssue.function}
+                                onChange={(e) => handleIssueFieldChange(selectedIssue.id, 'function', e.target.value)}
+                                style={{ width: '100%', height: '34px', padding: '0 8px', fontSize: '12px', borderRadius: '6px', border: selectedIssue.isLocked ? '1px solid #E2E8F0' : '1px solid #CBD5E1', backgroundColor: selectedIssue.isLocked ? '#F8FAFC' : '#ffffff', cursor: selectedIssue.isLocked ? 'not-allowed' : 'pointer' }}
+                              >
                                 <option value="IT">IT</option>
                                 <option value="FinOps">FinOps</option>
                               </select>
                             </div>
                             <div>
                               <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Process Area</label>
-                              <input type="text" value={selectedIssue.processArea} onChange={(e) => handleIssueFieldChange(selectedIssue.id, 'processArea', e.target.value)} style={{ width: '100%', height: '34px', padding: '0 10px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1' }} />
+                              <input
+                                type="text"
+                                disabled={selectedIssue.isLocked}
+                                readOnly={selectedIssue.isLocked}
+                                value={selectedIssue.processArea}
+                                onChange={(e) => handleIssueFieldChange(selectedIssue.id, 'processArea', e.target.value)}
+                                style={{ width: '100%', height: '34px', padding: '0 10px', fontSize: '12px', borderRadius: '6px', border: selectedIssue.isLocked ? '1px solid #E2E8F0' : '1px solid #CBD5E1', backgroundColor: selectedIssue.isLocked ? '#F8FAFC' : '#ffffff', cursor: selectedIssue.isLocked ? 'not-allowed' : 'text' }}
+                              />
                             </div>
                           </div>
                         </>
@@ -1134,28 +1649,49 @@ export default function AuditReportView({ job, onClose }) {
 
                       {tabbedStep === 2 && (
                         <>
-                          <h4 style={{ fontSize: '13px', fontWeight: '800', color: '#7C3AED', margin: 0, borderBottom: '1px solid #DDD6FE', paddingBottom: '6px' }}>
-                            Step 2: AI Root Cause &amp; Financial Impact
+                          <h4 style={{ fontSize: '13px', fontWeight: '800', color: selectedIssue.isLocked ? '#92400E' : '#7C3AED', margin: 0, borderBottom: '1px solid #DDD6FE', paddingBottom: '6px' }}>
+                            Step 2: AI Root Cause &amp; Financial Impact {selectedIssue.isLocked && "(Read-Only)"}
                           </h4>
                           <div>
                             <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Root Cause</label>
-                            <textarea rows={3} value={selectedIssue.rootCause} onChange={(e) => handleIssueFieldChange(selectedIssue.id, 'rootCause', e.target.value)} style={{ width: '100%', padding: '8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontFamily: 'inherit' }} />
+                            <textarea
+                              rows={3}
+                              disabled={selectedIssue.isLocked}
+                              readOnly={selectedIssue.isLocked}
+                              value={selectedIssue.rootCause}
+                              onChange={(e) => handleIssueFieldChange(selectedIssue.id, 'rootCause', e.target.value)}
+                              style={{ width: '100%', padding: '8px', fontSize: '12px', borderRadius: '6px', border: selectedIssue.isLocked ? '1px solid #E2E8F0' : '1px solid #CBD5E1', backgroundColor: selectedIssue.isLocked ? '#F8FAFC' : '#ffffff', cursor: selectedIssue.isLocked ? 'not-allowed' : 'text', fontFamily: 'inherit' }}
+                            />
                           </div>
                           <div>
                             <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Impact</label>
-                            <textarea rows={3} value={selectedIssue.impact} onChange={(e) => handleIssueFieldChange(selectedIssue.id, 'impact', e.target.value)} style={{ width: '100%', padding: '8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontFamily: 'inherit' }} />
+                            <textarea
+                              rows={3}
+                              disabled={selectedIssue.isLocked}
+                              readOnly={selectedIssue.isLocked}
+                              value={selectedIssue.impact}
+                              onChange={(e) => handleIssueFieldChange(selectedIssue.id, 'impact', e.target.value)}
+                              style={{ width: '100%', padding: '8px', fontSize: '12px', borderRadius: '6px', border: selectedIssue.isLocked ? '1px solid #E2E8F0' : '1px solid #CBD5E1', backgroundColor: selectedIssue.isLocked ? '#F8FAFC' : '#ffffff', cursor: selectedIssue.isLocked ? 'not-allowed' : 'text', fontFamily: 'inherit' }}
+                            />
                           </div>
                         </>
                       )}
 
                       {tabbedStep === 3 && (
                         <>
-                          <h4 style={{ fontSize: '13px', fontWeight: '800', color: '#7C3AED', margin: 0, borderBottom: '1px solid #DDD6FE', paddingBottom: '6px' }}>
-                            Step 3: Remediation Recommendations &amp; Sign-off
+                          <h4 style={{ fontSize: '13px', fontWeight: '800', color: selectedIssue.isLocked ? '#92400E' : '#7C3AED', margin: 0, borderBottom: '1px solid #DDD6FE', paddingBottom: '6px' }}>
+                            Step 3: Remediation Recommendations &amp; Sign-off {selectedIssue.isLocked && "(Read-Only)"}
                           </h4>
                           <div>
                             <label style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Recommendation</label>
-                            <textarea rows={4} value={selectedIssue.recommendation} onChange={(e) => handleIssueFieldChange(selectedIssue.id, 'recommendation', e.target.value)} style={{ width: '100%', padding: '8px', fontSize: '12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontFamily: 'inherit' }} />
+                            <textarea
+                              rows={4}
+                              disabled={selectedIssue.isLocked}
+                              readOnly={selectedIssue.isLocked}
+                              value={selectedIssue.recommendation}
+                              onChange={(e) => handleIssueFieldChange(selectedIssue.id, 'recommendation', e.target.value)}
+                              style={{ width: '100%', padding: '8px', fontSize: '12px', borderRadius: '6px', border: selectedIssue.isLocked ? '1px solid #E2E8F0' : '1px solid #CBD5E1', backgroundColor: selectedIssue.isLocked ? '#F8FAFC' : '#ffffff', cursor: selectedIssue.isLocked ? 'not-allowed' : 'text', fontFamily: 'inherit' }}
+                            />
                           </div>
                         </>
                       )}
@@ -1197,17 +1733,27 @@ export default function AuditReportView({ job, onClose }) {
                     </thead>
                     <tbody>
                       {issues.map(item => (
-                        <tr key={item.id} style={{ borderBottom: '1px solid #E2E8F0' }}>
-                          <td style={{ padding: '14px 16px', fontWeight: '700', color: '#0F172A' }}>{item.title}</td>
+                        <tr key={item.id} style={{ borderBottom: '1px solid #E2E8F0', backgroundColor: item.isLocked ? '#FFFDF5' : 'transparent' }}>
+                          <td style={{ padding: '14px 16px', fontWeight: '700', color: '#0F172A' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <span>{item.title}</span>
+                              {item.isLocked && (
+                                <span style={{ fontSize: '10px', fontWeight: '800', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                  <Lock style={{ width: '9.5px', height: '9.5px' }} />
+                                  LOCKED
+                                </span>
+                              )}
+                            </div>
+                          </td>
                           <td style={{ padding: '14px 16px', color: '#475569' }}>{item.function}</td>
                           <td style={{ padding: '14px 16px' }}>{renderCriticalityBadge(item.criticality)}</td>
                           <td style={{ padding: '14px 16px' }}>{renderStatusBadge(item.status)}</td>
                           <td style={{ padding: '14px 16px', textAlign: 'right' }}>
                             <button
                               onClick={() => { setExpandedIssueId(item.id); setTabbedStep(1); }}
-                              style={{ padding: '6px 12px', fontSize: '11.5px', fontWeight: '800', color: '#7C3AED', backgroundColor: '#F3E8FF', border: '1px solid #DDD6FE', borderRadius: '6px', cursor: 'pointer' }}
+                              style={{ padding: '6px 12px', fontSize: '11.5px', fontWeight: '800', color: item.isLocked ? '#92400E' : '#7C3AED', backgroundColor: item.isLocked ? '#FEF3C7' : '#F3E8FF', border: item.isLocked ? '1px solid #FDE68A' : '1px solid #DDD6FE', borderRadius: '6px', cursor: 'pointer' }}
                             >
-                              Step Wizard
+                              {item.isLocked ? 'View Locked' : 'Step Wizard'}
                             </button>
                           </td>
                         </tr>
@@ -1270,7 +1816,9 @@ export default function AuditReportView({ job, onClose }) {
           </div>
         ) : (
           <div style={{
-            flex: designMode === '3pane' ? 1 : 'none',
+            flexGrow: designMode === '3pane' ? 1 : 0,
+            flexShrink: 1,
+            flexBasis: designMode === '3pane' ? 'auto' : '50%',
             width: designMode === '3pane' ? 'auto' : '50%',
             backgroundColor: '#52525B',
             padding: '24px 20px',
@@ -1384,6 +1932,13 @@ export default function AuditReportView({ job, onClose }) {
         )}
 
       </div>
+      
+      {/* Issue Logs Modal (Track Changes & Audit Trail) */}
+      <IssueLogsModal
+        isOpen={isIssueLogsModalOpen}
+        report={job || { fileName: "MedTech Suzhou - Orthopedics Plant_AuditReport" }}
+        onClose={() => setIsIssueLogsModalOpen(false)}
+      />
 
     </div>
   );
