@@ -49,3 +49,79 @@ export const mockExecutiveSummaryData = {
     }
   }
 };
+
+// Executive Report Field Edit History & Audit Logs for Track Changes Pop-over
+export const mockExecutiveSummaryLogs = [
+  {
+    id: "EXEC-LOG-001",
+    timestamp: "Today at 02:45 PM",
+    date: "08/18/2026",
+    user: "Sarah Jenkins",
+    role: "Lead Internal Auditor",
+    action: "Updated Process Matrix Severity Ratings",
+    fieldChanged: "Scope Matrix — Leasing Row",
+    oldValue: "Critical: 0, Major: 1, Minor: 3 (Total: 4)",
+    newValue: "Critical: 1, Major: 0, Minor: 3 (Total: 4, Grand Total: 8)",
+    badgeType: "matrix"
+  },
+  {
+    id: "EXEC-LOG-002",
+    timestamp: "Today at 01:18 PM",
+    date: "08/18/2026",
+    user: "David Ross",
+    role: "Audit Director",
+    action: "Extended Assessment Period & Location Details",
+    fieldChanged: "Scope Summary — Assessment Period",
+    oldValue: "Q1 2026 (Jan 1, 2026 – Mar 31, 2026)",
+    newValue: "Q1 2026 – Q2 2026 (Jan 1, 2026 – Jun 30, 2026)",
+    badgeType: "scope"
+  },
+  {
+    id: "EXEC-LOG-003",
+    timestamp: "Today at 11:30 AM",
+    date: "08/18/2026",
+    user: "Sarah Jenkins",
+    role: "Lead Internal Auditor",
+    action: "Refined Executive Summary Objective Bullets",
+    fieldChanged: "Scope Summary — Objective Bullet #2",
+    oldValue: "Assess plant vendor management activities",
+    newValue: "Assess the company's oversight over critical third-party vendors and GxP contract manufacturers.",
+    badgeType: "update"
+  },
+  {
+    id: "EXEC-LOG-004",
+    timestamp: "Yesterday at 04:20 PM",
+    date: "08/17/2026",
+    user: "AI Executive Summary Generator",
+    role: "Audit Intelligence Copilot",
+    action: "Synthesized Executive Audit Insights & Root Cause",
+    fieldChanged: "Audit Insights — Key Observations",
+    oldValue: "Raw observations collected from 8 individual fieldwork testing sheets",
+    newValue: "Synthesized executive narrative identifying $1.28M Costar liability understatement & dormant user access risks",
+    badgeType: "create"
+  },
+  {
+    id: "EXEC-LOG-005",
+    timestamp: "Yesterday at 02:15 PM",
+    date: "08/17/2026",
+    user: "Marcus Vance",
+    role: "Quality Assurance & Compliance Lead",
+    action: "Updated Critical Issue Title & Costar Impact Description",
+    fieldChanged: "Critical Issue — Costar Lease Records",
+    oldValue: "Lease calculation differences in Costar",
+    newValue: "Lease data discrepancies and system limitations in Costar records (understated liabilities by USD 1.28M)",
+    badgeType: "issue"
+  },
+  {
+    id: "EXEC-LOG-006",
+    timestamp: "08/16/2026 at 10:05 AM",
+    date: "08/16/2026",
+    user: "System Engine",
+    role: "Automated Report Builder",
+    action: "Executive Summary Draft Initialized",
+    fieldChanged: "All Executive Fields",
+    oldValue: "-",
+    newValue: "Initial executive report draft generated from finalized workpaper issues and scope parameters",
+    badgeType: "create"
+  }
+];

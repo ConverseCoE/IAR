@@ -1,24 +1,43 @@
 import React, { useState } from 'react';
 import { 
-  ArrowLeft, Plus, Minus, Download, Save, Send, GitBranch, History, 
+  ArrowLeft, Plus, Minus, Download, Send, GitBranch, History, 
   Sparkles, MoreVertical, Check, Layout, Columns, PanelLeft, Layers, X,
   Printer, FileText, ChevronRight, Eye, ZoomIn, ZoomOut
 } from 'lucide-react';
-import { mockExecutiveSummaryData } from '../data/execReportData';
+import { mockExecutiveSummaryData, mockExecutiveSummaryLogs } from '../data/execReportData';
+import IssueLogsModal from '../components/issues/IssueLogsModal';
 
 export default function ExecutiveReportView({ job, onClose, onSwitchToAuditReport }) {
   const [execData, setExecData] = useState(mockExecutiveSummaryData);
   
   // Accordion Expand States: 'scope', 'insights', 'criticalMajor'
   const [expandedSection, setExpandedSection] = useState('scope');
-  const [isTrackChangesActive, setIsTrackChangesActive] = useState(false);
+  const [isLogsModalOpen, setIsLogsModalOpen] = useState(false);
+  const [execLogs, setExecLogs] = useState(mockExecutiveSummaryLogs);
 
-  // PDF Preview Display Mode: 'all' | 'page1' | 'page2'
-  const [pageViewFilter, setPageViewFilter] = useState('all');
-  const [zoomLevel, setZoomLevel] = useState(100);
+  // Field edit logger for real-time track changes pop-over
+  const recordFieldChange = (fieldName, oldVal, newVal, badgeType = 'update') => {
+    const newLog = {
+      id: `EXEC-LIVE-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      timestamp: "Just now",
+      date: new Date().toLocaleDateString('en-US'),
+      user: "Current Auditor",
+      role: "Internal Audit (Active Session)",
+      action: `Modified ${fieldName}`,
+      fieldChanged: fieldName,
+      oldValue: typeof oldVal === 'object' ? JSON.stringify(oldVal) : String(oldVal ?? '-'),
+      newValue: typeof newVal === 'object' ? JSON.stringify(newVal) : String(newVal ?? '-'),
+      badgeType: badgeType
+    };
+    setExecLogs(prev => [newLog, ...prev]);
+  };
 
   // Field change handlers (Instant real-time update to live HTML PDF preview)
   const handleScopeChange = (field, val) => {
+    const oldVal = execData.scopeSummary[field];
+    if (oldVal !== val) {
+      recordFieldChange(`Scope Summary — ${field}`, oldVal, val, 'scope');
+    }
     setExecData(prev => ({
       ...prev,
       scopeSummary: {
@@ -29,6 +48,10 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
   };
 
   const handleObjectiveBulletChange = (idx, val) => {
+    const oldVal = execData.scopeSummary.objectiveBullets[idx];
+    if (oldVal !== val) {
+      recordFieldChange(`Objective Bullet #${idx + 1}`, oldVal, val, 'update');
+    }
     setExecData(prev => {
       const newBullets = [...prev.scopeSummary.objectiveBullets];
       newBullets[idx] = val;
@@ -77,6 +100,11 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
       }
       newMatrix[index] = targetRow;
 
+      const oldVal = prev.scopeSummary.processMatrix[index]?.[field];
+      if (oldVal !== val) {
+        recordFieldChange(`Process Matrix — ${targetRow.processTitle || 'Process'} (${field})`, oldVal, val, 'matrix');
+      }
+
       // Recalculate Grand Total row (last row) if editing regular rows
       if (index < newMatrix.length - 1) {
         const grandTotalRow = { ...newMatrix[newMatrix.length - 1] };
@@ -116,6 +144,7 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
         total: 0
       });
       newMatrix.push(grandTotalRow); // Put grand total back at end
+      recordFieldChange('Process Matrix', 'Added Row', 'New Process', 'matrix');
       return {
         ...prev,
         scopeSummary: {
@@ -129,6 +158,7 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
   const handleRemoveProcessRow = (idx) => {
     setExecData(prev => {
       if (prev.scopeSummary.processMatrix.length <= 2) return prev; // Keep at least 1 process + grand total
+      const removedRow = prev.scopeSummary.processMatrix[idx];
       const newMatrix = prev.scopeSummary.processMatrix.filter((_, i) => i !== idx);
       
       // Recalculate Grand Total
@@ -146,6 +176,8 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
       grandTotalRow.total = grandAll;
       newMatrix[newMatrix.length - 1] = grandTotalRow;
 
+      recordFieldChange('Process Matrix', `Removed ${removedRow?.processTitle || 'Row'}`, 'Row Deleted', 'matrix');
+
       return {
         ...prev,
         scopeSummary: {
@@ -158,6 +190,10 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
 
   // Audit Insights Handlers
   const handleInsightsOverallChange = (val) => {
+    const oldVal = execData.auditInsights.overallText;
+    if (oldVal !== val) {
+      recordFieldChange('Audit Insights Summary', oldVal, val, 'update');
+    }
     setExecData(prev => ({
       ...prev,
       auditInsights: {
@@ -168,6 +204,10 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
   };
 
   const handleInsightsParagraphChange = (idx, val) => {
+    const oldVal = execData.auditInsights.paragraphs[idx];
+    if (oldVal !== val) {
+      recordFieldChange(`Audit Insights Paragraph #${idx + 1}`, oldVal, val, 'update');
+    }
     setExecData(prev => {
       const newParas = [...prev.auditInsights.paragraphs];
       newParas[idx] = val;
@@ -183,6 +223,10 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
 
   // Critical & Major Issues Handlers
   const handleIssueChange = (issueType, field, val) => {
+    const oldVal = execData.criticalMajorSection[issueType]?.[field];
+    if (oldVal !== val) {
+      recordFieldChange(`${issueType === 'criticalIssue' ? 'Critical Issue' : 'Major Issue'} — ${field}`, oldVal, val, 'issue');
+    }
     setExecData(prev => ({
       ...prev,
       criticalMajorSection: {
@@ -210,10 +254,6 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
 
   const handleReroute = () => {
     alert("Executive Summary rerouted to Senior Audit Director.");
-  };
-
-  const handlePrint = () => {
-    window.print();
   };
 
   // Helper for matrix cell display: "-" when 0, or number when > 0
@@ -293,6 +333,7 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
         {/* Top Right Action Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           
+          {/* 1. Detailed Audit Report */}
           {onSwitchToAuditReport && (
             <button
               onClick={onSwitchToAuditReport}
@@ -316,7 +357,31 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
             </button>
           )}
 
-          {/* Generate Executive summary */}
+          {/* 2. Submit Button (Primary Red Action Button) */}
+          <button
+            onClick={handleSubmit}
+            style={{
+              padding: '6px 16px',
+              fontSize: '11.5px',
+              fontWeight: '800',
+              color: '#ffffff',
+              backgroundColor: '#D8001D',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 1px 3px rgba(216, 0, 29, 0.28)',
+              transition: 'all 0.15s ease'
+            }}
+            title="Submit Executive Summary for Leadership Approval"
+          >
+            <Send style={{ width: '13px', height: '13px' }} />
+            <span>Submit</span>
+          </button>
+
+          {/* 3. Generate Executive summary */}
           <button
             onClick={handleGenerateExecSummary}
             style={{
@@ -337,63 +402,51 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
             <span>Generate Executive Summary</span>
           </button>
 
-          {/* Save */}
+          {/* 4. Download PDF Button */}
           <button
-            onClick={handleSave}
             style={{
               padding: '6px 14px',
               fontSize: '11.5px',
               fontWeight: '800',
-              color: '#ffffff',
-              backgroundColor: '#D8001D',
-              border: 'none',
+              color: '#1E40AF',
+              backgroundColor: '#EFF6FF',
+              border: '1.5px solid #BFDBFE',
               borderRadius: '6px',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '5px'
+              gap: '6px',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+              transition: 'all 0.15s ease'
             }}
+            title="Download PDF"
           >
-            <Save style={{ width: '13px', height: '13px' }} />
-            <span>Save</span>
+            <Download style={{ width: '13px', height: '13px', color: '#1E40AF' }} />
+            <span>Download PDF</span>
           </button>
 
-          {/* Track Changes */}
+          {/* 5. Track Changes Button */}
           <button
-            onClick={() => setIsTrackChangesActive(!isTrackChangesActive)}
+            onClick={() => setIsLogsModalOpen(true)}
             style={{
-              padding: '6px 12px',
+              padding: '6px 14px',
               fontSize: '11.5px',
-              fontWeight: '700',
-              color: isTrackChangesActive ? '#ffffff' : '#475569',
-              backgroundColor: isTrackChangesActive ? '#0F172A' : '#ffffff',
-              border: '1px solid #CBD5E1',
+              fontWeight: '800',
+              color: isLogsModalOpen ? '#ffffff' : '#D8001D',
+              backgroundColor: isLogsModalOpen ? '#D8001D' : '#ffffff',
+              border: '1.5px solid #D8001D',
               borderRadius: '6px',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '5px'
+              gap: '6px',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+              transition: 'all 0.15s ease'
             }}
+            title="View Executive Report Field Changes & Audit History"
           >
-            <History style={{ width: '13px', height: '13px' }} />
-            <span>{isTrackChangesActive ? "Track Changes (On)" : "Track Changes"}</span>
-          </button>
-
-          {/* Submit */}
-          <button
-            onClick={handleSubmit}
-            style={{
-              padding: '6px 12px',
-              fontSize: '11.5px',
-              fontWeight: '700',
-              color: '#475569',
-              backgroundColor: '#F8FAFC',
-              border: '1px solid #CBD5E1',
-              borderRadius: '6px',
-              cursor: 'pointer'
-            }}
-          >
-            Submit
+            <History style={{ width: '13px', height: '13px', color: isLogsModalOpen ? '#ffffff' : '#D8001D' }} />
+            <span>Track Changes</span>
           </button>
         </div>
       </div>
@@ -454,19 +507,7 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ 
-                  width: '20px', 
-                  height: '20px', 
-                  borderRadius: '4px', 
-                  backgroundColor: '#8F8F8F', 
-                  color: '#ffffff', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  fontSize: '10px',
-                  fontWeight: '900' 
-                }}>1</span>
-                <span>Page 1: Scope Summary &amp; Process Matrix</span>
+                <span>Scope Summary &amp; Process Matrix</span>
               </div>
               {expandedSection === 'scope' ? <Minus style={{ width: '16px', height: '16px' }} /> : <Plus style={{ width: '16px', height: '16px' }} />}
             </button>
@@ -776,19 +817,7 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ 
-                  width: '20px', 
-                  height: '20px', 
-                  borderRadius: '4px', 
-                  backgroundColor: '#8F8F8F', 
-                  color: '#ffffff', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  fontSize: '10px',
-                  fontWeight: '900' 
-                }}>2</span>
-                <span>Page 2: Audit Insights</span>
+                <span>Audit Insights</span>
               </div>
               {expandedSection === 'insights' ? <Minus style={{ width: '16px', height: '16px' }} /> : <Plus style={{ width: '16px', height: '16px' }} />}
             </button>
@@ -863,19 +892,7 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ 
-                  width: '20px', 
-                  height: '20px', 
-                  borderRadius: '4px', 
-                  backgroundColor: '#8F8F8F', 
-                  color: '#ffffff', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  fontSize: '10px',
-                  fontWeight: '900' 
-                }}>3</span>
-                <span>Page 2: Critical Issues / Major Issues</span>
+                <span>Critical Issues / Major Issues</span>
               </div>
               {expandedSection === 'criticalMajor' ? <Minus style={{ width: '16px', height: '16px' }} /> : <Plus style={{ width: '16px', height: '16px' }} />}
             </button>
@@ -961,117 +978,8 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
           alignItems: 'center',
           boxSizing: 'border-box'
         }}>
-          
-          {/* PDF Viewer Top Floating Control Bar */}
-          <div style={{
-            width: '100%',
-            maxWidth: '794px',
-            backgroundColor: '#1E293B',
-            color: '#ffffff',
-            borderRadius: '6px',
-            padding: '8px 16px',
-            marginBottom: '16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-            flexShrink: 0
-          }}>
-            {/* Page View Tabs */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '11.5px', color: '#94A3B8', marginRight: '4px' }}>View:</span>
-              <button
-                onClick={() => setPageViewFilter('all')}
-                style={{
-                  padding: '4px 10px',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  borderRadius: '4px',
-                  border: 'none',
-                  backgroundColor: pageViewFilter === 'all' ? '#D8001D' : '#334155',
-                  color: '#ffffff',
-                  cursor: 'pointer'
-                }}
-              >
-                All Pages (1 &amp; 2)
-              </button>
-              <button
-                onClick={() => setPageViewFilter('page1')}
-                style={{
-                  padding: '4px 10px',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  borderRadius: '4px',
-                  border: 'none',
-                  backgroundColor: pageViewFilter === 'page1' ? '#D8001D' : '#334155',
-                  color: '#ffffff',
-                  cursor: 'pointer'
-                }}
-              >
-                Page 1 (Scope &amp; Background)
-              </button>
-              <button
-                onClick={() => setPageViewFilter('page2')}
-                style={{
-                  padding: '4px 10px',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  borderRadius: '4px',
-                  border: 'none',
-                  backgroundColor: pageViewFilter === 'page2' ? '#D8001D' : '#334155',
-                  color: '#ffffff',
-                  cursor: 'pointer'
-                }}
-              >
-                Page 2 (Audit Insights &amp; Issues)
-              </button>
-            </div>
 
-            {/* Print & Download Controls */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <button
-                onClick={handlePrint}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#CBD5E1',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  fontSize: '11px',
-                  fontWeight: '600'
-                }}
-                title="Print Executive Summary"
-              >
-                <Printer style={{ width: '14px', height: '14px' }} />
-                <span>Print</span>
-              </button>
-
-              <button
-                onClick={() => alert(`Downloading PDF: ${execData.fileName}.pdf`)}
-                style={{
-                  padding: '5px 12px',
-                  backgroundColor: '#D8001D',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  fontSize: '11px',
-                  fontWeight: '800'
-                }}
-                title="Download PDF"
-              >
-                <Download style={{ width: '13px', height: '13px' }} />
-                <span>Download PDF</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Wrapper for PDF Pages with optional scale */}
+          {/* Wrapper for PDF Pages */}
           <div style={{
             width: '100%',
             maxWidth: '794px', // Standard A4 width at 96 DPI
@@ -1083,8 +991,7 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
             {/* ################################################################# */}
             {/* PAGE 1: EXACT MATCH TO FIRST IMAGE (Scope Summary, Matrix, Bg)    */}
             {/* ################################################################# */}
-            {(pageViewFilter === 'all' || pageViewFilter === 'page1') && (
-              <div style={{
+            <div style={{
                 width: '100%',
                 backgroundColor: '#ffffff',
                 boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
@@ -1470,13 +1377,11 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
                 </div>
 
               </div>
-            )}
 
             {/* ################################################################# */}
             {/* PAGE 2: EXACT MATCH TO SECOND IMAGE (Audit Insights & Issues)     */}
             {/* ################################################################# */}
-            {(pageViewFilter === 'all' || pageViewFilter === 'page2') && (
-              <div style={{
+            <div style={{
                 width: '100%',
                 backgroundColor: '#ffffff',
                 boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
@@ -1630,13 +1535,22 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
                 </div>
 
               </div>
-            )}
-
           </div>
 
         </div>
 
       </div>
+
+      {/* Executive Report Field Edits / Track Changes Modal Popover */}
+      <IssueLogsModal
+        isOpen={isLogsModalOpen}
+        report={job || { fileName: execData.fileName }}
+        onClose={() => setIsLogsModalOpen(false)}
+        title={`Track Changes — ${job?.fileName || execData.fileName}`}
+        category="Executive Report Field Edits"
+        description="Audit trail and field edit history for Executive Summary sections"
+        logs={execLogs}
+      />
 
     </div>
   );

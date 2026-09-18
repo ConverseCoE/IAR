@@ -1,13 +1,21 @@
 import React from 'react';
 import { X, History, User, Clock, CheckCircle2, ShieldCheck, FileText, ArrowRight } from 'lucide-react';
 
-export default function IssueLogsModal({ isOpen, report, onClose }) {
+export default function IssueLogsModal({ 
+  isOpen, 
+  report, 
+  onClose,
+  logs,
+  title,
+  category = "Audit History & Logs",
+  description = "Complete audit trail and change history for this record"
+}) {
   if (!isOpen) return null;
 
   const fileName = report ? report.fileName : "BiosenseWebster_Catheters_Audit";
 
-  // Mock Audit Log Trail Data
-  const historyLogs = [
+  // Mock Audit Log Trail Data (Fallback when logs prop not provided)
+  const defaultHistoryLogs = [
     {
       id: "LOG-001",
       timestamp: "Today at 09:42 AM",
@@ -58,11 +66,16 @@ export default function IssueLogsModal({ isOpen, report, onClose }) {
     }
   ];
 
+  const historyLogs = (logs && logs.length > 0) ? logs : defaultHistoryLogs;
+
   const renderBadge = (type) => {
     let bg = '#EEF2FF'; let text = '#4338CA'; let label = 'Updated';
     if (type === 'issue') { bg = '#FFF0F2'; text = '#D8001D'; label = 'Issue Logged'; }
     else if (type === 'delegate') { bg = '#ECFDF5'; text = '#047857'; label = 'Delegated'; }
     else if (type === 'create') { bg = '#EFF6FF'; text = '#2563EB'; label = 'Created'; }
+    else if (type === 'matrix') { bg = '#FEF3C7'; text = '#B45309'; label = 'Matrix Adjusted'; }
+    else if (type === 'scope') { bg = '#F3E8FF'; text = '#7E22CE'; label = 'Scope Modified'; }
+    else if (type === 'live') { bg = '#DCFCE7'; text = '#15803D'; label = 'Live Session Edit'; }
 
     return (
       <span style={{ fontSize: '11px', fontWeight: '700', padding: '3px 8px', borderRadius: '6px', backgroundColor: bg, color: text }}>
@@ -100,10 +113,10 @@ export default function IssueLogsModal({ isOpen, report, onClose }) {
         }}>
           <div>
             <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#FCA5A5', letterSpacing: '0.8px' }}>
-              Audit History & Logs
+              {category}
             </span>
             <h2 style={{ fontSize: '16px', fontWeight: '800', margin: 0, marginTop: '2px' }}>
-              History Log — {fileName}
+              {title || `History Log — ${fileName}`}
             </h2>
           </div>
 
@@ -127,7 +140,7 @@ export default function IssueLogsModal({ isOpen, report, onClose }) {
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#475569', fontSize: '12.5px', fontWeight: '600' }}>
             <History style={{ width: '16px', height: '16px', color: '#6366F1' }} />
-            <span>Complete audit trail and change history for this record</span>
+            <span>{description}</span>
           </div>
 
           {/* Timeline Items List */}
