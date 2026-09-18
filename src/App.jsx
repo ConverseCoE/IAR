@@ -23,12 +23,46 @@ import { MoreVertical, Check, CheckCircle2, X } from 'lucide-react';
 export default function App() {
   const [currentPhase, setCurrentPhase] = useState('reporting');
   const [reports, setReports] = useState(initialReports);
+  const [reportingJobs, setReportingJobs] = useState(mockReportingNewJobs);
   const [selectedReportId, setSelectedReportId] = useState("REP-2026-006"); // BiosenseWebster_Catheters_Audit as default
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Reporting Module Drawer & Work On Report Studio State: { job, type: 'audit' | 'executive' }
   const [selectedReportingJobId, setSelectedReportingJobId] = useState(null);
   const [activeWorkOnReportJob, setActiveWorkOnReportJob] = useState(null);
+
+  // Update an engagement's issues list from AuditReportView or drawers
+  const handleUpdateJobIssues = (jobId, updatedIssues) => {
+    setReportingJobs(prev => prev.map(j => {
+      if (j.id === jobId) {
+        return {
+          ...j,
+          issuesList: updatedIssues,
+          discussionPoints: {
+            ...j.discussionPoints,
+            count: updatedIssues.length
+          }
+        };
+      }
+      return j;
+    }));
+
+    // Keep activeWorkOnReportJob synchronized in real time
+    setActiveWorkOnReportJob(prev => {
+      if (!prev || prev.job.id !== jobId) return prev;
+      return {
+        ...prev,
+        job: {
+          ...prev.job,
+          issuesList: updatedIssues,
+          discussionPoints: {
+            ...prev.job.discussionPoints,
+            count: updatedIssues.length
+          }
+        }
+      };
+    });
+  };
 
   // Global Create Issue Drawer State for Auditor 'Not Started' Jobs
   const [isCreateIssueDrawerOpen, setIsCreateIssueDrawerOpen] = useState(false);
@@ -57,6 +91,26 @@ export default function App() {
           };
         }
         return r;
+      }));
+
+      // Also append to reportingJobs so Audit Report and My Audits immediately reflect the new issue
+      setReportingJobs(prev => prev.map(j => {
+        if (j.id === createIssueJob.id || j.fileName === createIssueJob.fileName || j.engagement === createIssueJob.engagement) {
+          const updatedIssues = [
+            ...(j.issuesList || []),
+            savedPoint
+          ];
+          return {
+            ...j,
+            status: 'In Progress',
+            issuesList: updatedIssues,
+            discussionPoints: {
+              ...j.discussionPoints,
+              count: updatedIssues.length
+            }
+          };
+        }
+        return j;
       }));
     }
     setIsCreateIssueDrawerOpen(false);
@@ -112,10 +166,10 @@ export default function App() {
     report: null
   });
 
-  const activeReportingNewJob = mockReportingNewJobs.find(j => j.id === selectedReportId || j.id === selectedReportingJobId || j.reportId === selectedReportId) || null;
+  const activeReportingNewJob = reportingJobs.find(j => j.id === selectedReportId || j.id === selectedReportingJobId || j.reportId === selectedReportId) || null;
   const selectedReport = activeReportingNewJob || (reports.find(r => r.id === selectedReportId) || reports.find(r => r.id === "REP-2026-006") || reports[0]);
 
-  const selectedReportingJob = mockReportingNewJobs.find(j => j.id === selectedReportingJobId) || null;
+  const selectedReportingJob = reportingJobs.find(j => j.id === selectedReportingJobId) || null;
 
   const handleSelectReport = (reportId) => {
     setSelectedReportId(reportId);
@@ -243,13 +297,17 @@ export default function App() {
         /* INTERACTIVE STUDIOS FOR AUDIT REPORT VS EXECUTIVE SUMMARY REPORT */
         activeWorkOnReportJob.type === 'executive' ? (
           <ExecutiveReportView
-            job={activeWorkOnReportJob.job}
+            job={reportingJobs.find(j => j.id === activeWorkOnReportJob.job.id) || activeWorkOnReportJob.job}
             onClose={() => setActiveWorkOnReportJob(null)}
+            onSwitchToAuditReport={() => setActiveWorkOnReportJob(prev => ({ ...prev, type: 'audit' }))}
           />
         ) : (
           <AuditReportView
-            job={activeWorkOnReportJob.job}
+            job={reportingJobs.find(j => j.id === activeWorkOnReportJob.job.id) || activeWorkOnReportJob.job}
             onClose={() => setActiveWorkOnReportJob(null)}
+            onUpdateIssues={(updatedIssues) => handleUpdateJobIssues(activeWorkOnReportJob.job.id, updatedIssues)}
+            userRole={userRole}
+            onSwitchToExecutiveReport={() => setActiveWorkOnReportJob(prev => ({ ...prev, type: 'executive' }))}
           />
         )
       ) : activeView === 'discussion-points' ? (
@@ -279,6 +337,8 @@ export default function App() {
                 <PlanningView />
               ) : currentPhase === 'reporting' ? (
                 <MyAuditsView
+                  jobs={reportingJobs}
+                  onUpdateJobs={setReportingJobs}
                   selectedJobId={selectedReportingJobId}
                   onSelectJob={handleSelectReportingJob}
                   viewMode={auditQueueViewMode}
@@ -316,7 +376,7 @@ export default function App() {
             {currentPhase === 'reporting' && selectedReportingJob && (
               <ReportingNewDetailDrawer
                 isOpen={!!selectedReportingJob}
-                job={selectedReportingJob}
+                job={reportingJobs.find(j => j.id === selectedReportingJob.id) || selectedReportingJob}
                 userRole={userRole}
                 onClose={handleCloseReportingDrawer}
                 onOpenDiscussionPoints={(job) => {

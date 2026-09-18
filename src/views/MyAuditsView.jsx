@@ -37,6 +37,8 @@ const formatUSDateTime = (dateTimeStr) => {
 };
 
 export default function MyAuditsView({
+  jobs: externalJobs,
+  onUpdateJobs,
   selectedJobId,
   onSelectJob,
   viewMode = 'concept1-edge-to-edge',
@@ -46,7 +48,15 @@ export default function MyAuditsView({
   onWorkOnReport,
   onOpenHistory
 }) {
-  const [jobs, setJobs] = useState(mockReportingNewJobs);
+  const [localJobs, setLocalJobs] = useState(mockReportingNewJobs);
+  const jobs = externalJobs || localJobs;
+  const setJobs = (newJobsOrUpdater) => {
+    if (onUpdateJobs) {
+      onUpdateJobs(newJobsOrUpdater);
+    } else {
+      setLocalJobs(newJobsOrUpdater);
+    }
+  };
 
   // Concept 2 Granular Issue Lineage Tab Filter State
   const [concept2TabFilter, setConcept2TabFilter] = useState('all');
@@ -126,18 +136,23 @@ export default function MyAuditsView({
 
   const canEditIssue = (issueObj) => {
     const { baseRole, domain } = userRoleDetails;
-    // Director and VP have no domain restrictions
+    // Director and VP - all the issue types are editable
     if (baseRole === 'director' || baseRole === 'vp' || domain === 'All') {
       return true;
     }
 
-    // Auditor, Team Co-ordinator, and Manager can only edit issues in their domain
-    const issueDomain = (issueObj.tech || issueObj.function || 'IT').toUpperCase();
-    if (domain.toUpperCase() === 'IT') {
-      return issueDomain === 'IT';
-    } else if (domain.toUpperCase() === 'FINOPS') {
-      return issueDomain === 'FINOPS';
+    // Logic only applicable for Team co-ordinator and Manager
+    if (baseRole === 'team-coordinator' || baseRole === 'manager') {
+      const clean = (issueObj?.function || issueObj?.functionType || issueObj?.tech || 'IT').toString().trim().toLowerCase();
+      const isITIssue = clean === 'it' || clean.startsWith('it') || clean.includes('tech') || clean.includes('cyber') || clean.includes('system');
+
+      if (domain.toUpperCase() === 'IT') {
+        return isITIssue;
+      } else if (domain.toUpperCase() === 'FINOPS') {
+        return !isITIssue;
+      }
     }
+
     return true;
   };
 
