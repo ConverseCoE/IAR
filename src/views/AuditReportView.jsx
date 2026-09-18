@@ -49,13 +49,19 @@ function normalizeIssueForReport(item, job) {
     status = 'In progress TC';
   }
 
-  const auditableEntity = item.auditableEntity || (job?.id ? `MRC-${job.id}-${job.fileName || 'J&J Medical'}` : 'MRC-002960-J&J Medical Austral');
-  let processArea = item.processArea || (func === 'FinOps' ? 'Supply Chain & Operations' : 'Cybersecurity');
-  if (processArea === 'Third_Party_technology') processArea = 'Cybersecurity';
+  const auditableEntity = item.auditableEntity || (job?.id ? `MRC-${job.id}-${job.fileName || 'J&J Medical'}` : 'MRC-004341-GFS SSC Philippines');
+  let processArea = item.processArea || (func === 'FinOps' ? 'Supply Chain & Operations' : 'Global_Access_Management');
+  if (processArea === 'Third_Party_technology') processArea = 'Global_Access_Management';
   if (processArea === 'Supply_Chain_Operations') processArea = 'Supply Chain & Operations';
   const issueCauseType = item.issueCauseType || (func === 'FinOps' ? 'Financial Reconciliation Discrepancy' : 'Operating Effectiveness');
   const soxReportable = item.soxReportable || (crit === 'Critical' || crit === 'Major' ? 'Yes' : 'No');
   const repeatFinding = item.repeatFinding || 'No';
+
+  const accountableContact = item.accountableContact || "Narasimha, Vinay";
+  const agreedRemediationDate = item.agreedRemediationDate || "2026-11-30";
+  const managementResponse = item.managementResponse || "";
+  const reportRef = item.reportRef || (item.id ? parseInt(item.id.replace(/\D/g, ''), 10) : 5) || 5;
+  const accountableFunction = item.accountableFunction || (func === 'IT' ? 'Business IT, Finance' : 'Finance, Operations');
 
   // Realistic fallback descriptions if missing
   const issueNarrative = item.issue || `${item.title}. Testing and telemetry verification identified operational execution and control gaps contrary to standard operating procedures.`;
@@ -67,7 +73,12 @@ function normalizeIssueForReport(item, job) {
     ...item,
     id: item.id || `ISSUE-${Math.floor(100 + Math.random() * 900)}`,
     title: item.title || 'Untitled Audit Finding',
+    reportRef,
     function: func,
+    accountableFunction,
+    accountableContact,
+    agreedRemediationDate,
+    managementResponse,
     tech: item.tech || func,
     functionType: item.functionType || func,
     criticality: crit,
@@ -738,112 +749,242 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
     );
   };
 
-  // Helper to render PDF HTML card for an issue
-  const renderPdfIssueCard = (item) => (
-    <div key={item.id} style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '28px' }}>
-      
-      {/* Grid Box Metadata */}
-      <div style={{
-        border: '1px solid #000000',
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr 1fr',
-        fontSize: '11.5px'
-      }}>
-        {/* Row 1 */}
-        <div style={{ padding: '8px 12px', borderRight: '1px solid #000000', borderBottom: '1px solid #000000' }}>
-          <div style={{ fontWeight: '800', color: '#000000', fontSize: '11px', textTransform: 'uppercase', marginBottom: '4px' }}>
-            Report Ref. -1
-          </div>
-          {renderCriticalityBadge(item.criticality)}
-        </div>
+  // Helper to render PDF HTML card for an issue matching Image 1
+  const renderPdfIssueCard = (item, idx = 0) => {
+    const reportRefNum = item.reportRef || (idx + 1);
+    const critBg = item.criticality === 'Critical' ? '#D8001D' : item.criticality === 'Minor' ? '#008000' : '#FFC000';
+    const critTextColor = item.criticality === 'Critical' ? '#ffffff' : '#000000';
 
-        <div style={{ padding: '8px 12px', borderRight: '1px solid #000000', borderBottom: '1px solid #000000' }}>
-          <div style={{ fontWeight: '800', color: '#000000', fontSize: '11px', textTransform: 'uppercase', marginBottom: '4px' }}>
-            Accountable Function(s):
-          </div>
-          <span style={{ fontWeight: '600', color: '#1E293B' }}>{item.function} / Supply Chain</span>
-        </div>
+    return (
+      <div key={item.id} style={{ display: 'flex', flexDirection: 'column', marginBottom: '22px' }}>
+        <table style={{
+          width: '100%',
+          borderCollapse: 'collapse',
+          fontSize: '11px',
+          border: '1px solid #000000',
+          color: '#000000',
+          fontFamily: 'Arial, Helvetica, sans-serif',
+          tableLayout: 'fixed'
+        }}>
+          <tbody>
+            {/* ROW 1 (3 Columns) */}
+            <tr>
+              {/* Col 1: Report Ref & Boxed Criticality Badge */}
+              <td style={{
+                width: '33.33%',
+                padding: '6px 8px',
+                border: '1px solid #000000',
+                verticalAlign: 'top'
+              }}>
+                <div style={{ fontWeight: '700', fontSize: '11px', color: '#000000', marginBottom: '6px' }}>
+                  Report Ref: {reportRefNum}
+                </div>
+                <div style={{
+                  display: 'inline-block',
+                  backgroundColor: critBg,
+                  color: critTextColor,
+                  fontWeight: '700',
+                  fontSize: '11px',
+                  padding: '4px 20px',
+                  border: '1px solid #000000',
+                  textAlign: 'center'
+                }}>
+                  {item.criticality || 'Major'}
+                </div>
+              </td>
 
-        <div style={{ padding: '8px 12px', borderBottom: '1px solid #000000' }}>
-          <div style={{ fontWeight: '800', color: '#000000', fontSize: '11px', textTransform: 'uppercase', marginBottom: '4px' }}>
-            Process Area
-          </div>
-          <span style={{ fontWeight: '600', color: '#1E293B' }}>{item.processArea}</span>
-        </div>
+              {/* Col 2: Accountable Function(s) */}
+              <td style={{
+                width: '33.33%',
+                padding: '6px 8px',
+                border: '1px solid #000000',
+                verticalAlign: 'top'
+              }}>
+                <div style={{ fontWeight: '700', fontSize: '11px', color: '#000000', marginBottom: '3px' }}>
+                  Accountable Function(s):
+                </div>
+                <div style={{ color: '#000000' }}>
+                  {item.accountableFunction || (item.function === 'IT' ? 'Business IT, Finance' : item.function || 'Business IT, Finance')}
+                </div>
+              </td>
 
-        {/* Row 2 */}
-        <div style={{ padding: '8px 12px', borderRight: '1px solid #000000' }}>
-          <div style={{ fontWeight: '800', color: '#000000', fontSize: '11px', textTransform: 'uppercase', marginBottom: '2px' }}>
-            Repeat Finding
-          </div>
-          <span style={{ fontWeight: '600', color: '#1E293B' }}>{item.repeatFinding}</span>
-        </div>
+              {/* Col 3: Process Area */}
+              <td style={{
+                width: '33.34%',
+                padding: '6px 8px',
+                border: '1px solid #000000',
+                verticalAlign: 'top'
+              }}>
+                <div style={{ fontWeight: '700', fontSize: '11px', color: '#000000', marginBottom: '3px' }}>
+                  Process Area:
+                </div>
+                <div style={{ color: '#000000' }}>
+                  {item.processArea || 'Global_Access_Management'}
+                </div>
+              </td>
+            </tr>
 
-        <div style={{ padding: '8px 12px', borderRight: '1px solid #000000' }}>
-          <div style={{ fontWeight: '800', color: '#000000', fontSize: '11px', textTransform: 'uppercase', marginBottom: '2px' }}>
-            Issue Cause Type
-          </div>
-          <span style={{ fontWeight: '600', color: '#1E293B' }}>{item.issueCauseType}</span>
-        </div>
+            {/* ROW 2 (3 Columns) */}
+            <tr>
+              {/* Col 1: Report Finding */}
+              <td style={{
+                padding: '6px 8px',
+                border: '1px solid #000000',
+                verticalAlign: 'top'
+              }}>
+                <div style={{ fontWeight: '700', fontSize: '11px', color: '#000000', marginBottom: '3px' }}>
+                  Report Finding:
+                </div>
+                <div style={{ color: '#000000' }}>
+                  {item.repeatFinding || 'No'}
+                </div>
+              </td>
 
-        <div style={{ padding: '8px 12px' }}>
-          <div style={{ fontWeight: '800', color: '#000000', fontSize: '11px', textTransform: 'uppercase', marginBottom: '2px' }}>
-            SOX Reportable
-          </div>
-          <span style={{ fontWeight: '600', color: '#1E293B' }}>{item.soxReportable}</span>
-        </div>
+              {/* Col 2: Issue Cause Type */}
+              <td style={{
+                padding: '6px 8px',
+                border: '1px solid #000000',
+                verticalAlign: 'top'
+              }}>
+                <div style={{ fontWeight: '700', fontSize: '11px', color: '#000000', marginBottom: '3px' }}>
+                  Issue Cause Type:
+                </div>
+                <div style={{ color: '#000000' }}>
+                  {item.issueCauseType || 'Operating Effectiveness'}
+                </div>
+              </td>
+
+              {/* Col 3: SOX Reportable */}
+              <td style={{
+                padding: '6px 8px',
+                border: '1px solid #000000',
+                verticalAlign: 'top'
+              }}>
+                <div style={{ fontWeight: '700', fontSize: '11px', color: '#000000', marginBottom: '3px' }}>
+                  SOX Reportable:
+                </div>
+                <div style={{ color: '#000000' }}>
+                  {item.soxReportable || 'No'}
+                </div>
+              </td>
+            </tr>
+
+            {/* ROW 3 (3 Columns: Issue, Root Cause, Impact) */}
+            <tr>
+              {/* Col 1: Issue */}
+              <td style={{
+                padding: '6px 8px',
+                border: '1px solid #000000',
+                verticalAlign: 'top'
+              }}>
+                <div style={{ fontWeight: '700', fontSize: '11px', color: '#000000', marginBottom: '3px' }}>
+                  Issue:
+                </div>
+                <div style={{ fontWeight: '700', color: '#000000', marginBottom: '5px', lineHeight: '1.3' }}>
+                  {item.title}
+                </div>
+                <div style={{ color: '#000000', lineHeight: '1.4', whiteSpace: 'pre-wrap' }}>
+                  {item.issue}
+                </div>
+              </td>
+
+              {/* Col 2: Root Cause */}
+              <td style={{
+                padding: '6px 8px',
+                border: '1px solid #000000',
+                verticalAlign: 'top'
+              }}>
+                <div style={{ fontWeight: '700', fontSize: '11px', color: '#000000', marginBottom: '3px' }}>
+                  Root Cause:
+                </div>
+                <div style={{ color: '#000000', lineHeight: '1.4', whiteSpace: 'pre-wrap' }}>
+                  {item.rootCause}
+                </div>
+              </td>
+
+              {/* Col 3: Impact */}
+              <td style={{
+                padding: '6px 8px',
+                border: '1px solid #000000',
+                verticalAlign: 'top'
+              }}>
+                <div style={{ fontWeight: '700', fontSize: '11px', color: '#000000', marginBottom: '3px' }}>
+                  Impact:
+                </div>
+                <div style={{ color: '#000000', lineHeight: '1.4', whiteSpace: 'pre-wrap' }}>
+                  {item.impact}
+                </div>
+              </td>
+            </tr>
+
+            {/* ROW 4 (2 Columns: Recommendation & Management Response) */}
+            <tr>
+              {/* Col 1: Recommendation (50%) */}
+              <td colSpan={1} style={{
+                width: '50%',
+                padding: '6px 8px',
+                border: '1px solid #000000',
+                verticalAlign: 'top'
+              }}>
+                <div style={{ fontWeight: '700', fontSize: '11px', color: '#000000', marginBottom: '3px' }}>
+                  Recommendation:
+                </div>
+                <div style={{ color: '#000000', lineHeight: '1.4', whiteSpace: 'pre-wrap' }}>
+                  {item.recommendation}
+                </div>
+              </td>
+
+              {/* Col 2: Management Response (50%) */}
+              <td colSpan={2} style={{
+                width: '50%',
+                padding: '6px 8px',
+                border: '1px solid #000000',
+                verticalAlign: 'top'
+              }}>
+                <div style={{ fontWeight: '700', fontSize: '11px', color: '#000000', marginBottom: '3px' }}>
+                  Management Response:
+                </div>
+                <div style={{ color: '#000000', lineHeight: '1.4', whiteSpace: 'pre-wrap' }}>
+                  {item.managementResponse || ''}
+                </div>
+              </td>
+            </tr>
+
+            {/* ROW 5 (2 Columns: Accountable Contact & Agreed Remediation Date) */}
+            <tr>
+              {/* Col 1: Accountable Contact (50%) */}
+              <td colSpan={1} style={{
+                padding: '6px 8px',
+                border: '1px solid #000000',
+                verticalAlign: 'top'
+              }}>
+                <div style={{ fontWeight: '700', fontSize: '11px', color: '#000000', marginBottom: '2px' }}>
+                  Accountable Contact:
+                </div>
+                <div style={{ color: '#000000' }}>
+                  {item.accountableContact || 'Narasimha, Vinay'}
+                </div>
+              </td>
+
+              {/* Col 2: Agreed Remediation Date (50%) */}
+              <td colSpan={2} style={{
+                padding: '6px 8px',
+                border: '1px solid #000000',
+                verticalAlign: 'top'
+              }}>
+                <div style={{ fontWeight: '700', fontSize: '11px', color: '#000000', marginBottom: '2px' }}>
+                  Agreed Remediation Date:
+                </div>
+                <div style={{ color: '#000000' }}>
+                  {item.agreedRemediationDate || ''}
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-
-      {/* 3-Column Issue Content Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '16px', fontSize: '11.5px', lineHeight: '1.5' }}>
-        
-        {/* Column 1: Issue Title & Description */}
-        <div>
-          <h4 style={{ fontSize: '12.5px', fontWeight: '800', color: '#000000', marginBottom: '6px' }}>
-            Issue:
-          </h4>
-          <p style={{ fontWeight: '800', color: '#000000', marginBottom: '6px' }}>
-            {item.title}
-          </p>
-          <p style={{ color: '#1E293B', whiteSpace: 'pre-wrap', margin: 0 }}>
-            {item.issue}
-          </p>
-        </div>
-
-        {/* Column 2: Root Cause */}
-        <div>
-          <h4 style={{ fontSize: '12.5px', fontWeight: '800', color: '#000000', marginBottom: '6px' }}>
-            Root Cause
-          </h4>
-          <p style={{ color: '#1E293B', whiteSpace: 'pre-wrap', margin: 0 }}>
-            {item.rootCause}
-          </p>
-        </div>
-
-        {/* Column 3: Impact */}
-        <div>
-          <h4 style={{ fontSize: '12.5px', fontWeight: '800', color: '#000000', marginBottom: '6px' }}>
-            Impact
-          </h4>
-          <p style={{ color: '#1E293B', whiteSpace: 'pre-wrap', margin: 0 }}>
-            {item.impact}
-          </p>
-        </div>
-
-      </div>
-
-      {/* Recommendation Block */}
-      <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '10px', fontSize: '11.5px' }}>
-        <h4 style={{ fontSize: '12px', fontWeight: '800', color: '#000000', marginBottom: '4px' }}>
-          Recommendation:
-        </h4>
-        <p style={{ color: '#1E293B', whiteSpace: 'pre-wrap', margin: 0, lineHeight: '1.5' }}>
-          {item.recommendation}
-        </p>
-      </div>
-
-    </div>
-  );
+    );
+  };
 
   // Helper to render Locked / Blocked Warning Banner when other user is working (No unlock option)
   const renderLockedBanner = (item) => {
@@ -1642,6 +1783,64 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
             onChange={(e) => handleIssueFieldChange(item.id, 'recommendation', e.target.value)}
             style={textareaBaseStyle}
           />
+        </div>
+
+        {/* Management Response */}
+        <div>
+          <label style={labelStyle}>
+            <span style={{ fontWeight: '700' }}>Management Response</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+              {renderFieldCommentTrigger(item.id, 'managementResponse', 'Management Response', isReadOnly)}
+            </div>
+          </label>
+          <textarea
+            rows={2}
+            disabled={isReadOnly}
+            readOnly={isReadOnly}
+            value={item.managementResponse || ''}
+            placeholder="Enter management response..."
+            onChange={(e) => handleIssueFieldChange(item.id, 'managementResponse', e.target.value)}
+            style={textareaBaseStyle}
+          />
+        </div>
+
+        {/* Accountable Contact & Agreed Remediation Date */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div>
+            <label style={labelStyle}>
+              <span style={{ fontWeight: '700' }}>Accountable Contact</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+              </div>
+            </label>
+            <input
+              type="text"
+              disabled={isReadOnly}
+              readOnly={isReadOnly}
+              value={item.accountableContact || ''}
+              onChange={(e) => handleIssueFieldChange(item.id, 'accountableContact', e.target.value)}
+              style={inputBaseStyle}
+            />
+          </div>
+
+          <div>
+            <label style={labelStyle}>
+              <span style={{ fontWeight: '700' }}>Agreed Remediation Date</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+              </div>
+            </label>
+            <input
+              type="text"
+              disabled={isReadOnly}
+              readOnly={isReadOnly}
+              value={item.agreedRemediationDate || ''}
+              placeholder="YYYY-MM-DD"
+              onChange={(e) => handleIssueFieldChange(item.id, 'agreedRemediationDate', e.target.value)}
+              style={inputBaseStyle}
+            />
+          </div>
         </div>
       </>
     );
@@ -3453,93 +3652,150 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
             </div>
 
             {/* Document Content Canvas */}
-            <div style={{ padding: '32px 36px', color: '#0F172A' }}>
+            <div style={{ padding: '28px 32px', color: '#000000', minHeight: '840px', display: 'flex', flexDirection: 'column' }}>
               
-              {/* Official Brand Logo & Header */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', borderBottom: '2px solid #000000', paddingBottom: '12px', marginBottom: '16px' }}>
+              {/* Brand Header Line (Matching Image 2) */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingBottom: '8px',
+                marginBottom: '8px'
+              }}>
                 <div>
-                  <h1 style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize: '24px', fontWeight: '900', color: '#EA580C', margin: 0 }}>
+                  <div style={{
+                    fontFamily: 'Georgia, serif',
+                    fontStyle: 'italic',
+                    fontSize: '20px',
+                    fontWeight: '900',
+                    color: '#E05252',
+                    letterSpacing: '-0.2px'
+                  }}>
                     Johnson&amp;Johnson
-                  </h1>
+                  </div>
                 </div>
 
                 <div style={{ textAlign: 'center' }}>
-                  <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
-                    Report Details
-                  </h2>
+                  <div style={{
+                    fontSize: '13px',
+                    fontWeight: '800',
+                    color: '#737373',
+                    letterSpacing: '0.4px',
+                    textTransform: 'uppercase'
+                  }}>
+                    REPORT DETAILS
+                  </div>
                 </div>
 
                 <div style={{ textAlign: 'right' }}>
-                  <span style={{ fontSize: '14px', fontWeight: '700', color: '#94A3B8' }}>
+                  <span style={{ fontSize: '12.5px', fontWeight: '700', color: '#737373' }}>
                     Global Audit and Assurance
                   </span>
                 </div>
               </div>
 
-              {/* Auditable Entity */}
-              <div style={{ fontSize: '14px', fontWeight: '800', color: '#000000', marginBottom: '20px' }}>
-                Auditable Entity: <span style={{ fontWeight: '600' }}>{selectedIssue ? selectedIssue.auditableEntity : (issues[0]?.auditableEntity || (job?.id ? `MRC-${job.id}-${job.fileName || 'J&J Medical'}` : "MRC-002960-J&J Medical Austral"))}</span>
+              {/* Auditable Entity Subheader (Matching Image 2) */}
+              <div style={{
+                fontSize: '12px',
+                fontWeight: '800',
+                color: '#000000',
+                marginBottom: '16px'
+              }}>
+                Auditable Entity: <span style={{ fontWeight: '600' }}>{selectedIssue ? selectedIssue.auditableEntity : (issues[0]?.auditableEntity || (job?.id ? `MRC-${job.id}-${job.fileName || 'J&J Medical'}` : "MRC-004341-GFS SSC Philippines"))}</span>
               </div>
 
               {/* Render Selected Issue or All Issues in Sequence */}
-              {issues.length === 0 ? (
-                <div style={{ padding: '60px 20px', textAlign: 'center', color: '#64748B' }}>
-                  <FileText style={{ width: '36px', height: '36px', color: '#94A3B8', margin: '0 auto 10px' }} />
-                  <div style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', marginBottom: '4px' }}>Report Contains 0 Issues</div>
-                  <div style={{ fontSize: '12px' }}>No findings or issues have been recorded for {job?.fileName || 'this audit'}.</div>
-                </div>
-              ) : selectedIssue ? (
-                selectedIssue.isExcluded ? (
-                  <div>
-                    <div style={{
-                      padding: '12px 16px',
-                      marginBottom: '20px',
-                      borderRadius: '6px',
-                      backgroundColor: '#F8FAFC',
-                      border: '1.5px dashed #94A3B8',
-                      color: '#475569',
-                      fontSize: '12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: '8px'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Ban style={{ width: '16px', height: '16px', color: '#64748B' }} />
-                        <span><strong>Notice:</strong> This issue is currently <strong>Excluded</strong> and omitted from the final generated report findings.</span>
+              <div style={{ flex: 1 }}>
+                {issues.length === 0 ? (
+                  <div style={{ padding: '60px 20px', textAlign: 'center', color: '#64748B' }}>
+                    <FileText style={{ width: '36px', height: '36px', color: '#94A3B8', margin: '0 auto 10px' }} />
+                    <div style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', marginBottom: '4px' }}>Report Contains 0 Issues</div>
+                    <div style={{ fontSize: '12px' }}>No findings or issues have been recorded for {job?.fileName || 'this audit'}.</div>
+                  </div>
+                ) : selectedIssue ? (
+                  selectedIssue.isExcluded ? (
+                    <div>
+                      <div style={{
+                        padding: '10px 14px',
+                        marginBottom: '16px',
+                        borderRadius: '6px',
+                        backgroundColor: '#F8FAFC',
+                        border: '1.5px dashed #94A3B8',
+                        color: '#475569',
+                        fontSize: '11.5px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '8px'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Ban style={{ width: '15px', height: '15px', color: '#64748B' }} />
+                          <span><strong>Notice:</strong> This issue is currently <strong>Excluded</strong> and omitted from the final generated report findings.</span>
+                        </div>
+                        <button
+                          onClick={() => handleIncludeIssue(selectedIssue.id)}
+                          style={{
+                            padding: '4px 10px',
+                            fontSize: '11px',
+                            fontWeight: '700',
+                            color: '#ffffff',
+                            backgroundColor: '#059669',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Include in Report
+                        </button>
                       </div>
-                      <button
-                        onClick={() => handleIncludeIssue(selectedIssue.id)}
-                        style={{
-                          padding: '4px 10px',
-                          fontSize: '11px',
-                          fontWeight: '700',
-                          color: '#ffffff',
-                          backgroundColor: '#059669',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Include in Report
-                      </button>
+                      <div style={{ opacity: 0.55 }}>
+                        {renderPdfIssueCard(selectedIssue, issues.findIndex(i => i.id === selectedIssue.id))}
+                      </div>
                     </div>
-                    <div style={{ opacity: 0.55 }}>
-                      {renderPdfIssueCard(selectedIssue)}
-                    </div>
+                  ) : (
+                    renderPdfIssueCard(selectedIssue, issues.findIndex(i => i.id === selectedIssue.id))
+                  )
+                ) : issues.filter(item => !item.isExcluded).length === 0 ? (
+                  <div style={{ padding: '60px 20px', textAlign: 'center', color: '#64748B' }}>
+                    <Ban style={{ width: '36px', height: '36px', color: '#94A3B8', margin: '0 auto 10px' }} />
+                    <div style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', marginBottom: '4px' }}>All Findings Excluded</div>
+                    <div style={{ fontSize: '12px' }}>All findings in this audit are currently marked as excluded and omitted from the report.</div>
                   </div>
                 ) : (
-                  renderPdfIssueCard(selectedIssue)
-                )
-              ) : issues.filter(item => !item.isExcluded).length === 0 ? (
-                <div style={{ padding: '60px 20px', textAlign: 'center', color: '#64748B' }}>
-                  <Ban style={{ width: '36px', height: '36px', color: '#94A3B8', margin: '0 auto 10px' }} />
-                  <div style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', marginBottom: '4px' }}>All Findings Excluded</div>
-                  <div style={{ fontSize: '12px' }}>All findings in this audit are currently marked as excluded and omitted from the report.</div>
+                  issues.filter(item => !item.isExcluded).map((item, idx) => renderPdfIssueCard(item, idx))
+                )}
+              </div>
+
+              {/* Footer Section (Matching Image 3) */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginTop: 'auto',
+                paddingTop: '16px',
+                fontSize: '10px',
+                color: '#555555',
+                position: 'relative'
+              }}>
+                {/* Left: Page Number */}
+                <div style={{ color: '#555555' }}>
+                  Page {selectedIssue ? `${issues.findIndex(i => i.id === selectedIssue.id) + 1} of ${issues.length}` : `1 of ${Math.max(1, issues.length)}`}
                 </div>
-              ) : (
-                issues.filter(item => !item.isExcluded).map(item => renderPdfIssueCard(item))
-              )}
+
+                {/* Center: Confidential Statement */}
+                <div style={{
+                  position: 'absolute',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  textAlign: 'center',
+                  color: '#555555',
+                  fontSize: '10px'
+                }}>
+                  Confidential – Use Pursuant to Company Instructions
+                </div>
+
+                <div></div>
+              </div>
 
             </div>
 
