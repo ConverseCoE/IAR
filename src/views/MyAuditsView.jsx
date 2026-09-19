@@ -58,6 +58,9 @@ export default function MyAuditsView({
     }
   };
 
+  // Primary Category Tab Filter State: 'my-actions' | 'all-associated'
+  const [auditTab, setAuditTab] = useState('my-actions');
+
   // Concept 2 Granular Issue Lineage Tab Filter State
   const [concept2TabFilter, setConcept2TabFilter] = useState('all');
   const [expandedInnerTabs, setExpandedInnerTabs] = useState({});
@@ -369,8 +372,80 @@ export default function MyAuditsView({
     return tech === 'IT' || func === 'IT' || title.includes('firmware') || title.includes('software') || title.includes('sox') || title.includes('telemetry') || title.includes('bluetooth') || title.includes('robotics');
   };
 
-  const getIssueBreakdown = (job) => {
-    const issues = job.issuesList || [];
+  const isIssueNeedingUserAction = (iss, role) => {
+    if (!iss) return false;
+    const { domain, baseRole } = getRoleDetails(role);
+
+    // Completed issues do not require action
+    const statusLower = (iss.status || '').toLowerCase();
+    const levelLower = (iss.currentLevel || '').toLowerCase();
+    if (statusLower === 'completed' || (levelLower.includes('signed off') && baseRole !== 'vp')) {
+      return false;
+    }
+
+    // Domain check (IT vs FinOps)
+    const itIssue = isITIssue(iss);
+    if (domain === 'IT' && !itIssue) return false;
+    if (domain === 'FinOps' && itIssue) return false;
+
+    // Role target check
+    const targetRole = (iss.currentRoleTarget || '').toLowerCase();
+
+    if (baseRole === 'auditor') {
+      return targetRole === 'auditor' ||
+        levelLower.includes('auditor') ||
+        levelLower.includes('draft') ||
+        statusLower === 'drafting' ||
+        statusLower === 'draft';
+    }
+
+    if (baseRole === 'team-coordinator') {
+      return targetRole === 'team-coordinator' ||
+        targetRole === 'tc' ||
+        levelLower.includes('coordinator') ||
+        levelLower.includes('tc') ||
+        statusLower === 'in review' ||
+        statusLower === 'tc review';
+    }
+
+    if (baseRole === 'manager') {
+      return targetRole === 'manager' ||
+        levelLower.includes('manager') ||
+        statusLower.includes('manager review') ||
+        statusLower.includes('pending sign-off');
+    }
+
+    if (baseRole === 'director') {
+      return targetRole === 'director' ||
+        levelLower.includes('director') ||
+        statusLower.includes('director') ||
+        statusLower.includes('in executive review');
+    }
+
+    if (baseRole === 'vp') {
+      return targetRole === 'vp' ||
+        levelLower.includes('vp') ||
+        statusLower.includes('vp review') ||
+        statusLower.includes('pending executive');
+    }
+
+    return targetRole === baseRole;
+  };
+
+  const isAuditNeedingAction = (job, role) => {
+    if (!job) return false;
+    const { baseRole } = getRoleDetails(role);
+    if (baseRole === 'auditor' && (job.status || '').toLowerCase() === 'not started') {
+      return true;
+    }
+    return (job.issuesList || []).some(iss => isIssueNeedingUserAction(iss, role));
+  };
+
+  const getIssueBreakdown = (job, forMyActionsOnly = false) => {
+    let issues = job.issuesList || [];
+    if (forMyActionsOnly || auditTab === 'my-actions') {
+      issues = issues.filter(iss => isIssueNeedingUserAction(iss, userRole));
+    }
 
     // Total
     const total = issues.length;
@@ -410,8 +485,11 @@ export default function MyAuditsView({
     ).length;
   };
 
-  const getCategoryFilteredIssues = (job, categoryTabKey) => {
-    const issues = job.issuesList || [];
+  const getCategoryFilteredIssues = (job, categoryTabKey, onlyMyActions = false) => {
+    let issues = job.issuesList || [];
+    if (onlyMyActions || auditTab === 'my-actions') {
+      issues = issues.filter(iss => isIssueNeedingUserAction(iss, userRole));
+    }
     if (categoryTabKey === 'it') {
       return issues.filter(iss => isITIssue(iss));
     }
@@ -464,9 +542,25 @@ export default function MyAuditsView({
   const pendingWithMeCount = jobs.filter(j => getPersonaAuditState(j, userRole).isPendingWithMe).length;
   const myContributionsCount = jobs.filter(j => getPersonaAuditState(j, userRole).isMyContribution).length;
 
+  // Badges counts for Primary Audit Tabs: 'My Action Audits' vs 'All Associated'
+  const myActionAuditsCount = jobs.filter(j => {
+    if (!includeCompletedAudits && j.status === 'Completed') return false;
+    return isAuditNeedingAction(j, userRole);
+  }).length;
+
+  const allAssociatedAuditsCount = jobs.filter(j => {
+    if (!includeCompletedAudits && j.status === 'Completed') return false;
+    return true;
+  }).length;
+
   // Filter Jobs
   const filteredJobs = jobs.filter(job => {
     if (!includeCompletedAudits && job.status === 'Completed') return false;
+
+    // 1. Primary Category Tab Filter ('my-actions' | 'all-associated')
+    if (auditTab === 'my-actions') {
+      if (!isAuditNeedingAction(job, userRole)) return false;
+    }
 
     if (selectedStatuses.length > 0) {
       const currentSub = getSubStatus(job);
@@ -674,7 +768,112 @@ export default function MyAuditsView({
   return (
     <div className="full-width-queue" style={{ position: 'relative' }}>
 
+      {/* Primary Category Tab Filter Navigation: 'My Action Audits' vs 'All Associated' */}
+      {!fullScreenJobId && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderBottom: '2px solid #E2E8F0',
+          marginBottom: '14px',
+          paddingBottom: '0px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              type="button"
+              onClick={() => setAuditTab('my-actions')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 18px',
+                border: 'none',
+                background: 'none',
+                cursor: 'pointer',
+                fontSize: '13.5px',
+                fontWeight: auditTab === 'my-actions' ? '700' : '600',
+                color: auditTab === 'my-actions' ? '#D8001D' : '#64748B',
+                borderBottom: auditTab === 'my-actions' ? '3px solid #D8001D' : '3px solid transparent',
+                marginBottom: '-2px',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <span>My Action Audits</span>
+              <span style={{
+                fontSize: '11px',
+                fontWeight: '700',
+                padding: '1px 8px',
+                borderRadius: '12px',
+                backgroundColor: auditTab === 'my-actions' ? '#D8001D' : '#E2E8F0',
+                color: auditTab === 'my-actions' ? '#ffffff' : '#475569',
+                transition: 'all 0.15s ease'
+              }}>
+                {myActionAuditsCount}
+              </span>
+            </button>
 
+            <button
+              type="button"
+              onClick={() => setAuditTab('all-associated')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 18px',
+                border: 'none',
+                background: 'none',
+                cursor: 'pointer',
+                fontSize: '13.5px',
+                fontWeight: auditTab === 'all-associated' ? '700' : '600',
+                color: auditTab === 'all-associated' ? '#D8001D' : '#64748B',
+                borderBottom: auditTab === 'all-associated' ? '3px solid #D8001D' : '3px solid transparent',
+                marginBottom: '-2px',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <span>All Associated</span>
+              <span style={{
+                fontSize: '11px',
+                fontWeight: '700',
+                padding: '1px 8px',
+                borderRadius: '12px',
+                backgroundColor: auditTab === 'all-associated' ? '#D8001D' : '#E2E8F0',
+                color: auditTab === 'all-associated' ? '#ffffff' : '#475569',
+                transition: 'all 0.15s ease'
+              }}>
+                {allAssociatedAuditsCount}
+              </span>
+            </button>
+          </div>
+
+          {/* Contextual Persona Description Pill */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontSize: '12px',
+            color: '#64748B',
+            paddingRight: '4px',
+            marginBottom: '4px'
+          }}>
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              backgroundColor: auditTab === 'my-actions' ? '#FEF2F2' : '#F1F5F9',
+              color: auditTab === 'my-actions' ? '#991B1B' : '#475569',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              fontWeight: '600',
+              fontSize: '11.5px',
+              border: `1px solid ${auditTab === 'my-actions' ? '#FECDD3' : '#E2E8F0'}`
+            }}>
+              <span>{auditTab === 'my-actions' ? '⚡' : '📋'}</span>
+              <span>{auditTab === 'my-actions' ? 'Showing audits with issues requiring your action' : 'Showing all audits associated with your team'}</span>
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Slick Single-Row Filter Toolbar */}
       {!fullScreenJobId && (
@@ -1085,7 +1284,7 @@ export default function MyAuditsView({
                     {['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) && (
                       <>
                         <th style={{ textAlign: 'center', padding: '12px 10px', width: '13%', minWidth: '110px' }}>
-                          <span>Total Issues</span>
+                          <span>{auditTab === 'my-actions' ? 'Action Issues' : 'Total Issues'}</span>
                         </th>
                         <th style={{ textAlign: 'center', padding: '12px 10px', width: '13%', minWidth: '110px' }}>
                           <span>In-Progress Issues</span>
@@ -1144,8 +1343,33 @@ export default function MyAuditsView({
                     <tr>
                       <td colSpan={getColSpanCount()} style={{ padding: '48px', textAlign: 'center', color: '#64748B' }}>
                         <Filter style={{ width: '36px', height: '36px', color: '#CBD5E1', margin: '0 auto 8px' }} />
-                        <p style={{ fontWeight: '600', color: '#334155' }}>No reporting jobs matched your filters</p>
-                        <p style={{ fontSize: '11px', color: '#94A3B8' }}>Try clearing your search query or status filters.</p>
+                        <p style={{ fontWeight: '600', color: '#334155' }}>
+                          {auditTab === 'my-actions' ? 'No audits currently requiring your action' : 'No reporting jobs matched your filters'}
+                        </p>
+                        <p style={{ fontSize: '11px', color: '#94A3B8' }}>
+                          {auditTab === 'my-actions'
+                            ? 'You are all caught up! Switch to "All Associated" to view all audits across the team.'
+                            : 'Try clearing your search query or status filters.'}
+                        </p>
+                        {auditTab === 'my-actions' && (
+                          <button
+                            type="button"
+                            onClick={() => setAuditTab('all-associated')}
+                            style={{
+                              marginTop: '12px',
+                              padding: '6px 14px',
+                              backgroundColor: '#ffffff',
+                              border: '1px solid #CBD5E1',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              color: '#1E293B',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Switch to All Associated Audits
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ) : (
@@ -1221,7 +1445,52 @@ export default function MyAuditsView({
                               {/* 4. Report Status / Sub-Status Column */}
                               {(viewMode === 'with-substatus' || ['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode)) && (
                                 <td style={{ padding: '10px 18px' }}>
-                                  {renderSubStatusPill(job)}
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                                    {renderSubStatusPill(job)}
+                                    {(() => {
+                                      const actionCount = (job.issuesList || []).filter(iss => isIssueNeedingUserAction(iss, userRole)).length;
+                                      const isNotStartedAuditor = isAuditor && (job.status || '').toLowerCase() === 'not started';
+                                      if (actionCount > 0) {
+                                        return (
+                                          <span style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            padding: '2px 7px',
+                                            borderRadius: '4px',
+                                            fontSize: '10.5px',
+                                            fontWeight: '700',
+                                            backgroundColor: '#FEF3C7',
+                                            color: '#B45309',
+                                            border: '1px solid #FDE68A'
+                                          }}>
+                                            <span>⚡</span>
+                                            <span>{actionCount} Action {actionCount === 1 ? 'Item' : 'Items'}</span>
+                                          </span>
+                                        );
+                                      }
+                                      if (isNotStartedAuditor) {
+                                        return (
+                                          <span style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            padding: '2px 7px',
+                                            borderRadius: '4px',
+                                            fontSize: '10.5px',
+                                            fontWeight: '700',
+                                            backgroundColor: '#EFF6FF',
+                                            color: '#1D4ED8',
+                                            border: '1px solid #BFDBFE'
+                                          }}>
+                                            <span>⚡</span>
+                                            <span>Drafting Required</span>
+                                          </span>
+                                        );
+                                      }
+                                      return null;
+                                    })()}
+                                  </div>
                                 </td>
                               )}
 
@@ -1646,6 +1915,47 @@ export default function MyAuditsView({
                               >
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
+                                  {/* Contextual Action Banner when in My Action Audits tab */}
+                                  {auditTab === 'my-actions' && (
+                                    <div style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      padding: '8px 14px',
+                                      backgroundColor: '#FFFBEB',
+                                      border: '1px solid #FDE68A',
+                                      borderRadius: '6px',
+                                      fontSize: '12px',
+                                      color: '#92400E'
+                                    }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <AlertCircle style={{ width: '15px', height: '15px', color: '#D97706', flexShrink: 0 }} />
+                                        <span>
+                                          <strong>My Action Audits:</strong> Showing issues requiring your action in this audit.
+                                        </span>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setAuditTab('all-associated');
+                                        }}
+                                        style={{
+                                          background: 'none',
+                                          border: 'none',
+                                          color: '#B45309',
+                                          fontWeight: '700',
+                                          cursor: 'pointer',
+                                          textDecoration: 'underline',
+                                          fontSize: '11.5px',
+                                          padding: 0
+                                        }}
+                                      >
+                                        View all issues in "All Associated" tab →
+                                      </button>
+                                    </div>
+                                  )}
+
                                   {/* Metric Filter Chips Bar (Right above sub-rows) */}
                                   <div style={{
                                     display: 'flex',
@@ -1794,6 +2104,23 @@ export default function MyAuditsView({
                                                       <span style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>
                                                         {iss.title}
                                                       </span>
+                                                      {isIssueNeedingUserAction(iss, userRole) && (
+                                                        <span style={{
+                                                          display: 'inline-flex',
+                                                          alignItems: 'center',
+                                                          gap: '4px',
+                                                          padding: '2px 7px',
+                                                          borderRadius: '4px',
+                                                          fontSize: '10px',
+                                                          fontWeight: '800',
+                                                          backgroundColor: '#FEF3C7',
+                                                          color: '#B45309',
+                                                          border: '1px solid #FDE68A'
+                                                        }}>
+                                                          <span>⚡</span>
+                                                          <span>Your Action</span>
+                                                        </span>
+                                                      )}
                                                     </div>
                                                   </td>
 
@@ -2260,6 +2587,48 @@ export default function MyAuditsView({
                                     </div>
                                   </div>
 
+                                  {/* Contextual Action Banner when in My Action Audits tab */}
+                                  {auditTab === 'my-actions' && (
+                                    <div style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      padding: '8px 14px',
+                                      backgroundColor: '#FFFBEB',
+                                      border: '1px solid #FDE68A',
+                                      borderRadius: '6px',
+                                      margin: '4px 0 6px 38px',
+                                      fontSize: '12px',
+                                      color: '#92400E'
+                                    }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <AlertCircle style={{ width: '15px', height: '15px', color: '#D97706', flexShrink: 0 }} />
+                                        <span>
+                                          <strong>My Action Audits:</strong> Showing issues requiring your action in this audit.
+                                        </span>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setAuditTab('all-associated');
+                                        }}
+                                        style={{
+                                          background: 'none',
+                                          border: 'none',
+                                          color: '#B45309',
+                                          fontWeight: '700',
+                                          cursor: 'pointer',
+                                          textDecoration: 'underline',
+                                          fontSize: '11.5px',
+                                          padding: 0
+                                        }}
+                                      >
+                                        View all issues in "All Associated" tab →
+                                      </button>
+                                    </div>
+                                  )}
+
                                   {/* Category Filter Tabs (All Issues, IT Issues, FinOps Issues, Completed Issues) */}
                                   {(() => {
                                     const bd = getIssueBreakdown(job);
@@ -2381,9 +2750,28 @@ export default function MyAuditsView({
                                             {displayedIssues.map((iss, iIdx) => (
                                               <tr key={iss.id || iIdx} style={{ borderBottom: iIdx === displayedIssues.length - 1 ? 'none' : '1px solid #E2E8F0' }}>
                                                 <td style={{ padding: '12px 14px' }}>
-                                                  <span style={{ fontSize: '13px', fontWeight: '700', color: '#0F172A' }}>
-                                                    {iss.title}
-                                                  </span>
+                                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                    <span style={{ fontSize: '13px', fontWeight: '700', color: '#0F172A' }}>
+                                                      {iss.title}
+                                                    </span>
+                                                    {isIssueNeedingUserAction(iss, userRole) && (
+                                                      <span style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        padding: '2px 7px',
+                                                        borderRadius: '4px',
+                                                        fontSize: '10px',
+                                                        fontWeight: '800',
+                                                        backgroundColor: '#FEF3C7',
+                                                        color: '#B45309',
+                                                        border: '1px solid #FDE68A'
+                                                      }}>
+                                                        <span>⚡</span>
+                                                        <span>Your Action</span>
+                                                      </span>
+                                                    )}
+                                                  </div>
                                                 </td>
                                                 <td style={{ padding: '12px 14px', textAlign: 'center' }}>
                                                   <span style={{
