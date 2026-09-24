@@ -297,8 +297,10 @@ export default function App() {
         /* INTERACTIVE STUDIOS FOR AUDIT REPORT VS EXECUTIVE SUMMARY REPORT */
         activeWorkOnReportJob.type === 'executive' ? (
           <ExecutiveReportView
+            key={`exec-${activeWorkOnReportJob.job.id}-${userRole}`}
             job={reportingJobs.find(j => j.id === activeWorkOnReportJob.job.id) || activeWorkOnReportJob.job}
             onClose={() => setActiveWorkOnReportJob(null)}
+            userRole={userRole}
             onSwitchToAuditReport={() => setActiveWorkOnReportJob(prev => ({ ...prev, type: 'audit' }))}
           />
         ) : (
@@ -321,11 +323,12 @@ export default function App() {
         /* QUEUE TABLE & DRAWER WORKSPACE */
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-          {currentPhase === 'reporting' && activeView === 'queue' && (
+          {/* Title Section (Hidden for now - preserved per request) */}
+          {/* {currentPhase === 'reporting' && activeView === 'queue' && (
             <div className="job-queue-title-banner" style={{ position: 'relative' }}>
               <h2>My Audits</h2>
             </div>
-          )}
+          )} */}
 
           <div className={`workspace-split-container ${isCurrentDrawerOpen ? 'drawer-is-open' : ''}`}>
 

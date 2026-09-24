@@ -776,3 +776,83 @@ table {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* Clean scrollable container with hidden scrollbar track */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+/* Sleek modern custom scrollbar for studio left editor panel */
+.studio-left-panel::-webkit-scrollbar {
+  width: 8px;
+}
+.studio-left-panel::-webkit-scrollbar-track {
+  background: #F1F5F9;
+  border-radius: 4px;
+}
+.studio-left-panel::-webkit-scrollbar-thumb {
+  background: #94A3B8;
+  border-radius: 4px;
+}
+.studio-left-panel::-webkit-scrollbar-thumb:hover {
+  background: #64748B;
+}
+.studio-left-panel {
+  scrollbar-width: thin;
+  scrollbar-color: #94A3B8 #F1F5F9;
+}
+
+/* Prevent wheel event stealing on number inputs in tables */
+.studio-left-panel input[type=number] {
+  -moz-appearance: textfield;
+}
+.studio-left-panel input[type=number]::-webkit-inner-spin-button,
+.studio-left-panel input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Rich text preview formatting */
+.rich-text-preview ul, .rich-text-preview ol {
+  margin: 0;
+  padding-left: 18px;
+}
+.rich-text-preview li {
+  margin-bottom: 3px;
+}
+.rich-text-preview p {
+  margin: 0 0 8px 0;
+  line-height: 1.45;
+}
+.rich-text-preview p:last-child {
+  margin-bottom: 0;
+}
+
+/* Rich text editor contenteditable styling */
+[contenteditable]:empty:before {
+  content: attr(data-placeholder);
+  color: #94A3B8;
+  pointer-events: none;
+  display: block;
+}
+[contenteditable] ul, [contenteditable] ol {
+  margin: 0 0 6px 0;
+  padding-left: 18px;
+}
+[contenteditable] li {
+  margin-bottom: 3px;
+}
+[contenteditable] p {
+  margin: 0 0 8px 0;
+  line-height: 1.5;
+}
+[contenteditable] p:last-child {
+  margin-bottom: 0;
+}

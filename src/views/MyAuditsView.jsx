@@ -130,12 +130,14 @@ export default function MyAuditsView({
     else if (rLower.includes('manager')) baseRole = 'manager';
     else if (rLower.includes('director')) baseRole = 'director';
     else if (rLower.includes('vp')) baseRole = 'vp';
+    else if (rLower.includes('business') || rLower.includes('contact')) baseRole = 'primary-business-contact';
 
     return { domain, baseRole };
   };
 
   const userRoleDetails = getRoleDetails(userRole);
   const isAuditor = userRoleDetails.baseRole === 'auditor';
+  const isBusinessRole = userRoleDetails.baseRole === 'primary-business-contact' || (userRole || '').toLowerCase().includes('business') || (userRole || '').toLowerCase().includes('contact');
 
   const canEditIssue = (issueObj) => {
     const { baseRole, domain } = userRoleDetails;
@@ -293,11 +295,32 @@ export default function MyAuditsView({
     return 'Audit Report In Progress';
   };
 
+  const [summaryConfirmJob, setSummaryConfirmJob] = useState(null);
+
+  const checkIsNotStarted = (job) => {
+    if (!job) return false;
+    return (job.status || '').toLowerCase() === 'not started' ||
+           (job.subStatus || '').toLowerCase() === 'not started' ||
+           (getSubStatus(job) || '').toLowerCase() === 'not started';
+  };
+
+  const handleSummaryReportClick = (job, e) => {
+    if (e) e.stopPropagation();
+    if (checkIsNotStarted(job)) {
+      setSummaryConfirmJob(job);
+    } else {
+      onWorkOnReport && onWorkOnReport(job, 'executive');
+    }
+  };
+
   const getPersonaAuditState = (job, role) => {
     const issues = job.issuesList || [];
     const roleLower = (role || 'manager').toLowerCase();
 
     const pendingIssues = issues.filter(iss => {
+      if (roleLower.includes('business') || roleLower.includes('contact')) {
+        return (iss.status || '').toLowerCase().includes('business') || (iss.currentLevel || '').toLowerCase().includes('business') || (iss.currentRoleTarget || '').toLowerCase().includes('business');
+      }
       if (roleLower === 'auditor') return iss.currentRoleTarget === 'auditor' || iss.status === 'Drafting';
       if (roleLower === 'team-coordinator') return iss.currentRoleTarget === 'team-coordinator' || iss.status === 'In Review';
       if (roleLower === 'manager') return iss.currentRoleTarget === 'manager' || iss.status === 'Manager Review' || iss.status === 'Pending Sign-Off';
@@ -340,10 +363,13 @@ export default function MyAuditsView({
   };
 
   const getPendingWithMeCount = (job) => {
-    return (job.issuesList || []).filter(iss =>
-      (iss.currentRoleTarget || '').toLowerCase() === userRole.toLowerCase() ||
-      (iss.currentLevel || '').toLowerCase().includes(userRole.toLowerCase())
-    ).length;
+    return (job.issuesList || []).filter(iss => {
+      if ((userRole || '').toLowerCase().includes('business') || (userRole || '').toLowerCase().includes('contact')) {
+        return (iss.status || '').toLowerCase().includes('business');
+      }
+      return (iss.currentRoleTarget || '').toLowerCase() === userRole.toLowerCase() ||
+        (iss.currentLevel || '').toLowerCase().includes(userRole.toLowerCase());
+    }).length;
   };
 
   const getExternalContributionsCount = (job) => {
@@ -375,6 +401,14 @@ export default function MyAuditsView({
   const isIssueNeedingUserAction = (iss, role) => {
     if (!iss) return false;
     const { domain, baseRole } = getRoleDetails(role);
+
+    // Business role check: only issues pending with business
+    if (baseRole === 'primary-business-contact' || (role || '').toLowerCase().includes('business') || (role || '').toLowerCase().includes('contact')) {
+      const statusLower = (iss.status || '').toLowerCase();
+      const levelLower = (iss.currentLevel || '').toLowerCase();
+      const targetRole = (iss.currentRoleTarget || '').toLowerCase();
+      return statusLower.includes('business') || levelLower.includes('business') || targetRole.includes('business');
+    }
 
     // Completed issues do not require action
     const statusLower = (iss.status || '').toLowerCase();
@@ -443,7 +477,9 @@ export default function MyAuditsView({
 
   const getIssueBreakdown = (job, forMyActionsOnly = false) => {
     let issues = job.issuesList || [];
-    if (forMyActionsOnly || auditTab === 'my-actions') {
+    if (isBusinessRole) {
+      issues = issues.filter(iss => (iss.status || '').toLowerCase().includes('business'));
+    } else if (forMyActionsOnly || auditTab === 'my-actions') {
       issues = issues.filter(iss => isIssueNeedingUserAction(iss, userRole));
     }
 
@@ -487,6 +523,9 @@ export default function MyAuditsView({
 
   const getCategoryFilteredIssues = (job, categoryTabKey, onlyMyActions = false) => {
     let issues = job.issuesList || [];
+    if (isBusinessRole) {
+      return issues.filter(iss => (iss.status || '').toLowerCase().includes('business'));
+    }
     if (onlyMyActions || auditTab === 'my-actions') {
       issues = issues.filter(iss => isIssueNeedingUserAction(iss, userRole));
     }
@@ -503,7 +542,10 @@ export default function MyAuditsView({
   };
 
   const getFilteredIssuesForInnerTab = (job, innerTabKey) => {
-    const issues = job.issuesList || [];
+    let issues = job.issuesList || [];
+    if (isBusinessRole) {
+      return issues.filter(iss => (iss.status || '').toLowerCase().includes('business'));
+    }
     if (innerTabKey === 'total' || !innerTabKey) return issues;
 
     if (isAuditor) {
@@ -544,21 +586,37 @@ export default function MyAuditsView({
 
   // Badges counts for Primary Audit Tabs: 'My Action Audits' vs 'All Associated'
   const myActionAuditsCount = jobs.filter(j => {
+    if (isBusinessRole) {
+      return (j.issuesList || []).some(iss => (iss.status || '').toLowerCase().includes('business')) ||
+             (j.status || '').toLowerCase().includes('business') ||
+             (j.subStatus || '').toLowerCase().includes('business');
+    }
     if (!includeCompletedAudits && j.status === 'Completed') return false;
     return isAuditNeedingAction(j, userRole);
   }).length;
 
   const allAssociatedAuditsCount = jobs.filter(j => {
+    if (isBusinessRole) {
+      return (j.issuesList || []).some(iss => (iss.status || '').toLowerCase().includes('business')) ||
+             (j.status || '').toLowerCase().includes('business') ||
+             (j.subStatus || '').toLowerCase().includes('business');
+    }
     if (!includeCompletedAudits && j.status === 'Completed') return false;
     return true;
   }).length;
 
   // Filter Jobs
   const filteredJobs = jobs.filter(job => {
+    if (isBusinessRole) {
+      const hasBusinessIssue = (job.issuesList || []).some(iss => (iss.status || '').toLowerCase().includes('business'));
+      const isJobBusiness = (job.status || '').toLowerCase().includes('business') || (job.subStatus || '').toLowerCase().includes('business');
+      if (!hasBusinessIssue && !isJobBusiness) return false;
+    }
+
     if (!includeCompletedAudits && job.status === 'Completed') return false;
 
     // 1. Primary Category Tab Filter ('my-actions' | 'all-associated')
-    if (auditTab === 'my-actions') {
+    if (auditTab === 'my-actions' && !isBusinessRole) {
       if (!isAuditNeedingAction(job, userRole)) return false;
     }
 
@@ -746,7 +804,9 @@ export default function MyAuditsView({
         fontWeight: '700',
         color,
         backgroundColor: bg,
-        border: `1px solid ${border}`
+        border: `1px solid ${border}`,
+        whiteSpace: 'nowrap',
+        flexShrink: 0
       }}>
         {sub}
       </span>
@@ -844,33 +904,6 @@ export default function MyAuditsView({
                 {allAssociatedAuditsCount}
               </span>
             </button>
-          </div>
-
-          {/* Contextual Persona Description Pill */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            fontSize: '12px',
-            color: '#64748B',
-            paddingRight: '4px',
-            marginBottom: '4px'
-          }}>
-            <span style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              backgroundColor: auditTab === 'my-actions' ? '#FEF2F2' : '#F1F5F9',
-              color: auditTab === 'my-actions' ? '#991B1B' : '#475569',
-              padding: '4px 10px',
-              borderRadius: '6px',
-              fontWeight: '600',
-              fontSize: '11.5px',
-              border: `1px solid ${auditTab === 'my-actions' ? '#FECDD3' : '#E2E8F0'}`
-            }}>
-              <span>{auditTab === 'my-actions' ? '⚡' : '📋'}</span>
-              <span>{auditTab === 'my-actions' ? 'Showing audits with issues requiring your action' : 'Showing all audits associated with your team'}</span>
-            </span>
           </div>
         </div>
       )}
@@ -1266,7 +1299,7 @@ export default function MyAuditsView({
 
                     {/* 4. Report Status / Sub-Status */}
                     {(viewMode === 'with-substatus' || ['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode)) && (
-                      <th onClick={() => handleSort('subStatus')} style={{ cursor: 'pointer', width: ['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) ? '20%' : 'auto', minWidth: '170px' }}>
+                      <th onClick={() => handleSort('subStatus')} style={{ cursor: 'pointer', width: ['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) ? '20%' : 'auto', minWidth: '185px' }}>
                         <div className="th-content">
                           <span>{['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) ? 'Report Status' : 'Sub-Status'}</span>
                           <ArrowUpDown className="th-sort-icon" />
@@ -1378,11 +1411,7 @@ export default function MyAuditsView({
                       const isSelected = selectedJobId === job.id;
                       const isExpanded = expandedRowId === job.id;
                       const pState = getPersonaAuditState(job, userRole);
-                      const isExecEligible = [
-                        'Audit Report Completed',
-                        'Executive Report In Progress',
-                        'Executive Report Completed'
-                      ].includes(job.subStatus || (job.status === 'Completed' ? 'Executive Report Completed' : ''));
+                      const isNotStarted = (job.status || '').toLowerCase() === 'not started' || (job.subStatus || '').toLowerCase() === 'not started' || (getSubStatus(job) || '').toLowerCase() === 'not started';
 
                       return (
                         <React.Fragment key={job.id}>
@@ -1444,47 +1473,59 @@ export default function MyAuditsView({
 
                               {/* 4. Report Status / Sub-Status Column */}
                               {(viewMode === 'with-substatus' || ['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode)) && (
-                                <td style={{ padding: '10px 18px' }}>
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                                <td style={{ padding: '8px 18px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
                                     {renderSubStatusPill(job)}
                                     {(() => {
                                       const actionCount = (job.issuesList || []).filter(iss => isIssueNeedingUserAction(iss, userRole)).length;
                                       const isNotStartedAuditor = isAuditor && (job.status || '').toLowerCase() === 'not started';
                                       if (actionCount > 0) {
                                         return (
-                                          <span style={{
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: '4px',
-                                            padding: '2px 7px',
-                                            borderRadius: '4px',
-                                            fontSize: '10.5px',
-                                            fontWeight: '700',
-                                            backgroundColor: '#FEF3C7',
-                                            color: '#B45309',
-                                            border: '1px solid #FDE68A'
-                                          }}>
+                                          <span
+                                            title={`${actionCount} Action ${actionCount === 1 ? 'Item' : 'Items'} Pending`}
+                                            style={{
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              gap: '3px',
+                                              padding: '2px 6px',
+                                              borderRadius: '5px',
+                                              fontSize: '10.5px',
+                                              fontWeight: '700',
+                                              backgroundColor: '#FEF3C7',
+                                              color: '#B45309',
+                                              border: '1px solid #FDE68A',
+                                              whiteSpace: 'nowrap',
+                                              flexShrink: 0,
+                                              cursor: 'default'
+                                            }}
+                                          >
                                             <span>⚡</span>
-                                            <span>{actionCount} Action {actionCount === 1 ? 'Item' : 'Items'}</span>
+                                            <span>{actionCount}</span>
                                           </span>
                                         );
                                       }
                                       if (isNotStartedAuditor) {
                                         return (
-                                          <span style={{
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: '4px',
-                                            padding: '2px 7px',
-                                            borderRadius: '4px',
-                                            fontSize: '10.5px',
-                                            fontWeight: '700',
-                                            backgroundColor: '#EFF6FF',
-                                            color: '#1D4ED8',
-                                            border: '1px solid #BFDBFE'
-                                          }}>
+                                          <span
+                                            title="Drafting Required"
+                                            style={{
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              gap: '3px',
+                                              padding: '2px 6px',
+                                              borderRadius: '5px',
+                                              fontSize: '10.5px',
+                                              fontWeight: '700',
+                                              backgroundColor: '#EFF6FF',
+                                              color: '#1D4ED8',
+                                              border: '1px solid #BFDBFE',
+                                              whiteSpace: 'nowrap',
+                                              flexShrink: 0,
+                                              cursor: 'default'
+                                            }}
+                                          >
                                             <span>⚡</span>
-                                            <span>Drafting Required</span>
+                                            <span>Draft</span>
                                           </span>
                                         );
                                       }
@@ -1703,9 +1744,37 @@ export default function MyAuditsView({
                               {['inline-action', 'persona-lens', 'issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) ? (
                                 <td style={{ padding: '8px 18px', textAlign: 'right', width: '1%', whiteSpace: 'nowrap' }}>
                                   <div className="row-action-buttons" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
-                                    {['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) ? (
+                                    {isBusinessRole ? (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onWorkOnReport && onWorkOnReport(job, 'audit');
+                                        }}
+                                        style={{
+                                          padding: '6px 14px',
+                                          fontSize: '12px',
+                                          fontWeight: '700',
+                                          color: '#ffffff',
+                                          backgroundColor: '#0284C7',
+                                          border: 'none',
+                                          borderRadius: '6px',
+                                          cursor: 'pointer',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '6px',
+                                          boxShadow: '0 2px 4px rgba(2, 132, 199, 0.25)',
+                                          transition: 'all 0.15s ease'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0369A1'}
+                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#0284C7'}
+                                        title="Provide Management Response"
+                                      >
+                                        <MessageSquare style={{ width: '13px', height: '13px' }} />
+                                        <span>Provide Response</span>
+                                      </button>
+                                    ) : ['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) ? (
                                       <>
-                                        {/* 1. Create Issue (Available for ALL Roles) */}
+                                        {/* 1. Create Issue */}
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation();
@@ -1731,8 +1800,8 @@ export default function MyAuditsView({
                                           <span>Issue</span>
                                         </button>
 
-                                        {/* 3. Audit Report (Non-Auditors when status !== Not Started) */}
-                                        {!isAuditor && job.status !== 'Not Started' && (
+                                        {/* 2. Audit Report (Hidden when Report Status is Not Started) */}
+                                        {!isNotStarted && (
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
@@ -1758,76 +1827,72 @@ export default function MyAuditsView({
                                           </button>
                                         )}
 
-                                        {/* 4. Summary Report (Non-Auditors when eligible) */}
-                                        {!isAuditor && isExecEligible && (
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              onWorkOnReport && onWorkOnReport(job, 'executive');
-                                            }}
-                                            style={{
-                                              padding: '5px 10px',
-                                              fontSize: '11.5px',
-                                              fontWeight: '700',
-                                              color: '#4338CA',
-                                              backgroundColor: '#EEF2FF',
-                                              border: '1px solid #C7D2FE',
-                                              borderRadius: '6px',
-                                              cursor: 'pointer',
-                                              display: 'inline-flex',
-                                              alignItems: 'center',
-                                              gap: '5px'
-                                            }}
-                                            title="Open Summary Report"
-                                          >
-                                            <ExternalLink style={{ width: '13px', height: '13px' }} />
-                                            <span>Summary Report</span>
-                                          </button>
-                                        )}
+                                        {/* 3. Summary Report (Always shown) */}
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleSummaryReportClick(job, e);
+                                          }}
+                                          style={{
+                                            padding: '5px 10px',
+                                            fontSize: '11.5px',
+                                            fontWeight: '700',
+                                            color: '#4338CA',
+                                            backgroundColor: '#EEF2FF',
+                                            border: '1px solid #C7D2FE',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '5px'
+                                          }}
+                                          title="Open Summary Report"
+                                        >
+                                          <ExternalLink style={{ width: '13px', height: '13px' }} />
+                                          <span>Summary Report</span>
+                                        </button>
                                       </>
                                     ) : (
                                       <>
-                                        {/* 1. Issues Action - ONLY FOR AUDITOR ROLE */}
-                                        {isAuditor && (
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              if (job.status === 'Not Started') {
-                                                handleOpenCreateForJob(job);
-                                              } else {
-                                                onOpenDiscussionPoints && onOpenDiscussionPoints(job);
-                                              }
-                                            }}
-                                            style={{
-                                              padding: '5px 10px',
-                                              fontSize: '11.5px',
-                                              fontWeight: '700',
-                                              color: '#B45309',
-                                              backgroundColor: '#FFFBEB',
-                                              border: '1px solid #FDE68A',
-                                              borderRadius: '6px',
-                                              cursor: 'pointer',
-                                              display: 'inline-flex',
-                                              alignItems: 'center',
-                                              gap: '5px'
-                                            }}
-                                          >
-                                            {job.status === 'Not Started' ? (
-                                              <>
-                                                <Plus style={{ width: '13px', height: '13px' }} />
-                                                <span>Add Issue</span>
-                                              </>
-                                            ) : (
-                                              <>
-                                                <MessageSquare style={{ width: '13px', height: '13px' }} />
-                                                <span>Issues ({job.discussionPoints?.count || 1})</span>
-                                              </>
-                                            )}
-                                          </button>
-                                        )}
+                                        {/* 1. Issues Action */}
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (isNotStarted) {
+                                              handleOpenCreateForJob(job);
+                                            } else {
+                                              onOpenDiscussionPoints && onOpenDiscussionPoints(job);
+                                            }
+                                          }}
+                                          style={{
+                                            padding: '5px 10px',
+                                            fontSize: '11.5px',
+                                            fontWeight: '700',
+                                            color: '#B45309',
+                                            backgroundColor: '#FFFBEB',
+                                            border: '1px solid #FDE68A',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '5px'
+                                          }}
+                                        >
+                                          {isNotStarted ? (
+                                            <>
+                                              <Plus style={{ width: '13px', height: '13px' }} />
+                                              <span>Add Issue</span>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <MessageSquare style={{ width: '13px', height: '13px' }} />
+                                              <span>Issues ({job.discussionPoints?.count || 1})</span>
+                                            </>
+                                          )}
+                                        </button>
 
-                                        {/* 2. Audit Report Action - ONLY FOR NON-AUDITOR ROLES */}
-                                        {!isAuditor && job.status !== 'Not Started' && (
+                                        {/* 2. Audit Report Action */}
+                                        {!isNotStarted && (
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
@@ -1846,37 +1911,37 @@ export default function MyAuditsView({
                                               alignItems: 'center',
                                               gap: '5px'
                                             }}
+                                            title="Open Audit Report"
                                           >
                                             <PlayCircle style={{ width: '13px', height: '13px' }} />
                                             <span>Audit Report</span>
                                           </button>
                                         )}
 
-                                        {/* 3. Executive Report Action - ONLY FOR NON-AUDITOR ROLES */}
-                                        {!isAuditor && isExecEligible && (
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              onWorkOnReport && onWorkOnReport(job, 'executive');
-                                            }}
-                                            style={{
-                                              padding: '5px 10px',
-                                              fontSize: '11.5px',
-                                              fontWeight: '700',
-                                              color: '#7C3AED',
-                                              backgroundColor: '#F5F3FF',
-                                              border: '1px solid #DDD6FE',
-                                              borderRadius: '6px',
-                                              cursor: 'pointer',
-                                              display: 'inline-flex',
-                                              alignItems: 'center',
-                                              gap: '5px'
-                                            }}
-                                          >
-                                            <ShieldCheck style={{ width: '13px', height: '13px' }} />
-                                            <span>Executive Report</span>
-                                          </button>
-                                        )}
+                                        {/* 3. Summary Report Action */}
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleSummaryReportClick(job, e);
+                                          }}
+                                          style={{
+                                            padding: '5px 10px',
+                                            fontSize: '11.5px',
+                                            fontWeight: '700',
+                                            color: '#4338CA',
+                                            backgroundColor: '#EEF2FF',
+                                            border: '1px solid #C7D2FE',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '5px'
+                                          }}
+                                          title="Open Summary Report"
+                                        >
+                                          <ExternalLink style={{ width: '13px', height: '13px' }} />
+                                          <span>Summary Report</span>
+                                        </button>
                                       </>
                                     )}
                                   </div>
@@ -1915,46 +1980,6 @@ export default function MyAuditsView({
                               >
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
-                                  {/* Contextual Action Banner when in My Action Audits tab */}
-                                  {auditTab === 'my-actions' && (
-                                    <div style={{
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'space-between',
-                                      padding: '8px 14px',
-                                      backgroundColor: '#FFFBEB',
-                                      border: '1px solid #FDE68A',
-                                      borderRadius: '6px',
-                                      fontSize: '12px',
-                                      color: '#92400E'
-                                    }}>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <AlertCircle style={{ width: '15px', height: '15px', color: '#D97706', flexShrink: 0 }} />
-                                        <span>
-                                          <strong>My Action Audits:</strong> Showing issues requiring your action in this audit.
-                                        </span>
-                                      </div>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setAuditTab('all-associated');
-                                        }}
-                                        style={{
-                                          background: 'none',
-                                          border: 'none',
-                                          color: '#B45309',
-                                          fontWeight: '700',
-                                          cursor: 'pointer',
-                                          textDecoration: 'underline',
-                                          fontSize: '11.5px',
-                                          padding: 0
-                                        }}
-                                      >
-                                        View all issues in "All Associated" tab →
-                                      </button>
-                                    </div>
-                                  )}
 
                                   {/* Metric Filter Chips Bar (Right above sub-rows) */}
                                   <div style={{
@@ -2162,7 +2187,34 @@ export default function MyAuditsView({
                                                   {/* 5. Actions */}
                                                   <td style={{ padding: '10px 12px', textAlign: 'right', paddingRight: '16px' }}>
                                                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', justifyContent: 'flex-end' }}>
-                                                      {!canEditIssue(iss) ? (
+                                                      {isBusinessRole ? (
+                                                        <button
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onWorkOnReport && onWorkOnReport(job, 'audit');
+                                                          }}
+                                                          style={{
+                                                            padding: '5px 12px',
+                                                            fontSize: '11px',
+                                                            fontWeight: '700',
+                                                            color: '#ffffff',
+                                                            backgroundColor: '#0284C7',
+                                                            border: 'none',
+                                                            borderRadius: '5px',
+                                                            cursor: 'pointer',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px',
+                                                            boxShadow: '0 2px 4px rgba(2, 132, 199, 0.25)'
+                                                          }}
+                                                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0369A1'}
+                                                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#0284C7'}
+                                                          title="Provide Management Response"
+                                                        >
+                                                          <MessageSquare style={{ width: '12px', height: '12px' }} />
+                                                          <span>Provide Response</span>
+                                                        </button>
+                                                      ) : !canEditIssue(iss) ? (
                                                         <button
                                                           onClick={(e) => handleOpenViewIssueForJob(job, iss, e)}
                                                           style={{
@@ -2463,81 +2515,147 @@ export default function MyAuditsView({
 
                                     {/* Workbench Header Buttons */}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleOpenCreateForJob(job);
-                                        }}
-                                        style={{
-                                          padding: '6px 12px',
-                                          fontSize: '11.5px',
-                                          fontWeight: '700',
-                                          color: '#D8001D',
-                                          backgroundColor: '#FEF2F2',
-                                          border: '1px solid #FECDD3',
-                                          borderRadius: '6px',
-                                          cursor: 'pointer',
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          gap: '5px',
-                                          transition: 'all 0.15s ease'
-                                        }}
-                                        title="Create New Issue"
-                                      >
-                                        <Plus style={{ width: '13px', height: '13px', color: '#D8001D' }} />
-                                        <span>Issue</span>
-                                      </button>
-
-                                      {!isAuditor && job.status !== 'Not Started' && (
+                                      {isBusinessRole ? (
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             onWorkOnReport && onWorkOnReport(job, 'audit');
                                           }}
                                           style={{
-                                            padding: '7px 14px',
+                                            padding: '7px 16px',
                                             fontSize: '12px',
                                             fontWeight: '700',
-                                            color: '#1D4ED8',
-                                            backgroundColor: '#EFF6FF',
-                                            border: '1px solid #BFDBFE',
+                                            color: '#ffffff',
+                                            backgroundColor: '#0284C7',
+                                            border: 'none',
                                             borderRadius: '7px',
                                             cursor: 'pointer',
                                             display: 'flex',
                                             alignItems: 'center',
                                             gap: '6px',
-                                            boxShadow: '0 1px 4px rgba(29, 78, 216, 0.1)'
+                                            boxShadow: '0 2px 4px rgba(2, 132, 199, 0.25)',
+                                            transition: 'all 0.15s ease'
                                           }}
+                                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0369A1'}
+                                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#0284C7'}
+                                          title="Provide Management Response"
                                         >
-                                          <PlayCircle style={{ width: '14px', height: '14px', color: '#1D4ED8' }} />
-                                          <span>Audit Report</span>
+                                          <MessageSquare style={{ width: '14px', height: '14px' }} />
+                                          <span>Provide Response</span>
                                         </button>
-                                      )}
+                                      ) : (
+                                        <>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleOpenCreateForJob(job);
+                                            }}
+                                            style={{
+                                              padding: '6px 12px',
+                                              fontSize: '11.5px',
+                                              fontWeight: '700',
+                                              color: '#D8001D',
+                                              backgroundColor: '#FEF2F2',
+                                              border: '1px solid #FECDD3',
+                                              borderRadius: '6px',
+                                              cursor: 'pointer',
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              gap: '5px',
+                                              transition: 'all 0.15s ease'
+                                            }}
+                                            title="Create New Issue"
+                                          >
+                                            <Plus style={{ width: '13px', height: '13px', color: '#D8001D' }} />
+                                            <span>Issue</span>
+                                          </button>
 
-                                      {!isAuditor && isExecEligible && (
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            onWorkOnReport && onWorkOnReport(job, 'executive');
-                                          }}
-                                          style={{
-                                            padding: '7px 14px',
-                                            fontSize: '12px',
-                                            fontWeight: '700',
-                                            color: '#4338CA',
-                                            backgroundColor: '#EEF2FF',
-                                            border: '1px solid #C7D2FE',
-                                            borderRadius: '7px',
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '6px',
-                                            boxShadow: '0 1px 4px rgba(67, 56, 202, 0.1)'
-                                          }}
-                                        >
-                                          <ExternalLink style={{ width: '14px', height: '14px', color: '#4338CA' }} />
-                                          <span>Executive Summary Report</span>
-                                        </button>
+                                          {auditTab === 'my-actions' && (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setAuditTab('all-associated');
+                                              }}
+                                              style={{
+                                                padding: '7px 14px',
+                                                fontSize: '12px',
+                                                fontWeight: '700',
+                                                color: '#B45309',
+                                                backgroundColor: '#FFFBEB',
+                                                border: '1px solid #FDE68A',
+                                                borderRadius: '7px',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                boxShadow: '0 1px 3px rgba(180, 83, 9, 0.08)',
+                                                transition: 'all 0.15s ease'
+                                              }}
+                                              onMouseEnter={(e) => {
+                                                e.currentTarget.style.backgroundColor = '#FEF3C7';
+                                                e.currentTarget.style.borderColor = '#FCD34D';
+                                              }}
+                                              onMouseLeave={(e) => {
+                                                e.currentTarget.style.backgroundColor = '#FFFBEB';
+                                                e.currentTarget.style.borderColor = '#FDE68A';
+                                              }}
+                                              title="Switch to All Associated tab to view all issues"
+                                            >
+                                              <Eye style={{ width: '14px', height: '14px', color: '#B45309' }} />
+                                              <span>View All Associated</span>
+                                            </button>
+                                          )}
+
+                                          {!isNotStarted && (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                onWorkOnReport && onWorkOnReport(job, 'audit');
+                                              }}
+                                              style={{
+                                                padding: '7px 14px',
+                                                fontSize: '12px',
+                                                fontWeight: '700',
+                                                color: '#1D4ED8',
+                                                backgroundColor: '#EFF6FF',
+                                                border: '1px solid #BFDBFE',
+                                                borderRadius: '7px',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                boxShadow: '0 1px 4px rgba(29, 78, 216, 0.1)'
+                                              }}
+                                            >
+                                              <PlayCircle style={{ width: '14px', height: '14px', color: '#1D4ED8' }} />
+                                              <span>Audit Report</span>
+                                            </button>
+                                          )}
+
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleSummaryReportClick(job, e);
+                                            }}
+                                            style={{
+                                              padding: '7px 14px',
+                                              fontSize: '12px',
+                                              fontWeight: '700',
+                                              color: '#4338CA',
+                                              backgroundColor: '#EEF2FF',
+                                              border: '1px solid #C7D2FE',
+                                              borderRadius: '7px',
+                                              cursor: 'pointer',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              gap: '6px',
+                                              boxShadow: '0 1px 4px rgba(67, 56, 202, 0.1)'
+                                            }}
+                                          >
+                                            <ExternalLink style={{ width: '14px', height: '14px', color: '#4338CA' }} />
+                                            <span>Summary Report</span>
+                                          </button>
+                                        </>
                                       )}
 
                                       {/* Icon-based Button for Full Screen View */}
@@ -2587,47 +2705,6 @@ export default function MyAuditsView({
                                     </div>
                                   </div>
 
-                                  {/* Contextual Action Banner when in My Action Audits tab */}
-                                  {auditTab === 'my-actions' && (
-                                    <div style={{
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'space-between',
-                                      padding: '8px 14px',
-                                      backgroundColor: '#FFFBEB',
-                                      border: '1px solid #FDE68A',
-                                      borderRadius: '6px',
-                                      margin: '4px 0 6px 38px',
-                                      fontSize: '12px',
-                                      color: '#92400E'
-                                    }}>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <AlertCircle style={{ width: '15px', height: '15px', color: '#D97706', flexShrink: 0 }} />
-                                        <span>
-                                          <strong>My Action Audits:</strong> Showing issues requiring your action in this audit.
-                                        </span>
-                                      </div>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setAuditTab('all-associated');
-                                        }}
-                                        style={{
-                                          background: 'none',
-                                          border: 'none',
-                                          color: '#B45309',
-                                          fontWeight: '700',
-                                          cursor: 'pointer',
-                                          textDecoration: 'underline',
-                                          fontSize: '11.5px',
-                                          padding: 0
-                                        }}
-                                      >
-                                        View all issues in "All Associated" tab →
-                                      </button>
-                                    </div>
-                                  )}
 
                                   {/* Category Filter Tabs (All Issues, IT Issues, FinOps Issues, Completed Issues) */}
                                   {(() => {
@@ -2805,7 +2882,34 @@ export default function MyAuditsView({
                                                 </td>
                                                 <td style={{ padding: '12px 14px', textAlign: 'right', paddingRight: '18px' }}>
                                                   <div className="inner-row-action-buttons" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
-                                                    {!canEditIssue(iss) ? (
+                                                    {isBusinessRole ? (
+                                                      <button
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          onWorkOnReport && onWorkOnReport(job, 'audit');
+                                                        }}
+                                                        style={{
+                                                          padding: '5px 12px',
+                                                          fontSize: '11px',
+                                                          fontWeight: '700',
+                                                          color: '#ffffff',
+                                                          backgroundColor: '#0284C7',
+                                                          border: 'none',
+                                                          borderRadius: '5px',
+                                                          cursor: 'pointer',
+                                                          display: 'inline-flex',
+                                                          alignItems: 'center',
+                                                          gap: '4px',
+                                                          boxShadow: '0 2px 4px rgba(2, 132, 199, 0.25)'
+                                                        }}
+                                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0369A1'}
+                                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#0284C7'}
+                                                        title="Provide Management Response"
+                                                      >
+                                                        <MessageSquare style={{ width: '12px', height: '12px' }} />
+                                                        <span>Provide Response</span>
+                                                      </button>
+                                                    ) : !canEditIssue(iss) ? (
                                                       <button
                                                         onClick={(e) => handleOpenViewIssueForJob(job, iss, e)}
                                                         style={{
@@ -3134,8 +3238,44 @@ export default function MyAuditsView({
                                           <span>Issue</span>
                                         </button>
 
-                                        {/* Audit Report Button (Non-Auditor personas when status !== Not Started) */}
-                                        {!isAuditor && job.status !== 'Not Started' && (
+                                        {auditTab === 'my-actions' && (
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setAuditTab('all-associated');
+                                            }}
+                                            style={{
+                                              padding: '7px 14px',
+                                              fontSize: '12px',
+                                              fontWeight: '700',
+                                              color: '#B45309',
+                                              backgroundColor: '#FFFBEB',
+                                              border: '1px solid #FDE68A',
+                                              borderRadius: '7px',
+                                              cursor: 'pointer',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              gap: '6px',
+                                              boxShadow: '0 1px 3px rgba(180, 83, 9, 0.08)',
+                                              transition: 'all 0.15s ease'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                              e.currentTarget.style.backgroundColor = '#FEF3C7';
+                                              e.currentTarget.style.borderColor = '#FCD34D';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                              e.currentTarget.style.backgroundColor = '#FFFBEB';
+                                              e.currentTarget.style.borderColor = '#FDE68A';
+                                            }}
+                                            title="Switch to All Associated tab to view all issues"
+                                          >
+                                            <Eye style={{ width: '14px', height: '14px', color: '#B45309' }} />
+                                            <span>View All Associated</span>
+                                          </button>
+                                        )}
+
+                                        {/* Audit Report Button */}
+                                        {!isNotStarted && (
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
@@ -3157,36 +3297,34 @@ export default function MyAuditsView({
                                             }}
                                           >
                                             <PlayCircle style={{ width: '14px', height: '14px', color: '#1D4ED8' }} />
-                                            <span>Audit Report</span>
+                                            <span>{isBusinessRole ? 'Provide Response' : 'Audit Report'}</span>
                                           </button>
                                         )}
 
-                                        {/* Executive Summary Report Button (Non-Auditor personas when eligible) */}
-                                        {!isAuditor && isExecEligible && (
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              onWorkOnReport && onWorkOnReport(job, 'executive');
-                                            }}
-                                            style={{
-                                              padding: '7px 14px',
-                                              fontSize: '12px',
-                                              fontWeight: '700',
-                                              color: '#4338CA',
-                                              backgroundColor: '#EEF2FF',
-                                              border: '1px solid #C7D2FE',
-                                              borderRadius: '7px',
-                                              cursor: 'pointer',
-                                              display: 'flex',
-                                              alignItems: 'center',
-                                              gap: '6px',
-                                              boxShadow: '0 1px 4px rgba(67, 56, 202, 0.1)'
-                                            }}
-                                          >
-                                            <ExternalLink style={{ width: '14px', height: '14px', color: '#4338CA' }} />
-                                            <span>Executive Summary Report</span>
-                                          </button>
-                                        )}
+                                        {/* Summary Report Button */}
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleSummaryReportClick(job, e);
+                                          }}
+                                          style={{
+                                            padding: '7px 14px',
+                                            fontSize: '12px',
+                                            fontWeight: '700',
+                                            color: '#4338CA',
+                                            backgroundColor: '#EEF2FF',
+                                            border: '1px solid #C7D2FE',
+                                            borderRadius: '7px',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            boxShadow: '0 1px 4px rgba(67, 56, 202, 0.1)'
+                                          }}
+                                        >
+                                          <ExternalLink style={{ width: '14px', height: '14px', color: '#4338CA' }} />
+                                          <span>Summary Report</span>
+                                        </button>
                                       </div>
                                     </div>
 
@@ -3350,7 +3488,34 @@ export default function MyAuditsView({
                                                   <td style={{ padding: '12px 14px', textAlign: 'right' }}>
                                                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
                                                       {/* 1. Edit Issue (Available for Auditor and all roles) */}
-                                                      {!canEditIssue(issue) ? (
+                                                      {isBusinessRole ? (
+                                                        <button
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onWorkOnReport && onWorkOnReport(job, 'audit');
+                                                          }}
+                                                          style={{
+                                                            padding: '5px 12px',
+                                                            fontSize: '11px',
+                                                            fontWeight: '700',
+                                                            color: '#ffffff',
+                                                            backgroundColor: '#0284C7',
+                                                            border: 'none',
+                                                            borderRadius: '6px',
+                                                            cursor: 'pointer',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px',
+                                                            boxShadow: '0 2px 4px rgba(2, 132, 199, 0.25)'
+                                                          }}
+                                                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0369A1'}
+                                                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#0284C7'}
+                                                          title="Provide Management Response"
+                                                        >
+                                                          <MessageSquare style={{ width: '12px', height: '12px' }} />
+                                                          <span>Provide Response</span>
+                                                        </button>
+                                                      ) : !canEditIssue(issue) ? (
                                                         <button
                                                           onClick={(e) => handleOpenViewIssueForJob(job, issue, e)}
                                                           style={{ padding: '5px 9px', fontSize: '11px', fontWeight: '700', color: '#475569', backgroundColor: '#F8FAFC', border: '1px solid #CBD5E1', borderRadius: '6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
@@ -3571,7 +3736,7 @@ export default function MyAuditsView({
                                   </div>
 
                                   {/* Issue Cards Stack */}
-                                  {(job.issuesList || []).map((issue, idx) => (
+                                  {((job.issuesList || []).filter(iss => !isBusinessRole || (iss.status || '').toLowerCase().includes('business'))).map((issue, idx) => (
                                     <div key={issue.id} style={{
                                       backgroundColor: '#ffffff',
                                       borderRadius: '10px',
@@ -3846,8 +4011,8 @@ export default function MyAuditsView({
                                     </div>
                                   )}
 
-                                  {/* Section 2: Audit Report (ONLY FOR NON-AUDITOR ROLES) */}
-                                  {!isAuditor && job.status !== 'Not Started' && (
+                                  {/* Section 2: Audit Report */}
+                                  {!isNotStarted && (
                                     <div style={{
                                       flex: '0 0 auto',
                                       display: 'flex',
@@ -3882,7 +4047,7 @@ export default function MyAuditsView({
                                           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#EFF6FF'}
                                         >
                                           <PlayCircle style={{ width: '13px', height: '13px' }} />
-                                          <span>Work On Report</span>
+                                          <span>{isBusinessRole ? 'Provide Response' : 'Work On Report'}</span>
                                         </button>
                                       </div>
 
@@ -3903,69 +4068,67 @@ export default function MyAuditsView({
                                     </div>
                                   )}
 
-                                  {/* Vertical Separator 2 Flex Wrapper (ONLY FOR NON-AUDITOR ROLES) */}
-                                  {!isAuditor && isExecEligible && job.status !== 'Not Started' && (
+                                  {/* Vertical Separator 2 Flex Wrapper */}
+                                  {!isNotStarted && (
                                     <div style={{ flex: '1 1 0px', minWidth: '32px', display: 'flex', justifyContent: 'center', alignItems: 'stretch' }}>
                                       <div style={{ width: '1px', backgroundColor: '#E2E8F0', alignSelf: 'stretch' }} />
                                     </div>
                                   )}
 
-                                  {/* Section 3: Executive Report (ONLY FOR NON-AUDITOR ROLES) */}
-                                  {!isAuditor && isExecEligible && (
-                                    <div style={{
-                                      flex: '0 0 auto',
-                                      display: 'flex',
-                                      flexDirection: 'column',
-                                      gap: '14px'
-                                    }}>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minHeight: '28px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                                          <ShieldCheck style={{ width: '16px', height: '16px', color: '#D8001D' }} />
-                                          <h4 style={{ fontSize: '14px', fontWeight: '800', color: '#991B1B', margin: 0 }}>Executive Report</h4>
-                                        </div>
-                                        <button
-                                          onClick={() => onWorkOnReport && onWorkOnReport(job, 'executive')}
-                                          style={{
-                                            height: '26px',
-                                            padding: '0 10px',
-                                            fontSize: '11.5px',
-                                            fontWeight: '700',
-                                            color: '#7C3AED',
-                                            backgroundColor: '#F5F3FF',
-                                            border: '1px solid #DDD6FE',
-                                            borderRadius: '6px',
-                                            cursor: 'pointer',
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '4px',
-                                            flexShrink: 0,
-                                            transition: 'all 0.15s ease'
-                                          }}
-                                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#EDE9FE'}
-                                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#F5F3FF'}
-                                        >
-                                          <ShieldCheck style={{ width: '13px', height: '13px' }} />
-                                          <span>Work On Report</span>
-                                        </button>
+                                  {/* Section 3: Executive Report */}
+                                  <div style={{
+                                    flex: '0 0 auto',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '14px'
+                                  }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minHeight: '28px' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                        <ShieldCheck style={{ width: '16px', height: '16px', color: '#D8001D' }} />
+                                        <h4 style={{ fontSize: '14px', fontWeight: '800', color: '#991B1B', margin: 0 }}>Executive Report</h4>
                                       </div>
+                                      <button
+                                        onClick={(e) => handleSummaryReportClick(job, e)}
+                                        style={{
+                                          height: '26px',
+                                          padding: '0 10px',
+                                          fontSize: '11.5px',
+                                          fontWeight: '700',
+                                          color: '#7C3AED',
+                                          backgroundColor: '#F5F3FF',
+                                          border: '1px solid #DDD6FE',
+                                          borderRadius: '6px',
+                                          cursor: 'pointer',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          gap: '4px',
+                                          flexShrink: 0,
+                                          transition: 'all 0.15s ease'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#EDE9FE'}
+                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#F5F3FF'}
+                                      >
+                                        <ExternalLink style={{ width: '13px', height: '13px' }} />
+                                        <span>Summary Report</span>
+                                      </button>
+                                    </div>
 
-                                      <div style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-                                          <span style={{ fontWeight: '600', color: '#64748B', minWidth: '160px', flexShrink: 0 }}>Status:</span>
-                                          <div>{renderSubStatusPill(job)}</div>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-                                          <span style={{ fontWeight: '600', color: '#64748B', minWidth: '160px', flexShrink: 0 }}>Validation Started On:</span>
-                                          <strong style={{ fontWeight: '700', color: '#0F172A' }}>{formatUSDateTime(job.executiveSummaryReport?.validationStartDateTime || '2026-08-01 11:30 AM')}</strong>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-                                          <span style={{ fontWeight: '600', color: '#64748B', minWidth: '160px', flexShrink: 0 }}>Validation Ended On:</span>
-                                          <strong style={{ fontWeight: '700', color: '#0F172A' }}>{formatUSDateTime(job.executiveSummaryReport?.validationEndDateTime || '2026-08-01 02:15 PM')}</strong>
-                                        </div>
+                                    <div style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                                        <span style={{ fontWeight: '600', color: '#64748B', minWidth: '160px', flexShrink: 0 }}>Status:</span>
+                                        <div>{renderSubStatusPill(job)}</div>
+                                      </div>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                                        <span style={{ fontWeight: '600', color: '#64748B', minWidth: '160px', flexShrink: 0 }}>Validation Started On:</span>
+                                        <strong style={{ fontWeight: '700', color: '#0F172A' }}>{formatUSDateTime(job.executiveSummaryReport?.validationStartDateTime || '2026-08-01 11:30 AM')}</strong>
+                                      </div>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                                        <span style={{ fontWeight: '600', color: '#64748B', minWidth: '160px', flexShrink: 0 }}>Validation Ended On:</span>
+                                        <strong style={{ fontWeight: '700', color: '#0F172A' }}>{formatUSDateTime(job.executiveSummaryReport?.validationEndDateTime || '2026-08-01 02:15 PM')}</strong>
                                       </div>
                                     </div>
-                                  )}
+                                  </div>
 
                                 </div>
                               </td>
@@ -4111,7 +4274,35 @@ export default function MyAuditsView({
                   <span>Issue</span>
                 </button>
 
-                {!isAuditor && selectedJobForPanel.status !== 'Not Started' && (
+                {auditTab === 'my-actions' && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setAuditTab('all-associated');
+                    }}
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '11.5px',
+                      fontWeight: '700',
+                      color: '#B45309',
+                      backgroundColor: '#FFFBEB',
+                      border: '1px solid #FDE68A',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      boxShadow: '0 1px 3px rgba(180, 83, 9, 0.08)',
+                      transition: 'all 0.15s ease'
+                    }}
+                    title="Switch to All Associated tab to view all issues"
+                  >
+                    <Eye style={{ width: '13px', height: '13px', color: '#B45309' }} />
+                    <span>View All Associated</span>
+                  </button>
+                )}
+
+                {!((selectedJobForPanel.status || '').toLowerCase() === 'not started' || (selectedJobForPanel.subStatus || '').toLowerCase() === 'not started' || (getSubStatus(selectedJobForPanel) || '').toLowerCase() === 'not started') && (
                   <button
                     onClick={() => onWorkOnReport && onWorkOnReport(selectedJobForPanel, 'audit')}
                     style={{
@@ -4129,35 +4320,29 @@ export default function MyAuditsView({
                     }}
                   >
                     <PlayCircle style={{ width: '13px', height: '13px', color: '#1D4ED8' }} />
-                    <span>Audit Report</span>
+                    <span>{isBusinessRole ? 'Provide Response' : 'Audit Report'}</span>
                   </button>
                 )}
 
-                {!isAuditor && [
-                  'Audit Report Completed',
-                  'Executive Report In Progress',
-                  'Executive Report Completed'
-                ].includes(selectedJobForPanel.subStatus || (selectedJobForPanel.status === 'Completed' ? 'Executive Report Completed' : '')) && (
-                    <button
-                      onClick={() => onWorkOnReport && onWorkOnReport(selectedJobForPanel, 'executive')}
-                      style={{
-                        padding: '6px 12px',
-                        fontSize: '11.5px',
-                        fontWeight: '700',
-                        color: '#4338CA',
-                        backgroundColor: '#EEF2FF',
-                        border: '1px solid #C7D2FE',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '5px'
-                      }}
-                    >
-                      <ExternalLink style={{ width: '13px', height: '13px', color: '#4338CA' }} />
-                      <span>Executive Summary Report</span>
-                    </button>
-                  )}
+                <button
+                  onClick={(e) => handleSummaryReportClick(selectedJobForPanel, e)}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '11.5px',
+                    fontWeight: '700',
+                    color: '#4338CA',
+                    backgroundColor: '#EEF2FF',
+                    border: '1px solid #C7D2FE',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}
+                >
+                  <ExternalLink style={{ width: '13px', height: '13px', color: '#4338CA' }} />
+                  <span>Summary Report</span>
+                </button>
 
                 {/* Icon-based Button for Full Screen View */}
                 <button
@@ -4568,8 +4753,206 @@ export default function MyAuditsView({
         isReadOnly={isViewOnlyDrawerMode}
       />
 
+      {/* Confirmation Dialog: Preparing Summary Report for Not Started Audit */}
+      {summaryConfirmJob && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setSummaryConfirmJob(null)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.55)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px',
+            animation: 'fadeInModal 0.15s ease-out'
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '14px',
+              maxWidth: '480px',
+              width: '100%',
+              boxShadow: '0 20px 40px -8px rgba(15, 23, 42, 0.3), 0 0 0 1px rgba(226, 232, 240, 0.8)',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              animation: 'scaleUpModal 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{
+              padding: '20px 24px 16px 24px',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '14px',
+              borderBottom: '1px solid #F1F5F9'
+            }}>
+              <div style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '10px',
+                backgroundColor: '#EFF6FF',
+                border: '1px solid #BFDBFE',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                <FileText style={{ width: '22px', height: '22px', color: '#1D4ED8' }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{
+                  margin: 0,
+                  fontSize: '16px',
+                  fontWeight: '700',
+                  color: '#0F172A',
+                  lineHeight: '1.3'
+                }}>
+                  Create Summary Report
+                </h3>
+                <p style={{
+                  margin: '4px 0 0 0',
+                  fontSize: '12px',
+                  color: '#64748B',
+                  fontWeight: '500'
+                }}>
+                  {summaryConfirmJob.fileName || summaryConfirmJob.engagement}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSummaryConfirmJob(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: '4px',
+                  color: '#94A3B8',
+                  cursor: 'pointer',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#0F172A'; e.currentTarget.style.backgroundColor = '#F1F5F9'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = '#94A3B8'; e.currentTarget.style.backgroundColor = 'transparent'; }}
+                title="Close"
+              >
+                <X style={{ width: '18px', height: '18px' }} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{
+              padding: '20px 24px',
+              fontSize: '13.5px',
+              color: '#334155',
+              lineHeight: '1.55',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px'
+            }}>
+              <p style={{ margin: 0, fontWeight: '500' }}>
+                No issues are logged in this Engagement. Do you want to start preparing the summary report without issues?
+              </p>
+              <div style={{
+                padding: '10px 14px',
+                backgroundColor: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+                borderRadius: '8px',
+                fontSize: '12px',
+                color: '#64748B',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <AlertCircle style={{ width: '16px', height: '16px', color: '#D97706', flexShrink: 0 }} />
+                <span>You can still add or link issues to this audit at any time later.</span>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{
+              padding: '14px 24px',
+              backgroundColor: '#F8FAFC',
+              borderTop: '1px solid #E2E8F0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: '10px'
+            }}>
+              <button
+                type="button"
+                onClick={() => setSummaryConfirmJob(null)}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  color: '#475569',
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '7px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#F1F5F9'; e.currentTarget.style.borderColor = '#94A3B8'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#ffffff'; e.currentTarget.style.borderColor = '#CBD5E1'; }}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const targetJob = summaryConfirmJob;
+                  setSummaryConfirmJob(null);
+                  onWorkOnReport && onWorkOnReport(targetJob, 'executive');
+                }}
+                style={{
+                  padding: '8px 18px',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  color: '#ffffff',
+                  backgroundColor: '#D8001D',
+                  border: 'none',
+                  borderRadius: '7px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 6px rgba(216, 0, 29, 0.25)',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#B90018'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#D8001D'}
+              >
+                <ExternalLink style={{ width: '14px', height: '14px', color: '#ffffff' }} />
+                <span>Create Summary</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Embedded CSS Keyframes for Animations & Hover Actions */}
       <style>{`
+      @keyframes fadeInModal {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes scaleUpModal {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
+      }
       .table-row-interactive .row-action-buttons {
         opacity: 0;
         visibility: hidden;

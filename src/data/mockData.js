@@ -322,6 +322,48 @@ export const initialReports = [
       execSummaryWorkflow: [{ name: "Exec", status: "Pending", user: "VP Quality", date: "-" }]
     },
     issueIndicator: { count: 0, critical: 0, minor: 0, issues: [] }
+  },
+  {
+    id: "REP-2026-009",
+    fileName: "Acuvue_ContactLens_AutomatedLine_Audit",
+    plant: "Vision Care Limerick",
+    fullName: "Johnson & Johnson Vision Care - Acuvue Automated Line Audit",
+    startDate: "04/30/2026 09:15:00 AM",
+    executionStatus: "In Progress",
+    validationStatus: "In Progress",
+    lastUpdate: "04/30/2026 11:30:00 AM",
+    status: "In Progress",
+    currentQueue: "Manager",
+    itDiscussion: {
+      status: "In Progress",
+      items: [
+        { id: "IT-107", topic: "High-speed Vision Camera Network MTU", status: "Open", priority: "High", assignee: "Rachel Green", notes: "Configure jumbo frames (MTU 9000) on industrial GigE switches." },
+        { id: "IT-108", topic: "Deionized Water IoT Edge Buffering", status: "Open", priority: "Medium", assignee: "Kevin Zhang", notes: "Deploy store-and-forward edge caching on DI water nodes." }
+      ]
+    },
+    finOpsDiscussion: {
+      status: "In Progress",
+      items: [
+        { id: "FO-204", topic: "Blister Saline Pump Dispenser Calibration", status: "In Review", priority: "High", assignee: "Carlos Mendez", notes: "Shorten peristaltic tubing replacement window to 350 operating hours." },
+        { id: "FO-205", topic: "Raw Monomer Storage Temperature Logging", status: "Resolved", priority: "Low", assignee: "Carlos Mendez", notes: "Loading dock roll-up door safety edge sensor realigned." }
+      ]
+    },
+    approvalWorkflows: {
+      itWorkflow: [{ name: "IT Scope", status: "Approved", user: "Rachel Green", date: "04/29/2026" }],
+      finOpsWorkflow: [{ name: "FinOps", status: "Approved", user: "Carlos Mendez", date: "04/30/2026" }],
+      execSummaryWorkflow: [{ name: "Exec", status: "In Progress", user: "Sarah Jenkins", date: "04/30/2026" }]
+    },
+    issueIndicator: {
+      count: 4,
+      critical: 0,
+      minor: 2,
+      issues: [
+        { id: "ISS-901", title: "Automated Lens Inspection Vision Camera Buffer Latency", severity: "Major", status: "Open", date: "04/30/2026" },
+        { id: "ISS-902", title: "Packaging Saline Solution Metering Pump Calibration", severity: "Major", status: "Open", date: "04/30/2026" },
+        { id: "ISS-903", title: "Cleanroom Deionized Water Conductivity Telemetry Log", severity: "Minor", status: "In Review", date: "04/29/2026" },
+        { id: "ISS-904", title: "Raw Monomer Storage Temperature Sensor Calibration", severity: "Minor", status: "Resolved", date: "04/29/2026" }
+      ]
+    }
   }
 ];
 

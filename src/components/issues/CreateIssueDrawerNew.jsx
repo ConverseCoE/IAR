@@ -3,6 +3,8 @@ import {
   X, Sparkles, RefreshCw, MessageSquare, AlertCircle, 
   CheckCircle2, Plus, ArrowRight, ShieldCheck, DollarSign, UserPlus, AlertOctagon, GitCompare, Check, ChevronDown, AlertTriangle, Eye, Wand2, FileText, Minimize2
 } from 'lucide-react';
+import ViolationPdfDrawer from '../common/ViolationPdfDrawer';
+import { parseDescriptionWithViolations } from '../common/DescriptionWithViolations';
 
 // Custom Enterprise SaaS Form Select Dropdown
 function FormSelectDropdown({ label, required, value, onChange, options, placeholder = "Select option...", isMulti = false }) {
@@ -257,6 +259,90 @@ function FormRadioButtonGroup({ label, required, value, onChange, options, fullW
   );
 }
 
+const TEST_PROCEDURE_OPTIONS = [
+  'TP-101: User Access & Authentication Review',
+  'TP-102: Privileged Access Management Verification',
+  'TP-103: Automated Telemetry & Calibration Logging Review',
+  'TP-104: Segregation of Duties & Authorization Matrix',
+  'TP-105: Third-Party Vendor Network Access Deprovisioning',
+  'TP-106: Inventory Scrap & Variance Reconciliation',
+  'TP-107: Cleanroom Environmental HVAC Controls Verification',
+  'TP-108: Change Management & Transport Release Verification',
+  'TP-109: Backup Restoration & Disaster Recovery Testing',
+  'TP-110: GxP Software Validation & Data Integrity Audit'
+];
+
+const ISSUE_TYPE_OPTIONS = [
+  'Operational',
+  'Compliance',
+  'Financial / SOX',
+  'IT / Cybersecurity',
+  'Regulatory / GxP',
+  'Reputational / Strategic'
+];
+
+const ISSUE_SOURCE_OPTIONS = [
+  'Internal Audit',
+  'External Audit (PwC)',
+  'Regulatory Inspection (FDA / ISO)',
+  'Management Self-Identified',
+  'SOX 404 Assessment',
+  'Continuous Automated Monitoring'
+];
+
+const KEY_THEME_OPTIONS = [
+  'Access Governance & Authorization Matrix',
+  'Financial Close & Account Reconciliation',
+  'Manufacturing Telemetry & Calibration Drift',
+  'Third-Party Vendor Risk & Deprovisioning',
+  'Data Integrity, Retention & GxP Archival',
+  'Change Management & Transport Release'
+];
+
+const IT_ASSET_ACCOUNTABLE_SECTOR_OPTIONS = [
+  'Consumer',
+  'CORP',
+  'IM',
+  'ISRM',
+  'MT',
+  'TS'
+];
+
+const IMPACTED_REGION_OPTIONS = [
+  'APAC',
+  'EMEA',
+  'LATAM',
+  'NA'
+];
+
+const IMPACTED_SECTOR_OPTIONS = [
+  'CPC',
+  'GS-NOP',
+  'MED',
+  'NOP',
+  'PHR',
+  'Ortho_Synthes'
+];
+
+const IMPACTED_MRC_OPTIONS = [
+  'MRC-01: Global Supply Chain & Manufacturing Operations',
+  'MRC-02: Commercial Operations & Hospital Distribution',
+  'MRC-03: Research, Clinical Trials & Biopharma Development',
+  'MRC-04: Corporate Shared Services & IT Infrastructure',
+  'MRC-05: Treasury, Capital Planning & Tax Strategy'
+];
+
+const QUARTER_IMPACTED_OPTIONS = [
+  'Q1 2026',
+  'Q2 2026',
+  'Q3 2026',
+  'Q4 2026',
+  'Q1 2025',
+  'Q2 2025',
+  'Q3 2025',
+  'Q4 2025'
+];
+
 export default function CreateIssueDrawerNew({
   isOpen,
   onClose,
@@ -267,18 +353,43 @@ export default function CreateIssueDrawerNew({
 }) {
   // Manual Entry Section State
   const [formData, setFormData] = useState({
-    issueHeader: '',
+    testProcedure: '',
     originalIssue: '',
+    tech: defaultFunction === 'FinOps' ? 'FinOps' : 'Tech',
+    issueHeader: '',
     criticality: 'Major',
-    tech: 'IT',
     soxReportable: 'No',
     primaryContact: '',
     secondaryContact: '',
     repeatFinding: 'No',
     accountableFunction: '',
     issueCauseType: '',
-    processArea: ''
+    processArea: '',
+
+    // Newly Added Additional Fields
+    summaryFinding: '',
+    auditorResponse: '',
+    mitigatingControl: '',
+    exceptionRemedComments: '',
+    issueType: '',
+    issueSource: '',
+    keyTheme: '',
+    technologyRelated: 'No',
+    itAssetAccountableSector: '',
+    impactedRegion: '',
+    impactedSector: '',
+    impactedMrc: '',
+    quarterImpacted: '',
+    salesUsd: '',
+    ibtUsd: '',
+    netIncomeUsd: '',
+    totalAssetsUsd: '',
+    hasExceptionRemedDate: false,
+    exceptionRemedDate: ''
   });
+
+  // Additional Fields Expandable/Collapsible State (default collapsed)
+  const [isAdditionalFieldsOpen, setIsAdditionalFieldsOpen] = useState(false);
 
   // Delegation State
   const [isDelegating, setIsDelegating] = useState(false);
@@ -331,6 +442,15 @@ export default function CreateIssueDrawerNew({
   const [aiSuggestions, setAiSuggestions] = useState({});
   const wandContainerRef = useRef(null);
   const selectionWandRef = useRef(null);
+
+  // Violation Document Side-Drawer State
+  const [selectedViolationDoc, setSelectedViolationDoc] = useState(null);
+  const [isViolationDrawerOpen, setIsViolationDrawerOpen] = useState(false);
+
+  const handleOpenViolationDoc = (violation) => {
+    setSelectedViolationDoc(violation);
+    setIsViolationDrawerOpen(true);
+  };
 
   // Close AI Wand popover menu and floating selection button when clicking anywhere outside
   useEffect(() => {
@@ -561,17 +681,38 @@ export default function CreateIssueDrawerNew({
   useEffect(() => {
     if (initialData) {
       setFormData({
+        testProcedure: initialData.testProcedure || 'TP-103: Automated Telemetry & Calibration Logging Review',
+        originalIssue: initialData.originalIssue || initialData.issue || initialData.description || initialData.header || '',
+        tech: (initialData.tech === 'FinOps' || initialData.functionType === 'FinOps' || initialData.function === 'FinOps') ? 'FinOps' : 'Tech',
         issueHeader: initialData.header || initialData.title || '',
-        originalIssue: initialData.originalIssue || initialData.description || initialData.header || '',
         criticality: initialData.criticality || 'Major',
-        tech: initialData.tech || initialData.functionType || 'IT',
-        soxReportable: initialData.isIssue ? 'Yes' : 'No',
-        primaryContact: initialData.addedBy ? `${initialData.addedBy} (IT Lead)` : '',
-        secondaryContact: initialData.lastUpdatedBy ? `${initialData.lastUpdatedBy} (IT Audit)` : '',
-        repeatFinding: 'No',
-        accountableFunction: initialData.functionType || defaultFunction,
-        issueCauseType: 'Automated Sensor Calibration Drift',
-        processArea: 'Catheter Line 3 Electrophysiology'
+        soxReportable: initialData.soxReportable || (initialData.isIssue ? 'Yes' : 'No'),
+        primaryContact: initialData.primaryContact || (initialData.accountableContact ? `${initialData.accountableContact} (IT Lead)` : (initialData.addedBy ? `${initialData.addedBy} (IT Lead)` : '')),
+        secondaryContact: initialData.secondaryContact || (initialData.lastUpdatedBy ? `${initialData.lastUpdatedBy} (IT Audit)` : ''),
+        repeatFinding: initialData.repeatFinding || 'No',
+        accountableFunction: initialData.accountableFunction || initialData.functionType || defaultFunction,
+        issueCauseType: initialData.issueCauseType || 'Automated Sensor Calibration Drift',
+        processArea: initialData.processArea || 'Catheter Line 3 Electrophysiology',
+
+        summaryFinding: initialData.summaryFinding || '',
+        auditorResponse: initialData.auditorResponse || '',
+        mitigatingControl: initialData.mitigatingControl || '',
+        exceptionRemedComments: initialData.exceptionRemedComments || '',
+        issueType: initialData.issueType || 'Compliance',
+        issueSource: initialData.issueSource || 'Internal Audit',
+        keyTheme: initialData.keyTheme || 'Access Governance & Authorization Matrix',
+        technologyRelated: initialData.technologyRelated || 'Yes',
+        itAssetAccountableSector: initialData.itAssetAccountableSector || 'MT',
+        impactedRegion: initialData.impactedRegion || 'NA',
+        impactedSector: initialData.impactedSector || 'MED',
+        impactedMrc: initialData.impactedMrc || initialData.auditableEntity || 'MRC-01: Global Supply Chain & Manufacturing Operations',
+        quarterImpacted: initialData.quarterImpacted || 'Q1 2026',
+        salesUsd: initialData.salesUsd || '$1,200,000',
+        ibtUsd: initialData.ibtUsd || '$350,000',
+        netIncomeUsd: initialData.netIncomeUsd || '$280,000',
+        totalAssetsUsd: initialData.totalAssetsUsd || '$4,500,000',
+        hasExceptionRemedDate: initialData.hasExceptionRemedDate !== undefined ? !!initialData.hasExceptionRemedDate : !!(initialData.exceptionRemedDate || initialData.agreedRemediationDate),
+        exceptionRemedDate: initialData.exceptionRemedDate || initialData.agreedRemediationDate || ''
       });
 
       setIsIssueStatus(!!initialData.isIssue);
@@ -582,7 +723,7 @@ export default function CreateIssueDrawerNew({
         updatedIssueHeader: initialData.header || initialData.title || '',
         rootCause: `Systemic telemetry drift identified in Catheter Line 3 Electrophysiology due to Automated Sensor Calibration Drift. Secondary thermal excursions caused optic sensor gain calibration offsets over 72 hours of continuous batch runs.`,
         impact: `Potential delay in batch release and risk of $120,000 material scrap variance under ${initialData.criticality || 'Major'} criticality level.`,
-        description: initialData.description || '',
+        description: initialData.description || initialData.issue || '',
         recommendation: `1. Implement automated SHA-256 integrity checksum log verification across process area.\n2. Enforce mandatory multi-factor authentication (MFA) approval policies for sensor recalibration overrides.\n3. Upgrade optic sensor firmware to v4.2 to enable automatic temperature drift compensation.`
       };
 
@@ -598,18 +739,40 @@ export default function CreateIssueDrawerNew({
       setPreviousAiData(null);
       setIsComparing(false);
       setFormData({
-        issueHeader: '',
+        testProcedure: '',
         originalIssue: '',
+        tech: defaultFunction === 'FinOps' ? 'FinOps' : 'Tech',
+        issueHeader: '',
         criticality: 'Major',
-        tech: 'IT',
         soxReportable: 'No',
         primaryContact: '',
         secondaryContact: '',
         repeatFinding: 'No',
         accountableFunction: '',
         issueCauseType: '',
-        processArea: ''
+        processArea: '',
+
+        summaryFinding: '',
+        auditorResponse: '',
+        mitigatingControl: '',
+        exceptionRemedComments: '',
+        issueType: '',
+        issueSource: '',
+        keyTheme: '',
+        technologyRelated: 'No',
+        itAssetAccountableSector: '',
+        impactedRegion: '',
+        impactedSector: '',
+        impactedMrc: '',
+        quarterImpacted: '',
+        salesUsd: '',
+        ibtUsd: '',
+        netIncomeUsd: '',
+        totalAssetsUsd: '',
+        hasExceptionRemedDate: false,
+        exceptionRemedDate: ''
       });
+      setIsAdditionalFieldsOpen(false);
       setAiData({ updatedIssueHeader: '', rootCause: '', impact: '', description: '', recommendation: '' });
       setRemarks({ updatedIssueHeader: '', rootCause: '', impact: '', description: '', recommendation: '' });
       setActiveRemarkField(null);
@@ -623,6 +786,16 @@ export default function CreateIssueDrawerNew({
   };
 
   const handleGenerateAi = () => {
+    if (!formData.testProcedure) {
+      alert("Please select a Test Procedure before generating AI fields.");
+      return;
+    }
+    if (!formData.originalIssue || !formData.originalIssue.trim()) {
+      alert("Please enter the Original Issue before generating AI fields.");
+      return;
+    }
+    const currentFunction = formData.tech || defaultFunction || 'Tech';
+
     let currentPrev = null;
     if (isAiGenerated && (aiData.updatedIssueHeader || aiData.rootCause)) {
       currentPrev = { ...aiData };
@@ -632,12 +805,18 @@ export default function CreateIssueDrawerNew({
 
     setTimeout(() => {
       setIsAiLoading(false);
+      const testProcName = formData.testProcedure.includes(':') 
+        ? formData.testProcedure.split(':')[1].trim() 
+        : formData.testProcedure;
+
       const newVersion = {
-        updatedIssueHeader: formData.issueHeader ? `AI Refined v2: ${formData.issueHeader}` : `AI Refined Finding v2 in ${formData.processArea || 'System'}`,
-        rootCause: `Enhanced Root Cause Analysis: Systemic telemetry & gain offset in ${formData.processArea || 'production line'} exacerbated by legacy control override parameters under ${formData.tech || 'IT'} scope.`,
-        impact: `Escalated operational risk variance: Criticality level ${formData.criticality || 'Major'} with high potential compliance excursion impact.`,
-        description: formData.originalIssue ? `AI Synthesized v2: ${formData.originalIssue}` : `Detailed AI synthesized observation v2 for ${formData.processArea || 'process area'}.`,
-        recommendation: `1. Enforce automated SHA-256 log checksums across process area.\n2. Mandate MFA override approval for ${formData.accountableFunction || 'Tech Lead'}.\n3. Schedule quarterly recalibration audits.`
+        updatedIssueHeader: formData.originalIssue 
+          ? `AI Refined: ${testProcName} - ${formData.processArea || 'Compliance Exception'}`
+          : `AI Refined: ${testProcName}`,
+        rootCause: `Enhanced Root Cause Analysis: Systemic telemetry & gain offset in ${formData.processArea || 'production line'} related to ${testProcName}, exacerbated under ${currentFunction} scope.`,
+        impact: `Escalated operational risk variance: Criticality level ${formData.criticality || 'Major'} with potential compliance and delivery timeline excursion impact.`,
+        description: `${formData.originalIssue || `An application security assessment for the ${testProcName} environment had not been completed at the time of review.`}\n\nViolation Reference\nNon-Compliant with some of the sections of IAPP:\n1. S-15 Section No. [2] - Security Assessment for COTS Systems/Applications — Security assessment not completed for the environment\n2. S-15 Section No. [11] - ISRM Approval Prior to Production — ISRM approval lacking due to missing assessment\n3. S-15 Section No. [4.18] - Periodic Application Architecture/Code/Config Assessment — No periodic assessment of architecture, code, configuration`,
+        recommendation: `1. Enforce automated verification protocols for ${testProcName}.\n2. Mandate MFA override approval for ${formData.accountableFunction || currentFunction || 'Tech Lead'}.\n3. Schedule periodic compliance reconciliation audits.`
       };
 
       if (isAiGenerated && currentPrev) {
@@ -672,18 +851,19 @@ export default function CreateIssueDrawerNew({
   };
 
   const handleSave = () => {
-    if (!formData.issueHeader.trim()) {
-      alert("Please enter an Issue Header before saving.");
+    if (!formData.testProcedure) {
+      alert("Please select a Test Procedure before saving.");
       return;
     }
-    if (!formData.originalIssue.trim()) {
+    if (!formData.originalIssue || !formData.originalIssue.trim()) {
       alert("Please enter the Original Issue before saving.");
       return;
     }
-    if (!formData.tech) {
-      alert("Please select Tech (IT or FinOps) before saving.");
-      return;
-    }
+
+    const currentFunction = formData.tech || defaultFunction || 'Tech';
+    const testProcName = formData.testProcedure.includes(':') 
+      ? formData.testProcedure.split(':')[1].trim() 
+      : formData.testProcedure;
 
     const savedPoint = {
       id: initialData ? initialData.id : `${Date.now().toString().slice(-3)}`,
@@ -691,17 +871,38 @@ export default function CreateIssueDrawerNew({
       reportId: "REP-2026-006",
       fileName: "BiosenseWebster_Catheters_Audit",
       rowNum: initialData ? initialData.rowNum : Date.now(),
-      header: aiData.updatedIssueHeader || formData.issueHeader,
-      title: aiData.updatedIssueHeader || formData.issueHeader,
-      criticality: formData.criticality,
-      tech: formData.tech,
-      functionType: formData.accountableFunction,
+      testProcedure: formData.testProcedure,
+      header: aiData.updatedIssueHeader || formData.issueHeader || testProcName,
+      title: aiData.updatedIssueHeader || formData.issueHeader || testProcName,
+      criticality: formData.criticality || 'Major',
+      tech: currentFunction,
+      functionType: formData.accountableFunction || currentFunction,
       description: aiData.description || formData.originalIssue || "No description provided.",
-      addedBy: delegatedTo || formData.primaryContact.split(' ')[0] || "Kevin Zhang",
+      addedBy: delegatedTo || (formData.primaryContact ? formData.primaryContact.split(' ')[0] : "Kevin Zhang"),
       lastUpdatedBy: "Kevin Zhang",
       status: initialData ? initialData.status : "Manager Pending",
       isIssue: true,
-      delegatedTo: delegatedTo
+      delegatedTo: delegatedTo,
+
+      summaryFinding: formData.summaryFinding,
+      auditorResponse: formData.auditorResponse,
+      mitigatingControl: formData.mitigatingControl,
+      exceptionRemedComments: formData.exceptionRemedComments,
+      issueType: formData.issueType,
+      issueSource: formData.issueSource,
+      keyTheme: formData.keyTheme,
+      technologyRelated: formData.technologyRelated,
+      itAssetAccountableSector: formData.itAssetAccountableSector,
+      impactedRegion: formData.impactedRegion,
+      impactedSector: formData.impactedSector,
+      impactedMrc: formData.impactedMrc,
+      quarterImpacted: formData.quarterImpacted,
+      salesUsd: formData.salesUsd,
+      ibtUsd: formData.ibtUsd,
+      netIncomeUsd: formData.netIncomeUsd,
+      totalAssetsUsd: formData.totalAssetsUsd,
+      hasExceptionRemedDate: formData.hasExceptionRemedDate,
+      exceptionRemedDate: formData.exceptionRemedDate
     };
 
     onSaveDiscussionPoint(savedPoint);
@@ -830,216 +1031,510 @@ export default function CreateIssueDrawerNew({
             {!isComparing && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 
-                {/* Row 1: Issue Header */}
+                {/* Field 1: Test Procedure (Dropdown, Mandatory) */}
                 <div>
-                  <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '6px' }}>
-                    Issue Header <span style={{ color: '#D8001D' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.issueHeader}
-                    onChange={(e) => handleChange('issueHeader', e.target.value)}
-                    placeholder="Enter issue header..."
-                    style={{ width: '100%', height: '38px', padding: '0 12px', fontSize: '12.5px', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none' }}
+                  <FormSelectDropdown
+                    label="Test Procedure"
+                    required={true}
+                    value={formData.testProcedure}
+                    onChange={(val) => handleChange('testProcedure', val)}
+                    options={TEST_PROCEDURE_OPTIONS}
+                    placeholder="Select Test Procedure..."
                   />
                 </div>
 
-                {/* Row 2: Original Issue (Multiline Textarea) */}
+                {/* Field 2: Original Issue (Multiline Textarea, Mandatory) */}
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '6px' }}>
                     Original Issue <span style={{ color: '#D8001D' }}>*</span>
                   </label>
                   <textarea
-                    rows={3}
+                    rows={4}
                     value={formData.originalIssue}
                     onChange={(e) => handleChange('originalIssue', e.target.value)}
                     placeholder="Enter original finding text..."
-                    style={{ width: '100%', padding: '10px 12px', fontSize: '12.5px', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none', fontFamily: 'inherit', resize: 'vertical' }}
+                    style={{ 
+                      width: '100%', 
+                      boxSizing: 'border-box',
+                      padding: '10px 12px', 
+                      fontSize: '12.5px', 
+                      borderRadius: '6px', 
+                      border: '1px solid #CBD5E1', 
+                      outline: 'none', 
+                      fontFamily: 'inherit', 
+                      resize: 'vertical',
+                      lineHeight: '1.5'
+                    }}
                   />
                 </div>
 
-                {/* Row 3: Criticality (Radio Selection: Critical, Major, Minor) */}
+                {/* Toggle: "+ Additional Fields" Label */}
                 <div>
-                  <FormRadioButtonGroup
-                    label="Criticality"
-                    required={false}
-                    value={formData.criticality}
-                    onChange={(val) => handleChange('criticality', val)}
-                    options={['Critical', 'Major', 'Minor']}
-                    fullWidth={true}
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsAdditionalFieldsOpen(!isAdditionalFieldsOpen)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      color: '#2563EB',
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      outline: 'none',
+                      userSelect: 'none'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = '#1D4ED8';
+                      e.currentTarget.style.textDecoration = 'underline';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = '#2563EB';
+                      e.currentTarget.style.textDecoration = 'none';
+                    }}
+                  >
+                    <span style={{ fontSize: '15px', fontWeight: '800', lineHeight: 1 }}>
+                      {isAdditionalFieldsOpen ? '−' : '+'}
+                    </span>
+                    <span>Additional Fields</span>
+                  </button>
                 </div>
 
-                {/* Row 4: Repeat Finding & SOX Reportable (Radio: Yes / No) */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
-                  <div>
-                    <FormRadioButtonGroup
-                      label="Repeat Finding"
-                      required={false}
-                      value={formData.repeatFinding}
-                      onChange={(val) => handleChange('repeatFinding', val)}
-                      options={['No', 'Yes']}
-                    />
-                  </div>
-
-                  <div>
-                    <FormRadioButtonGroup
-                      label="SOX Reportable"
-                      required={false}
-                      value={formData.soxReportable}
-                      onChange={(val) => handleChange('soxReportable', val)}
-                      options={['No', 'Yes']}
-                    />
-                  </div>
-                </div>
-
-                {/* Row 5: Tech (Radio: IT, FinOps) & Accountable Function */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
-                  <div>
-                    <FormRadioButtonGroup
-                      label="Tech"
-                      required={true}
-                      value={formData.tech}
-                      onChange={(val) => handleChange('tech', val)}
-                      options={['IT', 'FinOps']}
-                    />
-                  </div>
-
-                  <div>
-                    <FormSelectDropdown
-                      label="Accountable Function"
-                      required={false}
-                      value={formData.accountableFunction}
-                      onChange={(val) => handleChange('accountableFunction', val)}
-                      options={['IT', 'FinOps']}
-                      placeholder="Select Function..."
-                    />
-                  </div>
-                </div>
-
-                {/* Row 6: Process Area & Issue Cause Type */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
-                  <div>
-                    <FormSelectDropdown
-                      label="Process Area"
-                      required={false}
-                      value={formData.processArea}
-                      onChange={(val) => handleChange('processArea', val)}
-                      options={[
-                        'Catheter Line 3 Electrophysiology',
-                        'Cleanroom HVAC Unit 4',
-                        'Packaging & Sterilization Unit',
-                        'Optic Sensor Calibration',
-                        'GxP Software Access Control'
-                      ]}
-                      placeholder="Select Process Area..."
-                    />
-                  </div>
-
-                  <div>
-                    <FormSelectDropdown
-                      label="Issue Cause Type"
-                      required={false}
-                      value={formData.issueCauseType}
-                      onChange={(val) => handleChange('issueCauseType', val)}
-                      options={[
-                        'Automated Sensor Calibration Drift',
-                        'Manual Data Entry Excursion',
-                        'Firmware Integrity Checksum Error',
-                        'Cleanroom HVAC Environmental Excursion',
-                        'System Access Control Failure'
-                      ]}
-                      placeholder="Select Cause Type..."
-                    />
-                  </div>
-                </div>
-
-                {/* Row 7: Primary Business Contact & Secondary Contact (Optional) */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', margin: 0 }}>
-                        Primary Business Contact
-                      </label>
-
-                      {initialData && (
-                        <button
-                          onClick={() => setIsDelegating(!isDelegating)}
-                          style={{
-                            fontSize: '11px',
-                            fontWeight: '700',
-                            color: '#2563EB',
-                            backgroundColor: '#EFF6FF',
-                            border: '1px solid #BFDBFE',
-                            borderRadius: '4px',
-                            padding: '2px 8px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}
-                        >
-                          <UserPlus style={{ width: '12px', height: '12px' }} />
-                          <span>{isDelegating ? "Cancel Delegate" : "Delegate"}</span>
-                        </button>
-                      )}
+                {/* Additional Fields (Shown directly in the flow without any container/wrappers) */}
+                {isAdditionalFieldsOpen && (
+                  <>
+                    {/* Row: Criticality (Radio: Critical, Major, Minor - Non-mandatory) */}
+                    <div>
+                      <FormRadioButtonGroup
+                        label="Criticality"
+                        required={false}
+                        value={formData.criticality}
+                        onChange={(val) => handleChange('criticality', val)}
+                        options={['Critical', 'Major', 'Minor']}
+                        fullWidth={true}
+                      />
                     </div>
 
-                    <FormSelectDropdown
-                      value={formData.primaryContact}
-                      onChange={(val) => handleChange('primaryContact', val)}
-                      options={[
-                        'Kevin Zhang (IT Lead)',
-                        'Rachel Green (FinOps Lead)',
-                        'Marcus Vance (Quality Audit)',
-                        'Sarah Jenkins (Compliance)'
-                      ]}
-                      placeholder="Select Primary Contact..."
-                    />
-
-                    {isDelegating && (
-                      <div style={{ marginTop: '8px', padding: '8px 10px', backgroundColor: '#EFF6FF', border: '1px dashed #60A5FA', borderRadius: '6px' }}>
-                        <FormSelectDropdown
-                          label="Delegate To (User Name / Email)"
-                          value={delegatedTo}
-                          onChange={(val) => setDelegatedTo(val)}
-                          options={[
-                            'Dr. Alexander Wright (Compliance Director)',
-                            'Elena Rostova (Lead Quality Auditor)',
-                            'Michael Chang (VP FinOps)'
-                          ]}
-                          placeholder="Select Delegation Target..."
+                    {/* Row: Repeat Finding & SOX Reportable (Non-mandatory) */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
+                      <div>
+                        <FormRadioButtonGroup
+                          label="Repeat Finding"
+                          required={false}
+                          value={formData.repeatFinding}
+                          onChange={(val) => handleChange('repeatFinding', val)}
+                          options={['No', 'Yes']}
                         />
                       </div>
-                    )}
 
-                    {delegatedTo && !isDelegating && (
-                      <span style={{ fontSize: '11px', color: '#059669', fontWeight: '700', display: 'block', marginTop: '4px' }}>
-                        ✓ Delegated to: {delegatedTo}
-                      </span>
-                    )}
-                  </div>
+                      <div>
+                        <FormRadioButtonGroup
+                          label="SOX Reportable"
+                          required={false}
+                          value={formData.soxReportable}
+                          onChange={(val) => handleChange('soxReportable', val)}
+                          options={['No', 'Yes']}
+                        />
+                      </div>
+                    </div>
 
-                  <div>
-                    <FormSelectDropdown
-                      label="Secondary Business Contact"
-                      isMulti={true}
-                      value={formData.secondaryContact}
-                      onChange={(val) => handleChange('secondaryContact', val)}
-                      options={[
-                        'David Miller (IT Audit)',
-                        'Amanda Palmer (FinOps Lead)',
-                        'Brian Cox (Executive VP)',
-                        'None'
-                      ]}
-                      placeholder="Select Secondary Contact..."
-                    />
-                  </div>
-                </div>
+                    {/* Row: Accountable Function (Non-mandatory) */}
+                    <div>
+                      <FormSelectDropdown
+                        label="Accountable Function"
+                        required={false}
+                        value={formData.accountableFunction}
+                        onChange={(val) => handleChange('accountableFunction', val)}
+                        options={['IT', 'FinOps', 'Quality Audit', 'Supply Chain', 'Manufacturing Operations']}
+                        placeholder="Select Function..."
+                      />
+                    </div>
+
+                    {/* Row: Process Area & Issue Cause Type (Non-mandatory) */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
+                      <div>
+                        <FormSelectDropdown
+                          label="Process Area"
+                          required={false}
+                          value={formData.processArea}
+                          onChange={(val) => handleChange('processArea', val)}
+                          options={[
+                            'Catheter Line 3 Electrophysiology',
+                            'Cleanroom HVAC Unit 4',
+                            'Packaging & Sterilization Unit',
+                            'Optic Sensor Calibration',
+                            'GxP Software Access Control'
+                          ]}
+                          placeholder="Select Process Area..."
+                        />
+                      </div>
+
+                      <div>
+                        <FormSelectDropdown
+                          label="Issue Cause Type"
+                          required={false}
+                          value={formData.issueCauseType}
+                          onChange={(val) => handleChange('issueCauseType', val)}
+                          options={[
+                            'Automated Sensor Calibration Drift',
+                            'Manual Data Entry Excursion',
+                            'Firmware Integrity Checksum Error',
+                            'Cleanroom HVAC Environmental Excursion',
+                            'System Access Control Failure'
+                          ]}
+                          placeholder="Select Cause Type..."
+                        />
+                      </div>
+                    </div>
+
+                    {/* Row: Primary Business Contact & Secondary Contact (Non-mandatory) */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                          <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', margin: 0 }}>
+                            Primary Business Contact
+                          </label>
+
+                          {initialData && (
+                            <button
+                              type="button"
+                              onClick={() => setIsDelegating(!isDelegating)}
+                              style={{
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                color: '#2563EB',
+                                backgroundColor: '#EFF6FF',
+                                border: '1px solid #BFDBFE',
+                                borderRadius: '4px',
+                                padding: '2px 8px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              <UserPlus style={{ width: '12px', height: '12px' }} />
+                              <span>{isDelegating ? "Cancel Delegate" : "Delegate"}</span>
+                            </button>
+                          )}
+                        </div>
+
+                        <FormSelectDropdown
+                          value={formData.primaryContact}
+                          onChange={(val) => handleChange('primaryContact', val)}
+                          options={[
+                            'Kevin Zhang (IT Lead)',
+                            'Rachel Green (FinOps Lead)',
+                            'Marcus Vance (Quality Audit)',
+                            'Sarah Jenkins (Compliance)'
+                          ]}
+                          placeholder="Select Primary Contact..."
+                        />
+
+                        {isDelegating && (
+                          <div style={{ marginTop: '8px', padding: '8px 10px', backgroundColor: '#EFF6FF', border: '1px dashed #60A5FA', borderRadius: '6px' }}>
+                            <FormSelectDropdown
+                              label="Delegate To (User Name / Email)"
+                              value={delegatedTo}
+                              onChange={(val) => setDelegatedTo(val)}
+                              options={[
+                                'Dr. Alexander Wright (Compliance Director)',
+                                'Elena Rostova (Lead Quality Auditor)',
+                                'Michael Chang (VP FinOps)'
+                              ]}
+                              placeholder="Select Delegation Target..."
+                            />
+                          </div>
+                        )}
+
+                        {delegatedTo && !isDelegating && (
+                          <span style={{ fontSize: '11px', color: '#059669', fontWeight: '700', display: 'block', marginTop: '4px' }}>
+                            ✓ Delegated to: {delegatedTo}
+                          </span>
+                        )}
+                      </div>
+
+                      <div>
+                        <FormSelectDropdown
+                          label="Secondary Business Contact"
+                          isMulti={true}
+                          value={formData.secondaryContact}
+                          onChange={(val) => handleChange('secondaryContact', val)}
+                          options={[
+                            'David Miller (IT Audit)',
+                            'Amanda Palmer (FinOps Lead)',
+                            'Brian Cox (Executive VP)',
+                            'None'
+                          ]}
+                          placeholder="Select Secondary Contact..."
+                        />
+                      </div>
+                    </div>
+
+                    {/* Summary Finding (Executive Summary) - Multiline Text */}
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '6px' }}>
+                        Summary Finding (Executive Summary)
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={formData.summaryFinding}
+                        onChange={(e) => handleChange('summaryFinding', e.target.value)}
+                        placeholder="Enter summary finding (executive summary)..."
+                        style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', fontSize: '12.5px', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none', fontFamily: 'inherit', resize: 'vertical', lineHeight: '1.5' }}
+                      />
+                    </div>
+
+                    {/* Auditor Response - Multiline Text */}
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '6px' }}>
+                        Auditor Response
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={formData.auditorResponse}
+                        onChange={(e) => handleChange('auditorResponse', e.target.value)}
+                        placeholder="Enter auditor response details..."
+                        style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', fontSize: '12.5px', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none', fontFamily: 'inherit', resize: 'vertical', lineHeight: '1.5' }}
+                      />
+                    </div>
+
+                    {/* Mitigating Control - Multiline Text */}
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '6px' }}>
+                        Mitigating Control
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={formData.mitigatingControl}
+                        onChange={(e) => handleChange('mitigatingControl', e.target.value)}
+                        placeholder="Enter mitigating control details..."
+                        style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', fontSize: '12.5px', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none', fontFamily: 'inherit', resize: 'vertical', lineHeight: '1.5' }}
+                      />
+                    </div>
+
+                    {/* Exception Remed Comments - Multiline Text */}
+                    <div>
+                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '6px' }}>
+                        Exception Remed Comments
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={formData.exceptionRemedComments}
+                        onChange={(e) => handleChange('exceptionRemedComments', e.target.value)}
+                        placeholder="Enter exception remediation comments..."
+                        style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', fontSize: '12.5px', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none', fontFamily: 'inherit', resize: 'vertical', lineHeight: '1.5' }}
+                      />
+                    </div>
+
+                    {/* Issue Type & Issue Source - Dropdowns */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
+                      <div>
+                        <FormSelectDropdown
+                          label="Issue Type"
+                          required={false}
+                          value={formData.issueType}
+                          onChange={(val) => handleChange('issueType', val)}
+                          options={ISSUE_TYPE_OPTIONS}
+                          placeholder="Select Issue Type..."
+                        />
+                      </div>
+
+                      <div>
+                        <FormSelectDropdown
+                          label="Issue Source"
+                          required={false}
+                          value={formData.issueSource}
+                          onChange={(val) => handleChange('issueSource', val)}
+                          options={ISSUE_SOURCE_OPTIONS}
+                          placeholder="Select Issue Source..."
+                        />
+                      </div>
+                    </div>
+
+                    {/* Key Theme & Technology Related - Dropdowns */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
+                      <div>
+                        <FormSelectDropdown
+                          label="Key Theme"
+                          required={false}
+                          value={formData.keyTheme}
+                          onChange={(val) => handleChange('keyTheme', val)}
+                          options={KEY_THEME_OPTIONS}
+                          placeholder="Select Key Theme..."
+                        />
+                      </div>
+
+                      <div>
+                        <FormSelectDropdown
+                          label="Technology Related"
+                          required={false}
+                          value={formData.technologyRelated}
+                          onChange={(val) => handleChange('technologyRelated', val)}
+                          options={['No', 'Yes']}
+                          placeholder="Select Yes/No..."
+                        />
+                      </div>
+                    </div>
+
+                    {/* IT Asset Accountable Sector & Impacted Region - Dropdowns */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
+                      <div>
+                        <FormSelectDropdown
+                          label="IT Asset Accountable Sector"
+                          required={false}
+                          value={formData.itAssetAccountableSector}
+                          onChange={(val) => handleChange('itAssetAccountableSector', val)}
+                          options={IT_ASSET_ACCOUNTABLE_SECTOR_OPTIONS}
+                          placeholder="Select Accountable Sector..."
+                        />
+                      </div>
+
+                      <div>
+                        <FormSelectDropdown
+                          label="Impacted Region"
+                          required={false}
+                          value={formData.impactedRegion}
+                          onChange={(val) => handleChange('impactedRegion', val)}
+                          options={IMPACTED_REGION_OPTIONS}
+                          placeholder="Select Region..."
+                        />
+                      </div>
+                    </div>
+
+                    {/* Impacted Sector & Impacted MRC - Dropdowns */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
+                      <div>
+                        <FormSelectDropdown
+                          label="Impacted Sector"
+                          required={false}
+                          value={formData.impactedSector}
+                          onChange={(val) => handleChange('impactedSector', val)}
+                          options={IMPACTED_SECTOR_OPTIONS}
+                          placeholder="Select Impacted Sector..."
+                        />
+                      </div>
+
+                      <div>
+                        <FormSelectDropdown
+                          label="Impacted MRC"
+                          required={false}
+                          value={formData.impactedMrc}
+                          onChange={(val) => handleChange('impactedMrc', val)}
+                          options={IMPACTED_MRC_OPTIONS}
+                          placeholder="Select MRC..."
+                        />
+                      </div>
+                    </div>
+
+                    {/* Quarter Impacted - Dropdown */}
+                    <div>
+                      <FormSelectDropdown
+                        label="Quarter Impacted"
+                        required={false}
+                        value={formData.quarterImpacted}
+                        onChange={(val) => handleChange('quarterImpacted', val)}
+                        options={QUARTER_IMPACTED_OPTIONS}
+                        placeholder="Select Quarter Impacted..."
+                      />
+                    </div>
+
+                    {/* Financial Metrics: Sales(USD), IBT(USD), Net Income (USD), Total Assets (USD) - Text Boxes */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
+                      <div>
+                        <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '6px' }}>
+                          Sales (USD)
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.salesUsd}
+                          onChange={(e) => handleChange('salesUsd', e.target.value)}
+                          placeholder="$0.00"
+                          style={{ width: '100%', boxSizing: 'border-box', height: '38px', padding: '0 12px', fontSize: '12.5px', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none' }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '6px' }}>
+                          IBT (USD)
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.ibtUsd}
+                          onChange={(e) => handleChange('ibtUsd', e.target.value)}
+                          placeholder="$0.00"
+                          style={{ width: '100%', boxSizing: 'border-box', height: '38px', padding: '0 12px', fontSize: '12.5px', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none' }}
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
+                      <div>
+                        <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '6px' }}>
+                          Net Income (USD)
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.netIncomeUsd}
+                          onChange={(e) => handleChange('netIncomeUsd', e.target.value)}
+                          placeholder="$0.00"
+                          style={{ width: '100%', boxSizing: 'border-box', height: '38px', padding: '0 12px', fontSize: '12.5px', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none' }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '6px' }}>
+                          Total Assets (USD)
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.totalAssetsUsd}
+                          onChange={(e) => handleChange('totalAssetsUsd', e.target.value)}
+                          placeholder="$0.00"
+                          style={{ width: '100%', boxSizing: 'border-box', height: '38px', padding: '0 12px', fontSize: '12.5px', borderRadius: '6px', border: '1px solid #CBD5E1', outline: 'none' }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Exception - Remed Date (one Checkbox) */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '4px' }}>
+                      <input
+                        type="checkbox"
+                        id="exceptionRemedDateCheck"
+                        checked={!!formData.hasExceptionRemedDate}
+                        onChange={(e) => handleChange('hasExceptionRemedDate', e.target.checked)}
+                        style={{ width: '16px', height: '16px', accentColor: '#D8001D', cursor: 'pointer' }}
+                      />
+                      <label htmlFor="exceptionRemedDateCheck" style={{ fontSize: '12px', fontWeight: '700', color: '#334155', cursor: 'pointer' }}>
+                        Exception - Remed Date
+                      </label>
+                      {formData.hasExceptionRemedDate && (
+                        <input
+                          type="date"
+                          value={formData.exceptionRemedDate || ''}
+                          onChange={(e) => handleChange('exceptionRemedDate', e.target.value)}
+                          style={{
+                            marginLeft: '8px',
+                            height: '32px',
+                            padding: '0 8px',
+                            fontSize: '12px',
+                            borderRadius: '6px',
+                            border: '1px solid #CBD5E1',
+                            outline: 'none',
+                            color: '#0F172A'
+                          }}
+                        />
+                      )}
+                    </div>
+                  </>
+                )}
 
                 {/* Action Button at Bottom of Manual Entry Form (Only in Step 1) */}
                 {!isAiGenerated && (
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
                     <button
                       onClick={handleGenerateAi}
                       style={{
@@ -1103,7 +1598,7 @@ export default function CreateIssueDrawerNew({
 
                 {/* AI Field Helper Renderer with Integrated Loader, Embedded Icons & Light Grey Reference Box */}
                 {[
-                  { key: 'updatedIssueHeader', label: 'Updated Issue Header', rows: 2 },
+                  { key: 'updatedIssueHeader', label: 'Issue Title', rows: 2 },
                   { key: 'rootCause', label: 'Root Cause', rows: 3 },
                   { key: 'impact', label: 'Impact', rows: 2 },
                   { key: 'description', label: 'Description', rows: 3 },
@@ -1476,31 +1971,76 @@ export default function CreateIssueDrawerNew({
                           (() => {
                             const lineCount = (aiData[key] || '').split('\n').length;
                             const dynamicRows = key === 'recommendation' ? Math.max(5, lineCount + 1) : rows;
+                            const parsedViolations = key === 'description' ? parseDescriptionWithViolations(aiData[key] || '') : null;
+
                             return (
-                              <textarea
-                                rows={dynamicRows}
-                                value={aiData[key] || ''}
-                                onChange={(e) => handleAiChange(key, e.target.value)}
-                                onSelect={(e) => handleTextareaSelect(key, e)}
-                                onMouseUp={(e) => handleTextareaSelect(key, e)}
-                                onKeyUp={(e) => handleTextareaSelect(key, e)}
-                                placeholder={`AI Generated ${label}...`}
-                                style={{
-                                  width: '100%',
-                                  padding: '6px 8px',
-                                  fontSize: '12px',
-                                  borderRadius: '6px',
-                                  border: 'none',
-                                  outline: 'none',
-                                  fontFamily: 'inherit',
-                                  resize: 'vertical',
-                                  backgroundColor: 'transparent',
-                                  color: isPending ? '#6B21A8' : '#0F172A',
-                                  fontWeight: isPending ? '600' : '400',
-                                  minHeight: key === 'recommendation' ? '120px' : 'auto',
-                                  lineHeight: '1.5'
-                                }}
-                              />
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <textarea
+                                  rows={dynamicRows}
+                                  value={aiData[key] || ''}
+                                  onChange={(e) => handleAiChange(key, e.target.value)}
+                                  onSelect={(e) => handleTextareaSelect(key, e)}
+                                  onMouseUp={(e) => handleTextareaSelect(key, e)}
+                                  onKeyUp={(e) => handleTextareaSelect(key, e)}
+                                  placeholder={`AI Generated ${label}...`}
+                                  style={{
+                                    width: '100%',
+                                    padding: '6px 8px',
+                                    fontSize: '12px',
+                                    borderRadius: '6px',
+                                    border: 'none',
+                                    outline: 'none',
+                                    fontFamily: 'inherit',
+                                    resize: 'vertical',
+                                    backgroundColor: 'transparent',
+                                    color: isPending ? '#6B21A8' : '#0F172A',
+                                    fontWeight: isPending ? '600' : '400',
+                                    minHeight: key === 'recommendation' ? '120px' : 'auto',
+                                    lineHeight: '1.5'
+                                  }}
+                                />
+
+                                {/* Render Interactive Clickable Violation Reference Links for Description */}
+                                {key === 'description' && parsedViolations && parsedViolations.items.length > 0 && (
+                                  <div style={{
+                                    backgroundColor: '#F8FAFC',
+                                    border: '1px solid #E2E8F0',
+                                    borderRadius: '8px',
+                                    padding: '10px 12px',
+                                    marginTop: '4px'
+                                  }}>
+                                    <div style={{ fontSize: '11.5px', fontWeight: '800', color: '#0F172A', marginBottom: '4px' }}>
+                                      Violation Reference
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '6px' }}>
+                                      {parsedViolations.subTitle}
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                      {parsedViolations.items.map((vItem, vIdx) => (
+                                        <div key={vIdx} style={{ fontSize: '11.5px', color: '#0F172A', display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
+                                          <span style={{ fontWeight: '700' }}>{vItem.number}.</span>
+                                          <div>
+                                            <span
+                                              onClick={() => handleOpenViolationDoc(vItem)}
+                                              style={{
+                                                color: '#1D4ED8',
+                                                textDecoration: 'underline',
+                                                cursor: 'pointer',
+                                                fontWeight: '600'
+                                              }}
+                                              title="Click to view sample IAPP PDF in side drawer"
+                                            >
+                                              {vItem.linkText}
+                                            </span>
+                                            {vItem.title && <span> - {vItem.title}</span>}
+                                            {vItem.detail && <span style={{ color: '#475569' }}> — {vItem.detail}</span>}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             );
                           })()
                         )}
@@ -1745,7 +2285,7 @@ export default function CreateIssueDrawerNew({
 
                 {/* Streamlined Field Rows with Field Label Placed Above */}
                 {[
-                  { key: 'updatedIssueHeader', label: 'Updated Issue Header' },
+                  { key: 'updatedIssueHeader', label: 'Issue Title' },
                   { key: 'rootCause', label: 'Root Cause' },
                   { key: 'impact', label: 'Impact' },
                   { key: 'description', label: 'Description' },
@@ -1929,6 +2469,13 @@ export default function CreateIssueDrawerNew({
         )}
 
       </aside>
+
+      {/* Violation Document PDF Side Drawer */}
+      <ViolationPdfDrawer
+        isOpen={isViolationDrawerOpen}
+        onClose={() => setIsViolationDrawerOpen(false)}
+        violationDoc={selectedViolationDoc}
+      />
 
     </div>
   );

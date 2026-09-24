@@ -18,6 +18,7 @@ export default function AuditIssuesView({
     // 1. Check if repObj has its own issuesList array
     if (repObj.issuesList && Array.isArray(repObj.issuesList) && repObj.issuesList.length > 0) {
       return repObj.issuesList.map((iss, idx) => ({
+        ...iss,
         id: iss.id?.replace('ISSUE-', '') || `${idx + 101}`,
         issueId: iss.id?.replace('ISSUE-', '') || `${idx + 101}`,
         header: iss.title || iss.header,
@@ -30,7 +31,27 @@ export default function AuditIssuesView({
         lastUpdatedBy: iss.lastEditedBy || "Carlos Mendez",
         status: iss.status || "Manager Pending",
         updatedOn: iss.updatedOn || "2026-08-05 10:15 AM",
-        rowNum: idx + 1
+        rowNum: idx + 1,
+        testProcedure: iss.testProcedure || 'TP-101: User Access & Authentication Review',
+        summaryFinding: iss.summaryFinding || '',
+        auditorResponse: iss.auditorResponse || '',
+        mitigatingControl: iss.mitigatingControl || '',
+        exceptionRemedComments: iss.exceptionRemedComments || '',
+        issueType: iss.issueType || 'Compliance',
+        issueSource: iss.issueSource || 'Internal Audit',
+        keyTheme: iss.keyTheme || 'Access Governance & Authorization Matrix',
+        technologyRelated: iss.technologyRelated || 'Yes',
+        itAssetAccountableSector: iss.itAssetAccountableSector || 'MT',
+        impactedRegion: iss.impactedRegion || 'NA',
+        impactedSector: iss.impactedSector || 'MED',
+        impactedMrc: iss.impactedMrc || iss.auditableEntity || 'MRC-01: Global Supply Chain & Manufacturing Operations',
+        quarterImpacted: iss.quarterImpacted || 'Q1 2026',
+        salesUsd: iss.salesUsd || '$1,200,000',
+        ibtUsd: iss.ibtUsd || '$350,000',
+        netIncomeUsd: iss.netIncomeUsd || '$280,000',
+        totalAssetsUsd: iss.totalAssetsUsd || '$4,500,000',
+        hasExceptionRemedDate: iss.hasExceptionRemedDate !== undefined ? iss.hasExceptionRemedDate : true,
+        exceptionRemedDate: iss.exceptionRemedDate || '2026-10-31'
       }));
     }
 

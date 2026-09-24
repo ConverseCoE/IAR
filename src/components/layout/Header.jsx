@@ -17,7 +17,6 @@ export const APPLICATION_ROLES = [
   { id: 'finops-vp', label: 'FinOps VP', category: 'FinOps Roles', scope: 'Issues, Audit & Summary', domain: 'FinOps', baseRole: 'vp' },
 
   // Case-Based Roles
-  { id: 'business-head', label: 'Business Head', category: 'Case-Based', scope: 'Issues, Audit & Summary', domain: 'All', baseRole: 'business-head' },
   { id: 'primary-business-contact', label: 'Primary Business Contact', category: 'Case-Based', scope: 'Issues, Audit & Summary', domain: 'All', baseRole: 'primary-business-contact' }
 ];
 
@@ -144,51 +143,59 @@ export default function Header({ currentPhase, onPhaseChange, userRole = 'manage
                   <p style={{ fontSize: '10.5px', color: '#64748B', margin: '2px 0 0 0' }}>Changes UI permissions & view access</p>
                 </div>
 
-                {/* Section 1: Hierarchical Roles */}
-                <div style={{ fontSize: '10px', fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.5px', padding: '4px 8px' }}>
-                  Hierarchical Levels
-                </div>
-                {APPLICATION_ROLES.filter(r => r.category === 'Hierarchical').map(role => {
-                  const isSelected = userRole === role.id;
+                {/* Section 1: IT & FinOps Roles */}
+                {['IT Roles', 'FinOps Roles'].map(cat => {
+                  const catRoles = APPLICATION_ROLES.filter(r => r.category === cat);
+                  if (catRoles.length === 0) return null;
                   return (
-                    <button
-                      key={role.id}
-                      onClick={() => {
-                        onRoleChange && onRoleChange(role.id);
-                        setShowRoleMenu(false);
-                      }}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '8px',
-                        fontSize: '12px',
-                        backgroundColor: isSelected ? '#FEF2F2' : 'transparent',
-                        border: 'none',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        marginBottom: '2px',
-                        transition: 'background-color 0.15s ease'
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isSelected) e.currentTarget.style.backgroundColor = '#F8FAFC';
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontWeight: isSelected ? '800' : '600', color: isSelected ? '#D8001D' : '#1E293B' }}>
-                          {role.label}
-                        </div>
-                        <div style={{ fontSize: '10.5px', color: role.id === 'auditor' ? '#D97706' : '#64748B' }}>
-                          {role.scope}
-                        </div>
+                    <div key={cat}>
+                      <div style={{ fontSize: '10px', fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.5px', padding: '6px 8px 3px 8px' }}>
+                        {cat}
                       </div>
-                      {isSelected && <Check style={{ width: '14px', height: '14px', color: '#D8001D' }} />}
-                    </button>
+                      {catRoles.map(role => {
+                        const isSelected = userRole === role.id;
+                        return (
+                          <button
+                            key={role.id}
+                            onClick={() => {
+                              onRoleChange && onRoleChange(role.id);
+                              setShowRoleMenu(false);
+                            }}
+                            style={{
+                              width: '100%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '7px 8px',
+                              fontSize: '12px',
+                              backgroundColor: isSelected ? '#FEF2F2' : 'transparent',
+                              border: 'none',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              marginBottom: '2px',
+                              transition: 'background-color 0.15s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isSelected) e.currentTarget.style.backgroundColor = '#F8FAFC';
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+                            }}
+                          >
+                            <div>
+                              <div style={{ fontWeight: isSelected ? '800' : '600', color: isSelected ? '#D8001D' : '#1E293B' }}>
+                                {role.label}
+                              </div>
+                              <div style={{ fontSize: '10.5px', color: role.id?.includes('auditor') ? '#D97706' : '#64748B' }}>
+                                {role.scope}
+                              </div>
+                            </div>
+                            {isSelected && <Check style={{ width: '14px', height: '14px', color: '#D8001D' }} />}
+                          </button>
+                        );
+                      })}
+                    </div>
                   );
                 })}
 

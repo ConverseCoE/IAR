@@ -1,19 +1,107 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, Plus, Minus, Download, Send, GitBranch, History, 
-  Sparkles, MoreVertical, Check, Layout, Columns, PanelLeft, Layers, X,
-  Printer, FileText, ChevronRight, Eye, ZoomIn, ZoomOut
+  Sparkles, MoreVertical, Check, CheckCircle2, Layout, Columns, PanelLeft, Layers, X,
+  Printer, FileText, ChevronRight, Eye, ZoomIn, ZoomOut, MessageSquare
 } from 'lucide-react';
-import { mockExecutiveSummaryData, mockExecutiveSummaryLogs } from '../data/execReportData';
+import { mockExecutiveSummaryData, mockExecutiveSummaryLogs, generateExecutiveSummaryData } from '../data/execReportData';
 import IssueLogsModal from '../components/issues/IssueLogsModal';
+import WorkflowModal from '../components/reporting/WorkflowModal';
+import RichTextEditor from '../components/ui/RichTextEditor';
+import { getRoleSubmissionConfig } from './AuditReportView';
 
-export default function ExecutiveReportView({ job, onClose, onSwitchToAuditReport }) {
-  const [execData, setExecData] = useState(mockExecutiveSummaryData);
+export default function ExecutiveReportView({ job, onClose, onSwitchToAuditReport, userRole = 'it-director' }) {
+  const [execData, setExecData] = useState(() => generateExecutiveSummaryData(job));
+
+  useEffect(() => {
+    if (job) {
+      setExecData(generateExecutiveSummaryData(job));
+    }
+  }, [job?.id, job?.issuesList?.length]);
+
+  const [showPushTooltip, setShowPushTooltip] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
+
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(null), 4500);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
+
+  // Role Detection: Director & VP
+  const roleLower = (userRole || '').toLowerCase();
+  const isDirector = roleLower.includes('director');
+  const isVP = roleLower.includes('vp');
+  const isDirectorOrVP = isDirector || isVP;
+
+  // Check if report has even one critical issue
+  const hasCriticalIssues = (() => {
+    if (job?.issuesList && job.issuesList.length > 0) {
+      return job.issuesList.some(iss => (iss.criticality || iss.severity || '').toLowerCase() === 'critical');
+    }
+    if (execData?.scopeSummary?.processMatrix) {
+      return execData.scopeSummary.processMatrix.some(r => (r.critical || 0) > 0);
+    }
+    if (job?.issueIndicator) {
+      return (job.issueIndicator.critical || 0) > 0;
+    }
+    return false;
+  })();
+
+  const isPushDisabled = isDirector && !isVP && hasCriticalIssues;
+  const pushTooltipText = "Report contains critical issues, VP signoff is mandatory";
   
   // Accordion Expand States: 'scope', 'insights', 'criticalMajor'
   const [expandedSection, setExpandedSection] = useState('scope');
   const [isLogsModalOpen, setIsLogsModalOpen] = useState(false);
+  const [isWorkflowModalOpen, setIsWorkflowModalOpen] = useState(false);
   const [execLogs, setExecLogs] = useState(mockExecutiveSummaryLogs);
+
+  // Derive Current Pending Stage for Header Pill
+  const getPendingStageInfo = () => {
+    if (!job) return { label: "Pending with Manager", bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE", dot: "#2563EB" };
+    const queue = (job.currentQueue || job.queue || "").toLowerCase();
+    const status = (job.status || "").toLowerCase();
+    const subStatus = (job.subStatus || "").toLowerCase();
+
+    if (queue.includes("tc") || queue.includes("team co-ordinator") || queue.includes("auditor")) {
+      return { label: "Pending with TC", bg: "#FEF3C7", color: "#92400E", border: "#FDE68A", dot: "#D97706" };
+    }
+    if (queue.includes("manager")) {
+      return { label: "Pending with Manager", bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE", dot: "#2563EB" };
+    }
+    if (queue.includes("director")) {
+      return { label: "Pending with Director", bg: "#F5F3FF", color: "#6D28D9", border: "#DDD6FE", dot: "#7C3AED" };
+    }
+    if (queue.includes("vp")) {
+      return { label: "Pending with VP", bg: "#FFF1F2", color: "#BE123C", border: "#FECDD3", dot: "#E11D48" };
+    }
+
+    if (status.includes("tc") || subStatus.includes("tc")) {
+      return { label: "Pending with TC", bg: "#FEF3C7", color: "#92400E", border: "#FDE68A", dot: "#D97706" };
+    }
+    if (status.includes("manager") || subStatus.includes("manager")) {
+      return { label: "Pending with Manager", bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE", dot: "#2563EB" };
+    }
+    if (status.includes("director") || subStatus.includes("director")) {
+      return { label: "Pending with Director", bg: "#F5F3FF", color: "#6D28D9", border: "#DDD6FE", dot: "#7C3AED" };
+    }
+    if (status.includes("vp") || subStatus.includes("vp")) {
+      return { label: "Pending with VP", bg: "#FFF1F2", color: "#BE123C", border: "#FECDD3", dot: "#E11D48" };
+    }
+
+    if (status === "not started") {
+      return { label: "Pending with TC", bg: "#FEF3C7", color: "#92400E", border: "#FDE68A", dot: "#D97706" };
+    }
+    if (job.currentQueue) {
+      return { label: `Pending with ${job.currentQueue}`, bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE", dot: "#2563EB" };
+    }
+
+    return { label: "Pending with Manager", bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE", dot: "#2563EB" };
+  };
+
+  const pendingStage = getPendingStageInfo();
 
   // Field edit logger for real-time track changes pop-over
   const recordFieldChange = (fieldName, oldVal, newVal, badgeType = 'update') => {
@@ -203,6 +291,20 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
     }));
   };
 
+  const handleInsightsNarrativeChange = (html) => {
+    const oldVal = execData.auditInsights.narrativeHtml;
+    if (oldVal !== html) {
+      recordFieldChange('Audit Insights Narrative', oldVal, html, 'insights');
+    }
+    setExecData(prev => ({
+      ...prev,
+      auditInsights: {
+        ...prev.auditInsights,
+        narrativeHtml: html
+      }
+    }));
+  };
+
   const handleInsightsParagraphChange = (idx, val) => {
     const oldVal = execData.auditInsights.paragraphs[idx];
     if (oldVal !== val) {
@@ -264,9 +366,419 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
     return val;
   };
 
+  // Field-level & Row-level Comments State
+  const [fieldComments, setFieldComments] = useState({
+    "scope_objective": [
+      {
+        id: "ec-1",
+        user: "Marcus Vance",
+        role: "Lead Compliance Auditor",
+        avatar: "MV",
+        avatarBg: "#7C3AED",
+        timestamp: "25 mins ago",
+        comment: "Ensure manufacturing automation drift controls align with the Q2 scope mandate."
+      }
+    ],
+    "processMatrix_row_0": [
+      {
+        id: "ec-2",
+        user: "Sarah Jenkins",
+        role: "Quality Assurance Director",
+        avatar: "SJ",
+        avatarBg: "#059669",
+        timestamp: "1 hour ago",
+        comment: "Reclassified 1 Minor finding under this process to ensure alignment with local SOP-402."
+      }
+    ],
+    "insights_narrative": [
+      {
+        id: "ec-3",
+        user: "Kevin Zhang",
+        role: "IT Audit Lead",
+        avatar: "KZ",
+        avatarBg: "#2563EB",
+        timestamp: "2 hours ago",
+        comment: "Executive insights narrative verified against Plant Leadership exit interview takeaways."
+      }
+    ],
+    "criticalIssue_description": [
+      {
+        id: "ec-4",
+        user: "Elena Rostova",
+        role: "VP Global Quality",
+        avatar: "ER",
+        avatarBg: "#DC2626",
+        timestamp: "3 hours ago",
+        comment: "Confirmed remediating CAPA timeline is capped at 30 days due to critical status."
+      }
+    ]
+  });
+
+  const [activeCommentField, setActiveCommentField] = useState(null);
+  const [newCommentInput, setNewCommentInput] = useState('');
+  const [popoverPlacement, setPopoverPlacement] = useState('down');
+
+  // Click outside to close active comment popover
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('[data-field-comment-container]')) {
+        setActiveCommentField(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleAddComment = (fieldIdentifier) => {
+    if (!newCommentInput.trim()) return;
+
+    let authorName = "You";
+    let authorRole = "Audit Contributor";
+    let authorAvatar = "ME";
+    let authorBg = "#059669";
+
+    if (isVP) {
+      authorName = "Elena Rostova";
+      authorRole = "VP Global Audit & Quality";
+      authorAvatar = "ER";
+      authorBg = "#DC2626";
+    } else if (isDirector) {
+      authorName = "Marcus Vance";
+      authorRole = "IT Audit Director";
+      authorAvatar = "MV";
+      authorBg = "#7C3AED";
+    }
+
+    const newEntry = {
+      id: "ec-" + Date.now(),
+      user: authorName,
+      role: authorRole,
+      avatar: authorAvatar,
+      avatarBg: authorBg,
+      timestamp: "Just now",
+      comment: newCommentInput.trim()
+    };
+
+    setFieldComments(prev => ({
+      ...prev,
+      [fieldIdentifier]: [...(prev[fieldIdentifier] || []), newEntry]
+    }));
+
+    setNewCommentInput('');
+  };
+
+  const renderFieldCommentTrigger = (fieldKey, fieldLabel, isRowLevel = false) => {
+    const commentsList = fieldComments[fieldKey] || [];
+    const isOpen = activeCommentField === fieldKey;
+    const latestComment = commentsList.length > 0 ? commentsList[commentsList.length - 1] : null;
+
+    const handleToggleComment = (e) => {
+      e.stopPropagation();
+      if (isOpen) {
+        setActiveCommentField(null);
+      } else {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        setPopoverPlacement(spaceBelow < 330 ? 'up' : 'down');
+        setActiveCommentField(fieldKey);
+        setNewCommentInput('');
+      }
+    };
+
+    return (
+      <div 
+        data-field-comment-container="true" 
+        style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}
+      >
+        {commentsList.length > 0 ? (
+          <button
+            type="button"
+            onClick={handleToggleComment}
+            title={`Comments on ${fieldLabel}\n${commentsList.length} comment(s). Click to view thread & reply.`}
+            style={{
+              padding: isRowLevel ? '2px 6px' : '2px 7px',
+              fontSize: isRowLevel ? '9.5px' : '10px',
+              fontWeight: '700',
+              borderRadius: '12px',
+              border: isOpen ? '1.5px solid #2563EB' : '1px solid #BFDBFE',
+              backgroundColor: isOpen ? '#DBEAFE' : '#EFF6FF',
+              color: '#1E40AF',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              boxShadow: '0 1px 2px rgba(37,99,235,0.08)',
+              transition: 'all 0.15s ease',
+              maxWidth: isRowLevel ? '70px' : '220px'
+            }}
+          >
+            {/* Avatar of Latest Commenter */}
+            <span style={{
+              width: '14px',
+              height: '14px',
+              borderRadius: '50%',
+              backgroundColor: latestComment.avatarBg || '#2563EB',
+              color: '#ffffff',
+              fontSize: '8px',
+              fontWeight: '800',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}>
+              {latestComment.avatar || 'U'}
+            </span>
+
+            {/* Commenter Name & Comment Snippet (field-level only) */}
+            {!isRowLevel && (
+              <span style={{
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: '120px',
+                fontSize: '9.5px',
+                color: '#1E3A8A'
+              }}>
+                <strong>{latestComment.user.split(' ')[0]}:</strong> "{latestComment.comment}"
+              </span>
+            )}
+
+            {/* Total Count Badge */}
+            <span style={{
+              backgroundColor: '#2563EB',
+              color: '#ffffff',
+              borderRadius: '8px',
+              padding: '0 4px',
+              fontSize: '9px',
+              fontWeight: '800',
+              lineHeight: '12px'
+            }}>
+              {commentsList.length}
+            </span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleToggleComment}
+            title={`Add a comment on ${fieldLabel}`}
+            style={{
+              padding: isRowLevel ? '2px 5px' : '1px 6px',
+              fontSize: '9.5px',
+              fontWeight: '600',
+              borderRadius: '10px',
+              border: isOpen ? '1px solid #2563EB' : '1px dashed #CBD5E1',
+              backgroundColor: isOpen ? '#EFF6FF' : '#F8FAFC',
+              color: isOpen ? '#2563EB' : '#64748B',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '3px',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <MessageSquare style={{ width: '9px', height: '9px', color: isOpen ? '#2563EB' : '#94A3B8' }} />
+            <span>{isRowLevel ? '' : '+ Comment'}</span>
+          </button>
+        )}
+
+        {/* COMMENTS POPOVER */}
+        {isOpen && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'absolute',
+              top: popoverPlacement === 'up' ? 'auto' : 'calc(100% + 4px)',
+              bottom: popoverPlacement === 'up' ? 'calc(100% + 4px)' : 'auto',
+              right: 0,
+              width: '320px',
+              maxWidth: '90vw',
+              backgroundColor: '#ffffff',
+              borderRadius: '8px',
+              border: '1px solid #CBD5E1',
+              boxShadow: '0 12px 28px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.06)',
+              zIndex: 9999,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              textAlign: 'left'
+            }}
+          >
+            {/* Popover Header */}
+            <div style={{
+              padding: '9px 12px',
+              backgroundColor: '#0F172A',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <MessageSquare style={{ width: '13px', height: '13px', color: '#60A5FA' }} />
+                <span style={{ fontSize: '11.5px', fontWeight: '800', letterSpacing: '0.2px' }}>
+                  {fieldLabel} Comments
+                </span>
+                <span style={{
+                  backgroundColor: '#1E293B',
+                  color: '#94A3B8',
+                  fontSize: '9.5px',
+                  fontWeight: '700',
+                  padding: '1px 5px',
+                  borderRadius: '10px'
+                }}>
+                  {commentsList.length}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveCommentField(null)}
+                style={{
+                  border: 'none',
+                  background: 'none',
+                  color: '#94A3B8',
+                  cursor: 'pointer',
+                  padding: '2px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <X style={{ width: '14px', height: '14px' }} />
+              </button>
+            </div>
+
+            {/* Comments List */}
+            <div style={{
+              maxHeight: '220px',
+              overflowY: 'auto',
+              padding: '10px 12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              backgroundColor: '#F8FAFC'
+            }}>
+              {commentsList.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '16px 8px', color: '#94A3B8', fontSize: '11px' }}>
+                  No comments yet on this {isRowLevel ? 'process row' : 'field'}.<br />
+                  Be the first to leave a review note below!
+                </div>
+              ) : (
+                commentsList.map(c => (
+                  <div key={c.id} style={{
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '6px',
+                    padding: '8px 10px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{
+                          width: '18px',
+                          height: '18px',
+                          borderRadius: '50%',
+                          backgroundColor: c.avatarBg || '#2563EB',
+                          color: '#ffffff',
+                          fontSize: '9px',
+                          fontWeight: '800',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          {c.avatar || 'U'}
+                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontSize: '11px', fontWeight: '700', color: '#0F172A' }}>
+                            {c.user}
+                          </span>
+                          {c.role && (
+                            <span style={{ fontSize: '9px', color: '#64748B' }}>
+                              {c.role}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: '9.5px', color: '#94A3B8', whiteSpace: 'nowrap' }}>
+                        {c.timestamp}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: '11px', color: '#334155', margin: '2px 0 0 0', lineHeight: '1.4', wordBreak: 'break-word' }}>
+                      {c.comment}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Add New Comment Box */}
+            <div style={{
+              padding: '10px 12px',
+              borderTop: '1px solid #E2E8F0',
+              backgroundColor: '#ffffff',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px'
+            }}>
+              <textarea
+                rows={2}
+                placeholder={`Type a comment on ${fieldLabel}...`}
+                value={newCommentInput}
+                onChange={(e) => setNewCommentInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    handleAddComment(fieldKey);
+                  }
+                }}
+                style={{
+                  width: '100%',
+                  padding: '6px 8px',
+                  fontSize: '11.5px',
+                  borderRadius: '5px',
+                  border: '1px solid #CBD5E1',
+                  outline: 'none',
+                  fontFamily: 'inherit',
+                  resize: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '9.5px', color: '#94A3B8' }}>
+                  Press Ctrl+Enter to post
+                </span>
+                <button
+                  type="button"
+                  disabled={!newCommentInput.trim()}
+                  onClick={() => handleAddComment(fieldKey)}
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    color: '#ffffff',
+                    backgroundColor: newCommentInput.trim() ? '#2563EB' : '#94A3B8',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: newCommentInput.trim() ? 'pointer' : 'not-allowed',
+                    transition: 'background 0.15s ease'
+                  }}
+                >
+                  Post Comment
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div style={{
+      height: 'calc(100vh - 54px)',
+      maxHeight: 'calc(100vh - 54px)',
       flex: 1,
+      minHeight: 0,
       display: 'flex',
       flexDirection: 'column',
       overflow: 'hidden',
@@ -284,12 +796,12 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
         flexShrink: 0,
         boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
       }}>
-        {/* Left Side: Back Arrow Button + Title: Executive Summary — [Job Name] */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Left Side: Back Arrow Button, Document Title & Pending Stage Badge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button
             onClick={onClose}
             style={{
-              padding: '6px 10px',
+              padding: '6px 8px',
               borderRadius: '6px',
               border: '1px solid #CBD5E1',
               backgroundColor: '#F8FAFC',
@@ -297,91 +809,75 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              fontSize: '12px',
-              fontWeight: '700'
+              justifyContent: 'center',
+              transition: 'background 0.15s ease'
             }}
             title="Back to Reporting Queue"
           >
             <ArrowLeft style={{ width: '16px', height: '16px', color: '#D8001D' }} />
-            <span>Back</span>
           </button>
 
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h1 style={{ fontSize: '17px', fontWeight: '900', color: '#0F172A', margin: 0 }}>
-                Executive Summary — {job?.fileName || execData.fileName}
-              </h1>
-              <span style={{ 
-                fontSize: '10.5px', 
-                fontWeight: '800', 
-                color: '#1E40AF', 
-                backgroundColor: '#EFF6FF', 
-                border: '1px solid #BFDBFE',
-                padding: '1px 8px', 
-                borderRadius: '4px' 
-              }}>
-                PDF Format 2-Page Standard
-              </span>
-            </div>
-            <div style={{ fontSize: '11px', color: '#64748B', marginTop: '1px' }}>
-              {execData.auditableEntity} • Live Synchronized PDF Preview
-            </div>
-          </div>
+          <h1 style={{ fontSize: '16.5px', fontWeight: '900', color: '#0F172A', margin: 0, letterSpacing: '-0.2px' }}>
+            Executive Summary — {job?.fileName || execData.fileName}
+          </h1>
+
+          {/* Current Pending Stage Pill right of Title */}
+          <span style={{
+            fontSize: '11.5px',
+            fontWeight: '800',
+            color: pendingStage.color,
+            backgroundColor: pendingStage.bg,
+            border: `1px solid ${pendingStage.border}`,
+            padding: '3px 10px',
+            borderRadius: '12px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            whiteSpace: 'nowrap'
+          }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: pendingStage.dot }} />
+            {pendingStage.label}
+          </span>
         </div>
 
         {/* Top Right Action Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          
-          {/* 1. Detailed Audit Report */}
-          {onSwitchToAuditReport && (
-            <button
-              onClick={onSwitchToAuditReport}
-              style={{
-                padding: '6px 12px',
-                fontSize: '11.5px',
-                fontWeight: '700',
-                color: '#475569',
-                backgroundColor: '#F1F5F9',
-                border: '1px solid #CBD5E1',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px'
-              }}
-              title="Switch to Detailed Audit Report Studio"
-            >
-              <FileText style={{ width: '13px', height: '13px', color: '#64748B' }} />
-              <span>Detailed Audit Report</span>
-            </button>
-          )}
 
-          {/* 2. Submit Button (Primary Red Action Button) */}
-          <button
-            onClick={handleSubmit}
-            style={{
-              padding: '6px 16px',
-              fontSize: '11.5px',
-              fontWeight: '800',
-              color: '#ffffff',
-              backgroundColor: '#D8001D',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              boxShadow: '0 1px 3px rgba(216, 0, 29, 0.28)',
-              transition: 'all 0.15s ease'
-            }}
-            title="Submit Executive Summary for Leadership Approval"
-          >
-            <Send style={{ width: '13px', height: '13px' }} />
-            <span>Submit</span>
-          </button>
+          {/* 1. Dynamic Role-Based Submit Button (Only applicable for Manager, Director, and VP) */}
+          {(() => {
+            const roleConfig = getRoleSubmissionConfig(userRole);
+            if (!roleConfig.hasReportSubmission) return null;
+            return (
+              <button
+                onClick={handleSubmit}
+                style={{
+                  padding: '6px 16px',
+                  fontSize: '11.5px',
+                  fontWeight: '800',
+                  color: '#ffffff',
+                  backgroundColor: '#D8001D',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 1px 3px rgba(216, 0, 29, 0.28)',
+                  transition: 'all 0.15s ease'
+                }}
+                title={`${roleConfig.reportSubmitLabel} for Leadership Approval`}
+              >
+                {roleConfig.baseRole === 'vp' ? (
+                  <CheckCircle2 style={{ width: '13px', height: '13px' }} />
+                ) : (
+                  <Send style={{ width: '13px', height: '13px' }} />
+                )}
+                <span>{roleConfig.reportSubmitLabel}</span>
+              </button>
+            );
+          })()}
 
-          {/* 3. Generate Executive summary */}
+          {/* 2. Generate Executive summary */}
           <button
             onClick={handleGenerateExecSummary}
             style={{
@@ -402,7 +898,7 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
             <span>Generate Executive Summary</span>
           </button>
 
-          {/* 4. Download PDF Button */}
+          {/* 3. Download PDF Button */}
           <button
             style={{
               padding: '6px 14px',
@@ -425,7 +921,136 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
             <span>Download PDF</span>
           </button>
 
-          {/* 5. Track Changes Button */}
+          {/* 3b. Push to Teammate Button (For Director & VP only) */}
+          {isDirectorOrVP && (
+            <div
+              style={{ position: 'relative', display: 'inline-flex' }}
+              onMouseEnter={() => {
+                if (isPushDisabled) setShowPushTooltip(true);
+              }}
+              onMouseLeave={() => setShowPushTooltip(false)}
+            >
+              <button
+                disabled={isPushDisabled}
+                onClick={() => {
+                  if (!isPushDisabled) {
+                    setToastMessage({
+                      title: "Push to Teammate Initiated",
+                      description: `Executive summary review for ${job?.fileName?.replace(/_/g, ' ') || execData.fileName} has been initiated and pushed to teammate.`
+                    });
+                  }
+                }}
+                style={{
+                  padding: '6px 14px',
+                  fontSize: '11.5px',
+                  fontWeight: '800',
+                  color: isPushDisabled ? '#64748B' : '#6D28D9',
+                  backgroundColor: isPushDisabled ? '#F1F5F9' : '#F5F3FF',
+                  border: isPushDisabled ? '1.5px solid #CBD5E1' : '1.5px solid #DDD6FE',
+                  borderRadius: '6px',
+                  cursor: isPushDisabled ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: isPushDisabled ? 'none' : '0 1px 2px rgba(0,0,0,0.04)',
+                  transition: 'all 0.15s ease',
+                  opacity: isPushDisabled ? 0.75 : 1
+                }}
+                title={isPushDisabled ? pushTooltipText : "Push to Teammate"}
+              >
+                <Send style={{ width: '13px', height: '13px', color: isPushDisabled ? '#94A3B8' : '#7C3AED' }} />
+                <span>Push to Teammate</span>
+              </button>
+
+              {/* Disabled Tooltip on Hover */}
+              {isPushDisabled && showPushTooltip && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 8px)',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    backgroundColor: '#0F172A',
+                    color: '#ffffff',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    lineHeight: '1.35',
+                    whiteSpace: 'nowrap',
+                    zIndex: 9999,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                    pointerEvents: 'none'
+                  }}
+                >
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '-5px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      width: 0,
+                      height: 0,
+                      borderLeft: '5px solid transparent',
+                      borderRight: '5px solid transparent',
+                      borderBottom: '5px solid #0F172A'
+                    }}
+                  />
+                  <span>Report contains critical issues, VP signoff is mandatory</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 4. Audit Report Button (inbetween Download PDF and Workflow) */}
+          {onSwitchToAuditReport && (
+            <button
+              onClick={onSwitchToAuditReport}
+              style={{
+                padding: '6px 12px',
+                fontSize: '11.5px',
+                fontWeight: '700',
+                color: '#475569',
+                backgroundColor: '#F1F5F9',
+                border: '1px solid #CBD5E1',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+              title="Switch to Audit Report Studio"
+            >
+              <FileText style={{ width: '13px', height: '13px', color: '#64748B' }} />
+              <span>Audit Report</span>
+            </button>
+          )}
+
+          {/* 5. Workflow Button */}
+          <button
+            onClick={() => setIsWorkflowModalOpen(true)}
+            style={{
+              padding: '6px 14px',
+              fontSize: '11.5px',
+              fontWeight: '800',
+              color: isWorkflowModalOpen ? '#ffffff' : '#2563EB',
+              backgroundColor: isWorkflowModalOpen ? '#2563EB' : '#ffffff',
+              border: '1.5px solid #2563EB',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+              transition: 'all 0.15s ease'
+            }}
+            title="View Workflow Stages & Status"
+          >
+            <GitBranch style={{ width: '13px', height: '13px', color: isWorkflowModalOpen ? '#ffffff' : '#2563EB' }} />
+            <span>Workflow</span>
+          </button>
+
+          {/* 6. Track Changes Button */}
           <button
             onClick={() => setIsLogsModalOpen(true)}
             style={{
@@ -452,30 +1077,32 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
       </div>
 
       {/* Main Studio Body: Left Form Panel (45%) | Right Live HTML PDF Preview (55%) */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+      <div style={{
+        height: 'calc(100vh - 106px)',
+        maxHeight: 'calc(100vh - 106px)',
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        overflow: 'hidden'
+      }}>
         
         {/* ========================================================================= */}
         {/* LEFT COLUMN: EDITABLE ACCORDION SECTIONS                                   */}
         {/* ========================================================================= */}
-        <div style={{
-          width: '45%',
-          borderRight: '1px solid #CBD5E1',
-          display: 'flex',
-          flexDirection: 'column',
-          backgroundColor: '#F8FAFC',
-          overflowY: 'auto',
-          padding: '20px'
-        }}>
-          
-          <div style={{ marginBottom: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '13px', fontWeight: '800', color: '#1E293B', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-              Report Studio Editor
-            </span>
-            <span style={{ fontSize: '11px', color: '#64748B' }}>
-              Edits update live PDF preview
-            </span>
-          </div>
-
+        <div
+          className="studio-left-panel"
+          style={{
+            width: '45%',
+            height: 'calc(100vh - 106px)',
+            maxHeight: 'calc(100vh - 106px)',
+            borderRight: '1px solid #CBD5E1',
+            backgroundColor: '#F8FAFC',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            padding: '20px 20px 100px 20px',
+            boxSizing: 'border-box'
+          }}
+        >
           {/* ------------------------------------------------------------- */}
           {/* SECTION 1 ACCORDION: Scope Summary & Process Matrix (Page 1)  */}
           {/* ------------------------------------------------------------- */}
@@ -484,7 +1111,7 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
             borderRadius: '8px', 
             border: '1px solid #E2E8F0', 
             marginBottom: '12px',
-            overflow: 'hidden',
+            overflow: expandedSection === 'scope' ? 'visible' : 'hidden',
             boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
           }}>
             <button
@@ -513,139 +1140,98 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
             </button>
 
             {expandedSection === 'scope' && (
-              <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px', backgroundColor: '#ffffff' }}>
+              <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px', backgroundColor: '#ffffff' }}>
                 
                 {/* a. Assessment Period */}
                 <div>
-                  <label style={{ fontSize: '11px', fontWeight: '800', color: '#1E293B', display: 'block', marginBottom: '4px' }}>
-                    Assessment Period:
-                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: '800', color: '#1E293B' }}>
+                      Assessment Period:
+                    </label>
+                    {renderFieldCommentTrigger('scope_assessmentPeriod', 'Assessment Period')}
+                  </div>
                   <input
                     type="text"
                     value={execData.scopeSummary.assessmentPeriod}
                     onChange={(e) => handleScopeChange('assessmentPeriod', e.target.value)}
                     placeholder="e.g. Q1 2026 – Q2 2026 (Jan 1, 2026 – Jun 30, 2026)"
-                    style={{ width: '100%', height: '32px', padding: '0 10px', fontSize: '12px', borderRadius: '5px', border: '1px solid #CBD5E1', boxSizing: 'border-box' }}
+                    style={{ width: '100%', height: '28px', padding: '0 8px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid #CBD5E1', boxSizing: 'border-box' }}
                   />
                 </div>
 
                 {/* b. Entity Sector & c. Entity Location */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   <div>
-                    <label style={{ fontSize: '11px', fontWeight: '800', color: '#1E293B', display: 'block', marginBottom: '4px' }}>
-                      Entity Sector:
-                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: '800', color: '#1E293B' }}>
+                        Entity Sector:
+                      </label>
+                      {renderFieldCommentTrigger('scope_entitySector', 'Entity Sector')}
+                    </div>
                     <input
                       type="text"
                       value={execData.scopeSummary.entitySector}
                       onChange={(e) => handleScopeChange('entitySector', e.target.value)}
                       placeholder="e.g. MedTech / Supply Chain & Operations"
-                      style={{ width: '100%', height: '32px', padding: '0 10px', fontSize: '12px', borderRadius: '5px', border: '1px solid #CBD5E1', boxSizing: 'border-box' }}
+                      style={{ width: '100%', height: '28px', padding: '0 8px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid #CBD5E1', boxSizing: 'border-box' }}
                     />
                   </div>
 
                   <div>
-                    <label style={{ fontSize: '11px', fontWeight: '800', color: '#1E293B', display: 'block', marginBottom: '4px' }}>
-                      Entity Location:
-                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: '800', color: '#1E293B' }}>
+                        Entity Location:
+                      </label>
+                      {renderFieldCommentTrigger('scope_entityLocation', 'Entity Location')}
+                    </div>
                     <input
                       type="text"
                       value={execData.scopeSummary.entityLocation}
                       onChange={(e) => handleScopeChange('entityLocation', e.target.value)}
                       placeholder="e.g. Suzhou Plant & Regional Operations Hub"
-                      style={{ width: '100%', height: '32px', padding: '0 10px', fontSize: '12px', borderRadius: '5px', border: '1px solid #CBD5E1', boxSizing: 'border-box' }}
+                      style={{ width: '100%', height: '28px', padding: '0 8px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid #CBD5E1', boxSizing: 'border-box' }}
                     />
                   </div>
                 </div>
 
                 {/* d. Metric */}
                 <div>
-                  <label style={{ fontSize: '11px', fontWeight: '800', color: '#1E293B', display: 'block', marginBottom: '4px' }}>
-                    Metric:
-                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: '800', color: '#1E293B' }}>
+                      Metric:
+                    </label>
+                    {renderFieldCommentTrigger('scope_metric', 'Metric')}
+                  </div>
                   <input
                     type="text"
                     value={execData.scopeSummary.metric}
                     onChange={(e) => handleScopeChange('metric', e.target.value)}
                     placeholder="e.g. GxP Compliance, SOX 404 Controls & IT Access Security"
-                    style={{ width: '100%', height: '32px', padding: '0 10px', fontSize: '12px', borderRadius: '5px', border: '1px solid #CBD5E1', boxSizing: 'border-box' }}
+                    style={{ width: '100%', height: '28px', padding: '0 8px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid #CBD5E1', boxSizing: 'border-box' }}
                   />
                 </div>
 
-                {/* e. Objective Bullets */}
+                {/* e. Objective Rich Text Editor */}
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
                     <label style={{ fontSize: '11px', fontWeight: '800', color: '#1E293B' }}>
-                      Objective (with Examples Bullets):
+                      Objective:
                     </label>
-                    <button
-                      type="button"
-                      onClick={handleAddObjectiveBullet}
-                      style={{
-                        padding: '2px 8px',
-                        fontSize: '10.5px',
-                        fontWeight: '700',
-                        color: '#D8001D',
-                        backgroundColor: '#FFF1F2',
-                        border: '1px solid #FCA5A5',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '3px'
-                      }}
-                    >
-                      <Plus style={{ width: '11px', height: '11px' }} />
-                      <span>Add Bullet</span>
-                    </button>
+                    {renderFieldCommentTrigger('scope_objective', 'Objective')}
                   </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {execData.scopeSummary.objectiveBullets.map((bullet, bIdx) => (
-                      <div key={bIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                        <span style={{ fontSize: '14px', color: '#64748B', marginTop: '4px' }}>•</span>
-                        <textarea
-                          rows={2}
-                          value={bullet}
-                          onChange={(e) => handleObjectiveBulletChange(bIdx, e.target.value)}
-                          placeholder={`Objective bullet ${bIdx + 1}...`}
-                          style={{
-                            flex: 1,
-                            padding: '6px 8px',
-                            fontSize: '11.5px',
-                            borderRadius: '4px',
-                            border: '1px solid #CBD5E1',
-                            fontFamily: 'inherit',
-                            resize: 'vertical'
-                          }}
-                        />
-                        {execData.scopeSummary.objectiveBullets.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveObjectiveBullet(bIdx)}
-                            style={{
-                              border: 'none',
-                              background: 'transparent',
-                              color: '#94A3B8',
-                              cursor: 'pointer',
-                              padding: '4px',
-                              marginTop: '2px'
-                            }}
-                            title="Remove bullet"
-                          >
-                            <X style={{ width: '13px', height: '13px' }} />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                  <RichTextEditor
+                    value={execData.scopeSummary.objectiveHtml ?? (execData.scopeSummary.objectiveBullets ? `<ul>${execData.scopeSummary.objectiveBullets.map(b => `<li>${b}</li>`).join('')}</ul>` : '')}
+                    onChange={(html) => handleScopeChange('objectiveHtml', html)}
+                    placeholder="Enter objective notes, examples, and bullet points..."
+                    minHeight="85px"
+                  />
                 </div>
 
-                {/* f. Process Breakdown Matrix Table Editor */}
+                {/* f. Process Breakdown Matrix Table Editor (With Row-Level Comments) */}
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
                     <label style={{ fontSize: '11px', fontWeight: '800', color: '#1E293B' }}>
-                      Process Title Breakdown Matrix:
+                      Process Breakdown Matrix:
                     </label>
                     <button
                       type="button"
@@ -673,11 +1259,12 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
                     <thead>
                       <tr style={{ backgroundColor: '#F1F5F9', color: '#334155' }}>
                         <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: '800' }}>Process Title</th>
-                        <th style={{ padding: '6px 4px', textAlign: 'center', fontWeight: '800', width: '48px', color: '#184A6E' }}>Crit</th>
-                        <th style={{ padding: '6px 4px', textAlign: 'center', fontWeight: '800', width: '48px', color: '#D97706' }}>Maj</th>
-                        <th style={{ padding: '6px 4px', textAlign: 'center', fontWeight: '800', width: '48px', color: '#047857' }}>Min</th>
-                        <th style={{ padding: '6px 6px', textAlign: 'center', fontWeight: '800', width: '42px' }}>ALL</th>
-                        <th style={{ width: '24px' }}></th>
+                        <th style={{ padding: '6px 4px', textAlign: 'center', fontWeight: '800', width: '42px', color: '#D8001D' }}>Crit</th>
+                        <th style={{ padding: '6px 4px', textAlign: 'center', fontWeight: '800', width: '42px', color: '#D97706' }}>Maj</th>
+                        <th style={{ padding: '6px 4px', textAlign: 'center', fontWeight: '800', width: '42px', color: '#047857' }}>Min</th>
+                        <th style={{ padding: '6px 6px', textAlign: 'center', fontWeight: '800', width: '38px' }}>ALL</th>
+                        <th style={{ padding: '6px 4px', textAlign: 'center', fontWeight: '800', width: '52px', color: '#475569' }} title="Row Level Comments">💬 Note</th>
+                        <th style={{ width: '22px' }}></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -712,8 +1299,9 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
                                   type="number"
                                   min={0}
                                   value={row.critical}
+                                  onWheel={(e) => e.target.blur()}
                                   onChange={(e) => handleProcessMatrixChange(idx, 'critical', e.target.value)}
-                                  style={{ width: '38px', padding: '2px', fontSize: '11px', textAlign: 'center', border: '1px solid #CBD5E1', borderRadius: '3px' }}
+                                  style={{ width: '36px', padding: '2px', fontSize: '11px', textAlign: 'center', border: '1px solid #CBD5E1', borderRadius: '3px' }}
                                 />
                               )}
                             </td>
@@ -725,8 +1313,9 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
                                   type="number"
                                   min={0}
                                   value={row.major}
+                                  onWheel={(e) => e.target.blur()}
                                   onChange={(e) => handleProcessMatrixChange(idx, 'major', e.target.value)}
-                                  style={{ width: '38px', padding: '2px', fontSize: '11px', textAlign: 'center', border: '1px solid #CBD5E1', borderRadius: '3px' }}
+                                  style={{ width: '36px', padding: '2px', fontSize: '11px', textAlign: 'center', border: '1px solid #CBD5E1', borderRadius: '3px' }}
                                 />
                               )}
                             </td>
@@ -738,13 +1327,18 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
                                   type="number"
                                   min={0}
                                   value={row.minor}
+                                  onWheel={(e) => e.target.blur()}
                                   onChange={(e) => handleProcessMatrixChange(idx, 'minor', e.target.value)}
-                                  style={{ width: '38px', padding: '2px', fontSize: '11px', textAlign: 'center', border: '1px solid #CBD5E1', borderRadius: '3px' }}
+                                  style={{ width: '36px', padding: '2px', fontSize: '11px', textAlign: 'center', border: '1px solid #CBD5E1', borderRadius: '3px' }}
                                 />
                               )}
                             </td>
                             <td style={{ padding: '4px 6px', textAlign: 'center', fontWeight: '800', color: isGrandTotal ? '#0F172A' : '#475569' }}>
                               {row.total}
+                            </td>
+                            {/* Row-Level Comment Trigger */}
+                            <td style={{ padding: '4px', textAlign: 'center' }}>
+                              {!isGrandTotal && renderFieldCommentTrigger(`processMatrix_row_${idx}`, row.processTitle || `Row ${idx + 1}`, true)}
                             </td>
                             <td style={{ padding: '2px', textAlign: 'center' }}>
                               {!isGrandTotal && execData.scopeSummary.processMatrix.length > 2 && (
@@ -763,22 +1357,21 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
                       })}
                     </tbody>
                   </table>
-                  <div style={{ fontSize: '9.5px', color: '#64748B', marginTop: '4px' }}>
-                    * Counts of 0 automatically render as "-" in the PDF preview table.
-                  </div>
                 </div>
 
-                {/* g. Background Narrative */}
+                {/* g. Background Rich Text Editor */}
                 <div>
-                  <label style={{ fontSize: '11px', fontWeight: '800', color: '#1E293B', display: 'block', marginBottom: '4px' }}>
-                    Background Narrative:
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={execData.scopeSummary.background}
-                    onChange={(e) => handleScopeChange('background', e.target.value)}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: '800', color: '#1E293B' }}>
+                      Background:
+                    </label>
+                    {renderFieldCommentTrigger('scope_background', 'Background')}
+                  </div>
+                  <RichTextEditor
+                    value={execData.scopeSummary.background || ''}
+                    onChange={(html) => handleScopeChange('background', html)}
                     placeholder="Enter background section narrative..."
-                    style={{ width: '100%', padding: '8px', fontSize: '11.5px', borderRadius: '5px', border: '1px solid #CBD5E1', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                    minHeight="100px"
                   />
                 </div>
 
@@ -794,7 +1387,7 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
             borderRadius: '8px', 
             border: '1px solid #E2E8F0', 
             marginBottom: '12px',
-            overflow: 'hidden',
+            overflow: expandedSection === 'insights' ? 'visible' : 'hidden',
             boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
           }}>
             <button
@@ -827,11 +1420,11 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
                 
                 {/* Overall summary line */}
                 <div>
-                  <label style={{ fontSize: '11px', fontWeight: '800', color: '#1E293B', display: 'block', marginBottom: '4px' }}>
-                    Overall Summary Line (Starts with underlined "Overall"):
-                  </label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
                     <span style={{ fontSize: '12px', fontWeight: '700', textDecoration: 'underline', color: '#0F172A' }}>Overall</span>
+                    {renderFieldCommentTrigger('insights_overall', 'Overall Line')}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <input
                       type="text"
                       value={execData.auditInsights.overallText}
@@ -842,20 +1435,26 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
                   </div>
                 </div>
 
-                {/* Paragraphs */}
-                {execData.auditInsights.paragraphs.map((para, pIdx) => (
-                  <div key={pIdx}>
-                    <label style={{ fontSize: '11px', fontWeight: '800', color: '#475569', display: 'block', marginBottom: '3px' }}>
-                      Insights Narrative Paragraph {pIdx + 1}:
+                {/* Audit Insights Narrative Rich Text Editor */}
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: '800', color: '#1E293B' }}>
+                      Audit Insights:
                     </label>
-                    <textarea
-                      rows={3}
-                      value={para}
-                      onChange={(e) => handleInsightsParagraphChange(pIdx, e.target.value)}
-                      style={{ width: '100%', padding: '6px 8px', fontSize: '11.5px', borderRadius: '4px', border: '1px solid #CBD5E1', fontFamily: 'inherit', boxSizing: 'border-box' }}
-                    />
+                    {renderFieldCommentTrigger('insights_narrative', 'Audit Insights')}
                   </div>
-                ))}
+                  <RichTextEditor
+                    value={
+                      execData.auditInsights.narrativeHtml ??
+                      (execData.auditInsights.paragraphs
+                        ? execData.auditInsights.paragraphs.map(p => `<p>${p}</p>`).join('')
+                        : '')
+                    }
+                    onChange={(html) => handleInsightsNarrativeChange(html)}
+                    placeholder="Enter audit insights narrative paragraphs..."
+                    minHeight="140px"
+                  />
+                </div>
 
               </div>
             )}
@@ -869,7 +1468,7 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
             borderRadius: '8px', 
             border: '1px solid #E2E8F0', 
             marginBottom: '12px',
-            overflow: 'hidden',
+            overflow: expandedSection === 'criticalMajor' ? 'visible' : 'hidden',
             boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
           }}>
             <button
@@ -906,9 +1505,12 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
                     Critical Issue:
                   </div>
                   <div style={{ marginBottom: '8px' }}>
-                    <label style={{ fontSize: '10.5px', fontWeight: '700', color: '#7F1D1D', display: 'block', marginBottom: '3px' }}>
-                      Title:
-                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
+                      <label style={{ fontSize: '10.5px', fontWeight: '700', color: '#7F1D1D' }}>
+                        Title:
+                      </label>
+                      {renderFieldCommentTrigger('criticalIssue_title', 'Critical Issue Title')}
+                    </div>
                     <input
                       type="text"
                       value={execData.criticalMajorSection.criticalIssue.title}
@@ -917,9 +1519,12 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
                     />
                   </div>
                   <div>
-                    <label style={{ fontSize: '10.5px', fontWeight: '700', color: '#7F1D1D', display: 'block', marginBottom: '3px' }}>
-                      Description:
-                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
+                      <label style={{ fontSize: '10.5px', fontWeight: '700', color: '#7F1D1D' }}>
+                        Description:
+                      </label>
+                      {renderFieldCommentTrigger('criticalIssue_description', 'Critical Issue Description')}
+                    </div>
                     <textarea
                       rows={3}
                       value={execData.criticalMajorSection.criticalIssue.description}
@@ -935,9 +1540,12 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
                     Major Issue:
                   </div>
                   <div style={{ marginBottom: '8px' }}>
-                    <label style={{ fontSize: '10.5px', fontWeight: '700', color: '#78350F', display: 'block', marginBottom: '3px' }}>
-                      Title:
-                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
+                      <label style={{ fontSize: '10.5px', fontWeight: '700', color: '#78350F' }}>
+                        Title:
+                      </label>
+                      {renderFieldCommentTrigger('majorIssue_title', 'Major Issue Title')}
+                    </div>
                     <input
                       type="text"
                       value={execData.criticalMajorSection.majorIssue.title}
@@ -946,9 +1554,12 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
                     />
                   </div>
                   <div>
-                    <label style={{ fontSize: '10.5px', fontWeight: '700', color: '#78350F', display: 'block', marginBottom: '3px' }}>
-                      Description:
-                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
+                      <label style={{ fontSize: '10.5px', fontWeight: '700', color: '#78350F' }}>
+                        Description:
+                      </label>
+                      {renderFieldCommentTrigger('majorIssue_description', 'Major Issue Description')}
+                    </div>
                     <textarea
                       rows={3}
                       value={execData.criticalMajorSection.majorIssue.description}
@@ -969,10 +1580,12 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
         {/* ========================================================================= */}
         <div style={{
           width: '55%',
+          height: 'calc(100vh - 106px)',
+          maxHeight: 'calc(100vh - 106px)',
           backgroundColor: '#52525B', // Professional dark grey PDF viewer backdrop
           padding: '24px 20px',
           overflowY: 'auto',
-          maxHeight: '100%',
+          overflowX: 'hidden',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -1145,14 +1758,21 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
                           border: '1px solid #000000',
                           lineHeight: '1.4'
                         }}>
-                          <div style={{ marginBottom: '3px' }}>Examples:</div>
-                          <ul style={{ margin: 0, paddingLeft: '18px' }}>
-                            {execData.scopeSummary.objectiveBullets.map((bullet, bIdx) => (
-                              <li key={bIdx} style={{ marginBottom: bIdx === execData.scopeSummary.objectiveBullets.length - 1 ? 0 : '4px' }}>
-                                {bullet}
-                              </li>
-                            ))}
-                          </ul>
+                          <div style={{ marginBottom: '3px', fontWeight: '500' }}>Examples:</div>
+                          {execData.scopeSummary.objectiveHtml ? (
+                            <div
+                              className="rich-text-preview"
+                              dangerouslySetInnerHTML={{ __html: execData.scopeSummary.objectiveHtml }}
+                            />
+                          ) : (
+                            <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                              {(execData.scopeSummary.objectiveBullets || []).map((bullet, bIdx) => (
+                                <li key={bIdx} style={{ marginBottom: bIdx === execData.scopeSummary.objectiveBullets.length - 1 ? 0 : '4px' }}>
+                                  {bullet}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                         </td>
                       </tr>
                     </tbody>
@@ -1184,9 +1804,9 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
                           Process Title
                         </th>
 
-                        {/* Critical: Dark Blue #184A6E */}
+                        {/* Critical: Red #D8001D */}
                         <th style={{
-                          backgroundColor: '#184A6E',
+                          backgroundColor: '#D8001D',
                           color: '#ffffff',
                           fontWeight: '700',
                           textAlign: 'center',
@@ -1339,7 +1959,10 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
                     boxSizing: 'border-box'
                   }}>
                     {execData.scopeSummary.background ? (
-                      <p style={{ margin: 0 }}>{execData.scopeSummary.background}</p>
+                      <div 
+                        className="rich-text-preview"
+                        dangerouslySetInnerHTML={{ __html: execData.scopeSummary.background }}
+                      />
                     ) : (
                       <div style={{ color: '#94A3B8', fontStyle: 'italic' }}>
                         (Background notes and operational context)
@@ -1439,12 +2062,19 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
                       <span>{execData.auditInsights.overallText}</span>
                     </div>
 
-                    {/* Narrative paragraphs matching Image 2 verbatim */}
-                    {execData.auditInsights.paragraphs.map((para, pIdx) => (
-                      <p key={pIdx} style={{ margin: '0 0 10px 0', lineHeight: '1.45' }}>
-                        {para}
-                      </p>
-                    ))}
+                    {/* Narrative paragraphs with rich text support */}
+                    {execData.auditInsights.narrativeHtml ? (
+                      <div
+                        className="rich-text-preview"
+                        dangerouslySetInnerHTML={{ __html: execData.auditInsights.narrativeHtml }}
+                      />
+                    ) : (
+                      (execData.auditInsights.paragraphs || []).map((para, pIdx) => (
+                        <p key={pIdx} style={{ margin: '0 0 10px 0', lineHeight: '1.45' }}>
+                          {para}
+                        </p>
+                      ))
+                    )}
                   </div>
                 </div>
 
@@ -1551,6 +2181,115 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
         description="Audit trail and field edit history for Executive Summary sections"
         logs={execLogs}
       />
+
+      {/* Workflow Stages Drawer */}
+      <WorkflowModal
+        isOpen={isWorkflowModalOpen}
+        title="Executive Summary Workflow"
+        report={job || { fileName: execData.fileName }}
+        onClose={() => setIsWorkflowModalOpen(false)}
+      />
+
+      {/* Embedded CSS Keyframes for Toast Animations */}
+      <style>{`
+        @keyframes slideUpToast {
+          from {
+            opacity: 0;
+            transform: translateY(24px) scale(0.94);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        @keyframes toastProgress {
+          from { width: 100%; }
+          to { width: 0%; }
+        }
+        @keyframes toastPulse {
+          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+          70% { transform: scale(1.05); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+          100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+      `}</style>
+
+      {/* Premium Enterprise Toast Notification (matching issue creation toaster) */}
+      {toastMessage && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '28px',
+            right: '28px',
+            zIndex: 999999,
+            display: 'flex',
+            flexDirection: 'column',
+            minWidth: '380px',
+            maxWidth: '450px',
+            backgroundColor: '#0F172A',
+            color: '#ffffff',
+            borderRadius: '12px',
+            border: '1px solid #10B981',
+            boxShadow: '0 14px 36px rgba(15, 23, 42, 0.45), 0 0 24px rgba(16, 185, 129, 0.25)',
+            animation: 'slideUpToast 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+            overflow: 'hidden'
+          }}
+        >
+          <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+            <div style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              backgroundColor: '#064E3B',
+              border: '1.5px solid #10B981',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              animation: 'toastPulse 2s infinite'
+            }}>
+              <CheckCircle2 style={{ width: '18px', height: '18px', color: '#34D399' }} />
+            </div>
+
+            <div style={{ flex: 1 }}>
+              <h4 style={{ fontSize: '13.5px', fontWeight: '800', margin: 0, color: '#ffffff', letterSpacing: '0.2px' }}>
+                {toastMessage.title}
+              </h4>
+              <p style={{ fontSize: '12px', margin: '4px 0 0 0', color: '#94A3B8', lineHeight: '1.45' }}>
+                {toastMessage.description}
+              </p>
+            </div>
+
+            <button
+              onClick={() => setToastMessage(null)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#64748B',
+                cursor: 'pointer',
+                padding: '2px',
+                borderRadius: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'color 0.15s ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
+              onMouseLeave={(e) => e.currentTarget.style.color = '#64748B'}
+              title="Dismiss notification"
+            >
+              <X style={{ width: '16px', height: '16px' }} />
+            </button>
+          </div>
+
+          <div style={{ width: '100%', height: '3px', backgroundColor: '#1E293B', overflow: 'hidden' }}>
+            <div style={{
+              height: '100%',
+              backgroundColor: '#10B981',
+              animation: 'toastProgress 4.5s linear forwards'
+            }} />
+          </div>
+        </div>
+      )}
 
     </div>
   );

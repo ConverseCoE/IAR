@@ -5,11 +5,15 @@ import {
   MoreVertical, Check, Layout, Columns, PanelLeft, Layers, X,
   ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen,
   Lock, Clock, ShieldAlert, MessageSquare, GripVertical, Filter,
-  Ban, RotateCcw
+  Ban, RotateCcw, UploadCloud, Paperclip, Calendar, Trash2
 } from 'lucide-react';
 import { mockAuditReportIssues } from '../data/reportIssuesData';
 import IssueLogsModal from '../components/issues/IssueLogsModal';
+import WorkflowModal from '../components/reporting/WorkflowModal';
+import ToastNotification from '../components/ui/ToastNotification';
 import { APPLICATION_ROLES } from '../components/layout/Header';
+import DescriptionWithViolations, { parseDescriptionWithViolations } from '../components/common/DescriptionWithViolations';
+import ViolationPdfDrawer from '../components/common/ViolationPdfDrawer';
 
 // Standard Process Area options for audit findings
 export const PROCESS_AREA_OPTIONS = [
@@ -20,6 +24,90 @@ export const PROCESS_AREA_OPTIONS = [
   "Change Management",
   "Supply Chain & Operations",
   "System Configuration"
+];
+
+export const TEST_PROCEDURE_OPTIONS = [
+  'TP-101: User Access & Authentication Review',
+  'TP-102: Privileged Access Management Verification',
+  'TP-103: Automated Telemetry & Calibration Logging Review',
+  'TP-104: Segregation of Duties & Authorization Matrix',
+  'TP-105: Third-Party Vendor Network Access Deprovisioning',
+  'TP-106: Inventory Scrap & Variance Reconciliation',
+  'TP-107: Cleanroom Environmental HVAC Controls Verification',
+  'TP-108: Change Management & Transport Release Verification',
+  'TP-109: Backup Restoration & Disaster Recovery Testing',
+  'TP-110: GxP Software Validation & Data Integrity Audit'
+];
+
+export const ISSUE_TYPE_OPTIONS = [
+  'Operational',
+  'Compliance',
+  'Financial / SOX',
+  'IT / Cybersecurity',
+  'Regulatory / GxP',
+  'Reputational / Strategic'
+];
+
+export const ISSUE_SOURCE_OPTIONS = [
+  'Internal Audit',
+  'External Audit (PwC)',
+  'Regulatory Inspection (FDA / ISO)',
+  'Management Self-Identified',
+  'SOX 404 Assessment',
+  'Continuous Automated Monitoring'
+];
+
+export const KEY_THEME_OPTIONS = [
+  'Access Governance & Authorization Matrix',
+  'Financial Close & Account Reconciliation',
+  'Manufacturing Telemetry & Calibration Drift',
+  'Third-Party Vendor Risk & Deprovisioning',
+  'Data Integrity, Retention & GxP Archival',
+  'Change Management & Transport Release'
+];
+
+export const IT_ASSET_ACCOUNTABLE_SECTOR_OPTIONS = [
+  'Consumer',
+  'CORP',
+  'IM',
+  'ISRM',
+  'MT',
+  'TS'
+];
+
+export const IMPACTED_REGION_OPTIONS = [
+  'APAC',
+  'EMEA',
+  'LATAM',
+  'NA'
+];
+
+export const IMPACTED_SECTOR_OPTIONS = [
+  'CPC',
+  'GS-NOP',
+  'MED',
+  'NOP',
+  'PHR',
+  'Ortho_Synthes'
+];
+
+export const IMPACTED_MRC_OPTIONS = [
+  'MRC-01: Global Supply Chain & Manufacturing Operations',
+  'MRC-02: Commercial Operations & Hospital Distribution',
+  'MRC-03: Research, Clinical Trials & Biopharma Development',
+  'MRC-04: Corporate Shared Services & IT Infrastructure',
+  'MRC-05: Treasury, Capital Planning & Tax Strategy'
+];
+
+export const QUARTER_IMPACTED_OPTIONS = [
+  'Q1 2026',
+  'Q2 2026',
+  'Q3 2026',
+  'Q4 2026',
+  'Q1 2025',
+  'Q2 2025',
+  'Q3 2025',
+  'Q4 2025'
 ];
 
 // Normalizer helper ensuring any issue from My Audits or Create Drawer works seamlessly in Audit Report Studio
@@ -37,7 +125,9 @@ function normalizeIssueForReport(item, job) {
 
   // Status normalization
   let status = item.status || 'Pending TC';
-  if (item.currentLevel === 'Completed & Signed Off' || item.status === 'Completed' || item.status === 'Signed Off') {
+  if (item.status === 'Pending with Business' || item.status?.includes('Business') || item.currentLevel?.includes('Business')) {
+    status = 'Pending with Business';
+  } else if (item.currentLevel === 'Completed & Signed Off' || item.status === 'Completed' || item.status === 'Signed Off') {
     status = 'Signed Off';
   } else if (item.currentLevel?.includes('Manager')) {
     status = 'Pending Manager';
@@ -64,10 +154,36 @@ function normalizeIssueForReport(item, job) {
   const accountableFunction = item.accountableFunction || (func === 'IT' ? 'Business IT, Finance' : 'Finance, Operations');
 
   // Realistic fallback descriptions if missing
-  const issueNarrative = item.issue || `${item.title}. Testing and telemetry verification identified operational execution and control gaps contrary to standard operating procedures.`;
+  let issueNarrative = item.issue || `${item.title}. Testing and telemetry verification identified operational execution and control gaps contrary to standard operating procedures.`;
+  if (!issueNarrative.includes('Violation Reference')) {
+    issueNarrative = `${issueNarrative}\n\nViolation Reference\nNon-Compliant with some of the sections of IAPP:\n1. S-15 Section No. [2] - Security Assessment for COTS Systems/Applications — Security assessment not completed for the environment\n2. S-15 Section No. [11] - ISRM Approval Prior to Production — ISRM approval lacking due to missing assessment\n3. S-15 Section No. [4.18] - Periodic Application Architecture/Code/Config Assessment — No periodic assessment of architecture, code, configuration`;
+  }
   const rootCause = item.rootCause || `Process execution gap in automated synchronization and manual handoff between operational units and central monitoring systems.`;
   const impact = item.impact || `• Potential risk of operational delay and regulatory audit observation under GxP / SOX internal guidelines.\n• Resource variance required for secondary reconciliation and verification.`;
   const recommendation = item.recommendation || `1. Deploy automated validation checks across shopfloor telemetry pipelines.\n2. Update standard operating procedures (SOP) and conduct role-based refresher training.\n3. Establish periodic review checkpoints to ensure sustained compliance.`;
+
+  // Additional fields normalization & fallbacks
+  const originalIssue = item.originalIssue || item.issue || `${item.title}. Manual finding observation recorded during operational audit verification.`;
+  const testProcedure = item.testProcedure || 'TP-101: User Access & Authentication Review';
+  const summaryFinding = item.summaryFinding || '';
+  const auditorResponse = item.auditorResponse || '';
+  const mitigatingControl = item.mitigatingControl || '';
+  const exceptionRemedComments = item.exceptionRemedComments || '';
+  const issueType = item.issueType || 'Compliance';
+  const issueSource = item.issueSource || 'Internal Audit';
+  const keyTheme = item.keyTheme || 'Access Governance & Authorization Matrix';
+  const technologyRelated = item.technologyRelated || 'No';
+  const itAssetAccountableSector = item.itAssetAccountableSector || 'CORP';
+  const impactedRegion = item.impactedRegion || 'NA';
+  const impactedSector = item.impactedSector || 'MED';
+  const impactedMrc = item.impactedMrc || 'MRC-01: Global Supply Chain & Manufacturing Operations';
+  const quarterImpacted = item.quarterImpacted || 'Q1 2026';
+  const salesUsd = item.salesUsd || '$0.00';
+  const ibtUsd = item.ibtUsd || '$0.00';
+  const netIncomeUsd = item.netIncomeUsd || '$0.00';
+  const totalAssetsUsd = item.totalAssetsUsd || '$0.00';
+  const hasExceptionRemedDate = typeof item.hasExceptionRemedDate === 'boolean' ? item.hasExceptionRemedDate : !!item.exceptionRemedDate;
+  const exceptionRemedDate = item.exceptionRemedDate || '';
 
   return {
     ...item,
@@ -91,10 +207,31 @@ function normalizeIssueForReport(item, job) {
     soxReportable,
     repeatFinding,
     auditableEntity,
+    originalIssue,
     issue: issueNarrative,
     rootCause,
     impact,
     recommendation,
+    testProcedure,
+    summaryFinding,
+    auditorResponse,
+    mitigatingControl,
+    exceptionRemedComments,
+    issueType,
+    issueSource,
+    keyTheme,
+    technologyRelated,
+    itAssetAccountableSector,
+    impactedRegion,
+    impactedSector,
+    impactedMrc,
+    quarterImpacted,
+    salesUsd,
+    ibtUsd,
+    netIncomeUsd,
+    totalAssetsUsd,
+    hasExceptionRemedDate,
+    exceptionRemedDate,
     isLocked: !!item.isLocked,
     isExcluded: !!item.isExcluded,
     previousStatus: item.previousStatus || null,
@@ -111,36 +248,151 @@ function normalizeIssueForReport(item, job) {
   };
 }
 
+// Dynamic Role Submission Workflow Configuration
+export const getRoleSubmissionConfig = (userRole) => {
+  const roleStr = (userRole || '').toString().toLowerCase().trim();
+  
+  if (roleStr.includes('auditor')) {
+    return {
+      baseRole: 'auditor',
+      submitLabel: 'Submit to TC',
+      reportSubmitLabel: null,
+      hasReportSubmission: false,
+      targetRole: 'Team Co-Ordinator',
+      statusOnSubmit: 'Submitted to TC',
+      successMessage: 'submitted to Team Co-Ordinator'
+    };
+  }
+  
+  if (roleStr.includes('coordinator') || roleStr.includes('tc')) {
+    return {
+      baseRole: 'team-coordinator',
+      submitLabel: 'Submit to Manager',
+      reportSubmitLabel: null,
+      hasReportSubmission: false,
+      targetRole: 'Manager',
+      statusOnSubmit: 'Submitted to Manager',
+      successMessage: 'submitted to Manager'
+    };
+  }
+  
+  if (roleStr.includes('director')) {
+    return {
+      baseRole: 'director',
+      submitLabel: 'Submit to VP',
+      reportSubmitLabel: 'Submit to VP',
+      hasReportSubmission: true,
+      targetRole: 'VP',
+      statusOnSubmit: 'Submitted to VP',
+      successMessage: 'submitted to VP for final sign-off',
+      canSendToManagementResponse: true
+    };
+  }
+  
+  if (roleStr.includes('vp')) {
+    return {
+      baseRole: 'vp',
+      submitLabel: 'Sign-Off',
+      reportSubmitLabel: 'Sign-Off',
+      hasReportSubmission: true,
+      targetRole: 'Completed & Signed Off',
+      statusOnSubmit: 'Signed Off',
+      successMessage: 'officially signed off'
+    };
+  }
+
+  if (roleStr.includes('business') || roleStr.includes('head') || roleStr.includes('contact')) {
+    return {
+      baseRole: 'business',
+      submitLabel: 'Submit to Director',
+      reportSubmitLabel: null,
+      hasReportSubmission: false,
+      targetRole: 'Director',
+      statusOnSubmit: 'Submitted to Director',
+      successMessage: 'submitted back to Director'
+    };
+  }
+  
+  // Default to Manager (e.g. 'it-manager', 'finops-manager', 'manager')
+  return {
+    baseRole: 'manager',
+    submitLabel: 'Submit to Director',
+    reportSubmitLabel: 'Submit to Director',
+    hasReportSubmission: true,
+    targetRole: 'Director',
+    statusOnSubmit: 'Submitted to Director',
+    successMessage: 'submitted to Director'
+  };
+};
+
 export default function AuditReportView({ job, onClose, onUpdateIssues, userRole = 'it-manager', onSwitchToExecutiveReport }) {
   // Resolve active role definition
   const activeRoleObj = APPLICATION_ROLES?.find(r => r.id === userRole) || {
     id: userRole,
-    label: userRole?.includes('coordinator') ? 'Team Co-Ordinator' : userRole?.includes('director') ? 'Director' : userRole?.includes('vp') ? 'VP' : 'Manager',
+    label: userRole?.includes('auditor') ? 'Auditor' : userRole?.includes('coordinator') ? 'Team Co-Ordinator' : userRole?.includes('director') ? 'Director' : userRole?.includes('vp') ? 'VP' : 'Manager',
     domain: userRole?.includes('it') ? 'IT' : userRole?.includes('finops') ? 'FinOps' : 'All',
-    baseRole: userRole?.includes('coordinator') ? 'team-coordinator' : userRole?.includes('director') ? 'director' : userRole?.includes('vp') ? 'vp' : 'manager'
+    baseRole: userRole?.includes('auditor') ? 'auditor' : userRole?.includes('coordinator') ? 'team-coordinator' : userRole?.includes('director') ? 'director' : userRole?.includes('vp') ? 'vp' : 'manager'
   };
+
+  // Default priority ordering helper: Critical (1), Major (2), Minor (3)
+  const sortIssuesByDefaultPriority = (list) => {
+    const priorityWeight = { 'Critical': 1, 'Major': 2, 'High': 2, 'Minor': 3, 'Low': 3, 'Medium': 3 };
+    return [...list].sort((a, b) => {
+      const pA = priorityWeight[a.criticality] || 99;
+      const pB = priorityWeight[b.criticality] || 99;
+      return pA - pB;
+    }).map((item, idx) => ({
+      ...item,
+      reportRef: idx + 1
+    }));
+  };
+
+  // Track if user has manually reordered so we preserve their custom order across parent syncs
+  const isManuallyOrderedRef = useRef(false);
+  const prevJobIdRef = useRef(job?.id);
 
   // Derive issues directly from the active engagement's issuesList
   const getJobIssues = useCallback(() => {
+    let rawList = [];
     if (job && Array.isArray(job.issuesList)) {
       if (job.issuesList.length === 0) return [];
-      return job.issuesList.map(iss => normalizeIssueForReport(iss, job));
+      rawList = job.issuesList.map(iss => normalizeIssueForReport(iss, job));
+      // If user has already manually ordered these issues, preserve the exact array order!
+      if (isManuallyOrderedRef.current) {
+        return rawList.map((item, idx) => ({
+          ...item,
+          reportRef: idx + 1
+        }));
+      }
+    } else {
+      rawList = mockAuditReportIssues.map(iss => normalizeIssueForReport(iss, job));
     }
-    return mockAuditReportIssues.map(iss => normalizeIssueForReport(iss, job));
+    // Initial default sort by priority
+    return sortIssuesByDefaultPriority(rawList);
   }, [job]);
 
   const [issues, setIssues] = useState(getJobIssues);
 
+  // When job ID changes to a different engagement, reset manual order flag
   useEffect(() => {
-    setIssues(getJobIssues());
-    setExpandedIssueId(null);
-  }, [job?.id, job?.issuesList, getJobIssues]);
+    if (job?.id !== prevJobIdRef.current) {
+      prevJobIdRef.current = job?.id;
+      isManuallyOrderedRef.current = false;
+      setIssues(getJobIssues());
+      setExpandedIssueId(null);
+    }
+  }, [job?.id, getJobIssues]);
 
-  // Synchronize state locally and bubble updates to parent App / My Audits
+  // Synchronize state locally and bubble updates to parent App / My Audits, continuously re-sequencing reportRef
   const updateIssuesAndSync = (newIssues) => {
-    setIssues(newIssues);
+    isManuallyOrderedRef.current = true;
+    const sequencedIssues = newIssues.map((item, idx) => ({
+      ...item,
+      reportRef: idx + 1
+    }));
+    setIssues(sequencedIssues);
     if (onUpdateIssues) {
-      onUpdateIssues(newIssues);
+      onUpdateIssues(sequencedIssues);
     }
   };
 
@@ -148,8 +400,25 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
   const [expandedIssueId, setExpandedIssueId] = useState(null);
   const [isTrackChangesActive, setIsTrackChangesActive] = useState(false);
   const [isIssueLogsModalOpen, setIsIssueLogsModalOpen] = useState(false);
+  const [isWorkflowModalOpen, setIsWorkflowModalOpen] = useState(false);
+  const [toastNotification, setToastNotification] = useState(null);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const actionMenuRef = useRef(null);
+
+  // Call Back Modal State
+  const [isCallbackModalOpen, setIsCallbackModalOpen] = useState(false);
+  const [callbackIssueId, setCallbackIssueId] = useState(null);
+  const [callbackReason, setCallbackReason] = useState('');
+  const [callbackError, setCallbackError] = useState('');
+
+  // Violation Reference Document Side-Drawer State
+  const [selectedViolationDoc, setSelectedViolationDoc] = useState(null);
+  const [isViolationDrawerOpen, setIsViolationDrawerOpen] = useState(false);
+
+  const handleOpenViolationDoc = (violation) => {
+    setSelectedViolationDoc(violation);
+    setIsViolationDrawerOpen(true);
+  };
 
   // Multi-Design Mode State ('default', '3pane', 'slideover', 'tabbed')
   const [designMode, setDesignMode] = useState('3pane');
@@ -158,6 +427,14 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
   // Role permissions: Director and VP privilege for Report-Level Sign Off
   const isDirectorOrVP = (userRole || '').toLowerCase().includes('director') || (userRole || '').toLowerCase().includes('vp') || (userRole || '').toLowerCase().includes('head');
   const [isReportSignedOff, setIsReportSignedOff] = useState(job?.status === 'Signed Off' || job?.reportStatus === 'Signed Off' || false);
+
+  // Business User Check: Primary Business Contact role
+  const isBusinessUser = (userRole || '').toLowerCase().includes('business') || (userRole || '').toLowerCase().includes('contact');
+
+  // Business Response State: file input ref, drag over, error message
+  const businessFileInputRef = useRef(null);
+  const [uploadDragOver, setUploadDragOver] = useState(false);
+  const [businessResponseError, setBusinessResponseError] = useState('');
 
   // Dropdown filter for Function in Master List ('all', 'IT', 'FinOps')
   const [functionFilter, setFunctionFilter] = useState('all');
@@ -224,6 +501,12 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
   }, [userRole]);
 
   const filteredIssues = issues.filter(item => {
+    if (isBusinessUser) {
+      const st = (item.status || '').toLowerCase();
+      const lvl = (item.currentLevel || '').toLowerCase();
+      const tgt = (item.currentRoleTarget || '').toLowerCase();
+      return st.includes('business') || lvl.includes('business') || tgt.includes('business');
+    }
     if (functionFilter === 'all') return true;
     const isIT = isItemIT(item);
     if (functionFilter === 'IT') return isIT;
@@ -231,9 +514,19 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
     return true;
   });
 
+  // Auto-select the first pending issue for Primary Business Contact
+  useEffect(() => {
+    if (isBusinessUser && filteredIssues.length > 0) {
+      if (!expandedIssueId || !filteredIssues.some(i => i.id === expandedIssueId)) {
+        setExpandedIssueId(filteredIssues[0].id);
+      }
+    }
+  }, [isBusinessUser, filteredIssues, expandedIssueId]);
+
   // Drag and drop reordering state by issue ID
   const [draggedIssueId, setDraggedIssueId] = useState(null);
   const [dragOverIssueId, setDragOverIssueId] = useState(null);
+  const [draggableCardId, setDraggableCardId] = useState(null);
 
   const handleDragStart = (e, issueId) => {
     setDraggedIssueId(issueId);
@@ -260,6 +553,7 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
     if (!draggedIssueId || draggedIssueId === targetIssueId) {
       setDraggedIssueId(null);
       setDragOverIssueId(null);
+      setDraggableCardId(null);
       return;
     }
 
@@ -267,19 +561,33 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
     const targetIdx = issues.findIndex(i => i.id === targetIssueId);
 
     if (dragIdx !== -1 && targetIdx !== -1 && dragIdx !== targetIdx) {
+      const draggedItem = issues[dragIdx];
+      const targetItem = issues[targetIdx];
+      const isCrossPriority = draggedItem.criticality !== targetItem.criticality;
+
       const updated = [...issues];
-      const [draggedItem] = updated.splice(dragIdx, 1);
-      updated.splice(targetIdx, 0, draggedItem);
+      const [movedItem] = updated.splice(dragIdx, 1);
+      updated.splice(targetIdx, 0, movedItem);
       updateIssuesAndSync(updated);
+
+      if (isCrossPriority) {
+        setToastNotification({
+          type: 'warning',
+          title: 'Priority Alignment Notice',
+          description: `You are moving an issue across priority levels (${draggedItem.criticality} ➔ ${targetItem.criticality}). Report reference numbers have been realigned.`
+        });
+      }
     }
 
     setDraggedIssueId(null);
     setDragOverIssueId(null);
+    setDraggableCardId(null);
   };
 
   const handleDragEnd = () => {
     setDraggedIssueId(null);
     setDragOverIssueId(null);
+    setDraggableCardId(null);
   };
 
   // Re-order issues helper by issueId & direction
@@ -294,10 +602,22 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
     const targetIdx = issues.findIndex(i => i.id === targetIssueId);
     if (dragIdx === -1 || targetIdx === -1) return;
 
+    const currentItem = issues[dragIdx];
+    const targetItem = issues[targetIdx];
+    const isCrossPriority = currentItem.criticality !== targetItem.criticality;
+
     const updated = [...issues];
     const [draggedItem] = updated.splice(dragIdx, 1);
     updated.splice(targetIdx, 0, draggedItem);
     updateIssuesAndSync(updated);
+
+    if (isCrossPriority) {
+      setToastNotification({
+        type: 'warning',
+        title: 'Priority Alignment Notice',
+        description: `You are moving an issue across priority levels (${currentItem.criticality} ➔ ${targetItem.criticality}). Report reference numbers have been realigned.`
+      });
+    }
   };
 
   // 3-Pane Resizable Widths & Collapse States
@@ -371,6 +691,39 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
           timestamp: "2 hours ago",
           comment: "Categorized as Major due to potential unauthorized access window."
         }
+      ],
+      "testProcedure": [
+        {
+          id: "c-103",
+          user: "Elena Rostova",
+          role: "Lead Quality Auditor",
+          avatar: "ER",
+          avatarBg: "#059669",
+          timestamp: "30 mins ago",
+          comment: "Verified against TP-101 procedure criteria. Complies with Q1 cycle requirements."
+        }
+      ],
+      "summaryFinding": [
+        {
+          id: "c-104",
+          user: "Rachel Green",
+          role: "FinOps Lead",
+          avatar: "RG",
+          avatarBg: "#D97706",
+          timestamp: "45 mins ago",
+          comment: "Ensure executive finding highlights both access security and telemetry log exposures."
+        }
+      ],
+      "mitigatingControl": [
+        {
+          id: "c-105",
+          user: "Kevin Zhang",
+          role: "IT Audit Lead",
+          avatar: "KZ",
+          avatarBg: "#2563EB",
+          timestamp: "1 hour ago",
+          comment: "Added secondary supervisory sign-off as interim mitigating control."
+        }
       ]
     },
     "ISSUE-002": {
@@ -383,6 +736,17 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
           avatarBg: "#7C3AED",
           timestamp: "12 mins ago",
           comment: "Drift percentage updated to 4.2% based on latest calibration telemetry run."
+        }
+      ],
+      "impactedRegion": [
+        {
+          id: "c-202",
+          user: "Sarah Jenkins",
+          role: "Compliance Director",
+          avatar: "SJ",
+          avatarBg: "#DC2626",
+          timestamp: "25 mins ago",
+          comment: "APAC regional lead confirmed calibration sensor replacements are scheduled."
         }
       ]
     },
@@ -501,10 +865,22 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
     const newIssues = [...issues];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= newIssues.length) return;
+    const currentItem = newIssues[index];
+    const targetItem = newIssues[targetIndex];
+    const isCrossPriority = currentItem.criticality !== targetItem.criticality;
+
     const temp = newIssues[index];
     newIssues[index] = newIssues[targetIndex];
     newIssues[targetIndex] = temp;
     updateIssuesAndSync(newIssues);
+
+    if (isCrossPriority) {
+      setToastNotification({
+        type: 'warning',
+        title: 'Priority Alignment Notice',
+        description: `You are moving an issue across priority levels (${currentItem.criticality} ➔ ${targetItem.criticality}). Report reference numbers have been realigned.`
+      });
+    }
   };
 
   // Field change handler (Instant real-time update to live HTML PDF preview)
@@ -555,10 +931,35 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
         return;
       }
     }
-    alert(`Issue ${issueId} submitted for management review.`);
+
+    const targetIssue = issues.find(i => i.id === issueId);
+    const issueRef = targetIssue?.referenceNumber || (issueId ? `Issue #${issueId}` : 'Issue');
+    const roleConfig = getRoleSubmissionConfig(userRole);
+
+    const updatedIssues = issues.map(item => {
+      if (item.id === issueId) {
+        return {
+          ...item,
+          status: roleConfig.statusOnSubmit,
+          currentRoleTarget: roleConfig.targetRole,
+          currentLevel: `${roleConfig.targetRole} Review`,
+          submittedAt: new Date().toISOString()
+        };
+      }
+      return item;
+    });
+
+    updateIssuesAndSync(updatedIssues);
+
+    setToastNotification({
+      type: 'success',
+      title: roleConfig.submitLabel,
+      description: `Issue ${issueRef} ${roleConfig.successMessage}.`
+    });
   };
 
-  const handleSendToIssue = (issueId) => {
+  // Director Action: Send Issue to Business for Management Response
+  const handleSendToManagementResponse = (issueId) => {
     const target = issues.find(i => i.id === issueId);
     if (target) {
       const editability = checkIssueEditability(target);
@@ -571,17 +972,227 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
         return;
       }
     }
-    alert(`Issue ${issueId} sent to Lead Compliance Auditor.`);
+
+    const targetIssue = issues.find(i => i.id === issueId);
+    const issueRef = targetIssue?.referenceNumber || (issueId ? `Issue #${issueId}` : 'Issue');
+
+    const updatedIssues = issues.map(item => {
+      if (item.id === issueId) {
+        return {
+          ...item,
+          status: 'Pending with Business',
+          currentRoleTarget: 'primary-business-contact',
+          currentLevel: 'Business Response',
+          sentToManagementResponseAt: new Date().toISOString()
+        };
+      }
+      return item;
+    });
+
+    updateIssuesAndSync(updatedIssues);
+
+    setToastNotification({
+      type: 'info',
+      title: 'Management Response',
+      description: `Issue ${issueRef} sent to Business for Management Response.`
+    });
   };
 
-  const handleRerouteIssue = handleSendToIssue;
+  // Business Contact Handlers: File upload, Remove attachment, Submit response, Save draft
+  const handleFileUpload = (issueId, files) => {
+    if (!files || files.length === 0) return;
+    const fileList = Array.from(files);
+    const newAttachments = fileList.map(f => {
+      const sizeKB = (f.size / 1024).toFixed(1);
+      const sizeMB = (f.size / (1024 * 1024)).toFixed(2);
+      const formattedSize = f.size > 1024 * 1024 ? `${sizeMB} MB` : `${sizeKB} KB`;
+      return {
+        id: `att-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+        name: f.name,
+        size: formattedSize,
+        type: f.type || 'document',
+        uploadedAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      };
+    });
 
-  // Report-Level Sign Off Handler (Applicable exclusively for Director and VP)
-  const handleReportSignOff = () => {
-    if (!isDirectorOrVP) {
-      alert("Sign-off is not applicable for Team Coordinator or Manager. Only applicable for Director and VP.");
+    const updatedIssues = issues.map(item => {
+      if (item.id === issueId) {
+        const existing = Array.isArray(item.attachments) ? item.attachments : [];
+        return {
+          ...item,
+          attachments: [...existing, ...newAttachments]
+        };
+      }
+      return item;
+    });
+
+    updateIssuesAndSync(updatedIssues);
+
+    setToastNotification({
+      type: 'success',
+      title: 'Attachment Added',
+      description: `${newAttachments.length} file(s) attached successfully.`
+    });
+  };
+
+  const handleRemoveAttachment = (issueId, attachmentId) => {
+    const updatedIssues = issues.map(item => {
+      if (item.id === issueId) {
+        const existing = Array.isArray(item.attachments) ? item.attachments : [];
+        return {
+          ...item,
+          attachments: existing.filter(a => a.id !== attachmentId)
+        };
+      }
+      return item;
+    });
+
+    updateIssuesAndSync(updatedIssues);
+  };
+
+  const handleSubmitBusinessResponse = (issueId) => {
+    const target = issues.find(i => i.id === issueId);
+    if (!target) return;
+
+    if (!target.managementResponse || !target.managementResponse.trim()) {
+      setBusinessResponseError('Please enter a Management Response before submitting.');
       return;
     }
+    if (!target.agreedRemediationDate) {
+      setBusinessResponseError('Please select an Agreed Remediation Date before submitting.');
+      return;
+    }
+
+    setBusinessResponseError('');
+
+    const issueRef = target.referenceNumber || (target.id ? `Issue #${target.id}` : 'Issue');
+    const updatedIssues = issues.map(item => {
+      if (item.id === issueId) {
+        return {
+          ...item,
+          status: 'Submitted to Director',
+          currentRoleTarget: 'director',
+          currentLevel: 'Director Review',
+          managementResponseSubmittedAt: new Date().toISOString()
+        };
+      }
+      return item;
+    });
+
+    updateIssuesAndSync(updatedIssues);
+
+    setToastNotification({
+      type: 'success',
+      title: 'Response Submitted',
+      description: `Management response for ${issueRef} has been successfully submitted to the Audit Director.`
+    });
+  };
+
+  const handleSaveBusinessDraft = (issueId) => {
+    const target = issues.find(i => i.id === issueId);
+    const issueRef = target?.referenceNumber || (target?.id ? `Issue #${target?.id}` : 'Issue');
+    updateIssuesAndSync(issues);
+    setToastNotification({
+      type: 'info',
+      title: 'Draft Saved',
+      description: `Draft response for ${issueRef} saved successfully.`
+    });
+  };
+
+  // Call Back Handlers
+  const handleOpenCallbackModal = (issueId) => {
+    const target = issues.find(i => i.id === issueId);
+    if (target) {
+      const editability = checkIssueEditability(target);
+      if (!editability.canEdit) {
+        alert(editability.reason);
+        return;
+      }
+      if (target.isLocked) {
+        alert("This issue is locked by another team member.");
+        return;
+      }
+    }
+    setCallbackIssueId(issueId);
+    setCallbackReason('');
+    setCallbackError('');
+    setIsCallbackModalOpen(true);
+  };
+
+  const handleConfirmCallback = () => {
+    if (!callbackReason.trim()) {
+      setCallbackError('Please provide a reason for calling back this issue.');
+      return;
+    }
+
+    const targetIssue = issues.find(i => i.id === callbackIssueId);
+    const issueRef = targetIssue?.referenceNumber || (callbackIssueId ? `Issue #${callbackIssueId}` : 'Issue');
+
+    const updatedIssues = issues.map(item => {
+      if (item.id === callbackIssueId) {
+        return {
+          ...item,
+          status: 'Called Back',
+          callbackReason: callbackReason.trim(),
+          callbackTimestamp: new Date().toISOString()
+        };
+      }
+      return item;
+    });
+
+    updateIssuesAndSync(updatedIssues);
+    setIsCallbackModalOpen(false);
+
+    // Show toaster notification on callback
+    setToastNotification({
+      type: 'warning',
+      title: 'Call Back',
+      description: `Issue ${issueRef} called back: ${callbackReason.trim()}`
+    });
+
+    setCallbackReason('');
+    setCallbackError('');
+    setCallbackIssueId(null);
+  };
+
+  const handleCloseCallbackModal = () => {
+    setIsCallbackModalOpen(false);
+    setCallbackReason('');
+    setCallbackError('');
+    setCallbackIssueId(null);
+  };
+
+  const handleSendToIssue = handleOpenCallbackModal;
+  const handleRerouteIssue = handleOpenCallbackModal;
+
+  // Report-Level Submission / Sign Off Handler (Applicable exclusively for Manager, Director, and VP)
+  const handleReportSubmit = () => {
+    const roleConfig = getRoleSubmissionConfig(userRole);
+    if (!roleConfig.hasReportSubmission) {
+      alert("Report-level submission is not applicable for Auditor or Team Coordinator. Only applicable for Manager, Director, and VP.");
+      return;
+    }
+    if (roleConfig.baseRole === 'vp') {
+      handleReportSignOff();
+      return;
+    }
+
+    const updatedIssues = issues.map(item => ({
+      ...item,
+      status: roleConfig.statusOnSubmit,
+      currentRoleTarget: roleConfig.targetRole,
+      currentLevel: `${roleConfig.targetRole} Review`
+    }));
+    updateIssuesAndSync(updatedIssues);
+
+    setToastNotification({
+      type: 'success',
+      title: roleConfig.reportSubmitLabel,
+      description: `Audit Report for ${job?.id || 'JOB-2026-881'} ${roleConfig.successMessage.toLowerCase()}.`
+    });
+  };
+
+  const handleReportSignOff = () => {
     const newStatus = !isReportSignedOff;
     setIsReportSignedOff(newStatus);
     if (newStatus) {
@@ -591,9 +1202,17 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
         currentLevel: 'Completed & Signed Off'
       }));
       updateIssuesAndSync(updatedIssues);
-      alert(`Audit Report for ${job?.id || 'JOB-2026-881'} has been officially signed off by ${activeRoleObj?.label || 'Director / VP'}.`);
+      setToastNotification({
+        type: 'success',
+        title: 'Sign-Off',
+        description: `Audit Report for ${job?.id || 'JOB-2026-881'} has been officially signed off by ${activeRoleObj?.label || 'VP'}.`
+      });
     } else {
-      alert(`Audit Report sign-off status has been reset.`);
+      setToastNotification({
+        type: 'info',
+        title: 'Sign-Off Reset',
+        description: `Audit Report sign-off status has been reset.`
+      });
     }
   };
 
@@ -674,13 +1293,41 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
   };
 
   const renderCriticalityBadge = (crit) => {
-    let bg = '#FEF2F2'; let text = '#991B1B'; let border = '#FCA5A5';
-    if (crit === 'Minor') { bg = '#FFFBEB'; text = '#B45309'; border = '#FDE68A'; }
-    else if (crit === 'Critical') { bg = '#D8001D'; text = '#ffffff'; border = '#A00014'; }
+    const val = (crit || 'Major').trim();
+    let bg = '#F1B500';
+    let text = '#ffffff';
+    let border = '#D97706';
+
+    if (val === 'Critical') {
+      bg = '#D8001D';
+      text = '#ffffff';
+      border = '#A00014';
+    } else if (val === 'Minor' || val === 'Low') {
+      bg = '#008000';
+      text = '#ffffff';
+      border = '#047857';
+    } else { // Major
+      bg = '#F1B500';
+      text = '#ffffff';
+      border = '#D97706';
+    }
 
     return (
-      <span style={{ fontSize: '11px', fontWeight: '800', padding: '2px 8px', borderRadius: '4px', backgroundColor: bg, color: text, border: `1px solid ${border}`, display: 'inline-block' }}>
-        {crit}
+      <span style={{
+        fontSize: '11px',
+        fontWeight: '800',
+        padding: '2.5px 9px',
+        borderRadius: '4px',
+        backgroundColor: bg,
+        color: text,
+        border: `1px solid ${border}`,
+        display: 'inline-block',
+        textAlign: 'center',
+        letterSpacing: '0.2px',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+        minWidth: '50px'
+      }}>
+        {val}
       </span>
     );
   };
@@ -752,8 +1399,8 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
   // Helper to render PDF HTML card for an issue matching Image 1
   const renderPdfIssueCard = (item, idx = 0) => {
     const reportRefNum = item.reportRef || (idx + 1);
-    const critBg = item.criticality === 'Critical' ? '#D8001D' : item.criticality === 'Minor' ? '#008000' : '#FFC000';
-    const critTextColor = item.criticality === 'Critical' ? '#ffffff' : '#000000';
+    const critBg = item.criticality === 'Critical' ? '#D8001D' : item.criticality === 'Minor' ? '#008000' : '#F1B500';
+    const critTextColor = '#ffffff';
 
     return (
       <div key={item.id} style={{ display: 'flex', flexDirection: 'column', marginBottom: '22px' }}>
@@ -883,9 +1530,49 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
                 <div style={{ fontWeight: '700', color: '#000000', marginBottom: '5px', lineHeight: '1.3' }}>
                   {item.title}
                 </div>
-                <div style={{ color: '#000000', lineHeight: '1.4', whiteSpace: 'pre-wrap' }}>
-                  {item.issue}
-                </div>
+                {(() => {
+                  const p = parseDescriptionWithViolations(item.issue);
+                  if (!p.hasViolations) {
+                    return (
+                      <div style={{ color: '#000000', lineHeight: '1.4', whiteSpace: 'pre-wrap' }}>
+                        {item.issue}
+                      </div>
+                    );
+                  }
+                  return (
+                    <div style={{ color: '#000000', lineHeight: '1.4' }}>
+                      <div style={{ whiteSpace: 'pre-wrap', marginBottom: '8px' }}>
+                        {p.mainText}
+                      </div>
+                      <div style={{ fontWeight: '700', fontSize: '10.5px', marginBottom: '2px' }}>
+                        Violation Reference
+                      </div>
+                      {p.subTitle && (
+                        <div style={{ fontSize: '10px', color: '#333333', marginBottom: '4px' }}>
+                          {p.subTitle}
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '10px' }}>
+                        {p.items.map((vItem, vIdx) => (
+                          <div key={vIdx}>
+                            <span>{vItem.number}. </span>
+                            <span
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenViolationDoc(vItem);
+                              }}
+                              style={{ color: '#1D4ED8', textDecoration: 'underline', cursor: 'pointer', fontWeight: '600' }}
+                            >
+                              {vItem.linkText}
+                            </span>
+                            {vItem.title && <span> - {vItem.title}</span>}
+                            {vItem.detail && <span> — {vItem.detail}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </td>
 
               {/* Col 2: Root Cause */}
@@ -1509,6 +2196,441 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
     </div>
   );
 
+  // Helper to render Dedicated Business Response Section for Primary Business Contact
+  const renderBusinessResponseSection = (item) => {
+    const attachments = Array.isArray(item.attachments) ? item.attachments : [];
+    const isSubmitted = item.status === 'Submitted to Director' || item.currentLevel === 'Director Review';
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {/* Business Response Status Banner */}
+        <div style={{
+          padding: '12px 14px',
+          borderRadius: '8px',
+          backgroundColor: isSubmitted ? '#ECFDF5' : '#EFF6FF',
+          border: isSubmitted ? '1px solid #A7F3D0' : '1px solid #BFDBFE',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '12px'
+        }}>
+          <div style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '6px',
+            backgroundColor: isSubmitted ? '#10B981' : '#2563EB',
+            color: '#ffffff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            {isSubmitted ? (
+              <CheckCircle2 style={{ width: '18px', height: '18px' }} />
+            ) : (
+              <MessageSquare style={{ width: '18px', height: '18px' }} />
+            )}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px', marginBottom: '3px' }}>
+              <span style={{ fontSize: '13px', fontWeight: '800', color: isSubmitted ? '#065F46' : '#1E40AF' }}>
+                {isSubmitted ? 'Response Submitted to Audit Director' : 'Business Management Response Required'}
+              </span>
+              <span style={{
+                fontSize: '11px',
+                fontWeight: '800',
+                color: isSubmitted ? '#047857' : '#B45309',
+                backgroundColor: isSubmitted ? '#D1FAE5' : '#FEF3C7',
+                border: isSubmitted ? '1px solid #6EE7B7' : '1px solid #FDE68A',
+                padding: '2px 8px',
+                borderRadius: '9999px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}>
+                <Clock style={{ width: '11px', height: '11px' }} />
+                {item.status || 'Pending with Business'}
+              </span>
+            </div>
+            <p style={{ fontSize: '11.5px', color: isSubmitted ? '#047857' : '#3B82F6', margin: 0, lineHeight: '1.45' }}>
+              {isSubmitted 
+                ? 'Your response and supporting evidence have been submitted to the Audit Director for review.'
+                : 'As the Primary Business Contact, review the audit observation and root cause below, then provide your agreed corrective action plan, remediation timeline, and supporting documentation.'}
+            </p>
+          </div>
+        </div>
+
+        {/* Audit Finding & Observation Reference Card (Read-Only) */}
+        <div style={{
+          backgroundColor: '#F8FAFC',
+          border: '1px solid #E2E8F0',
+          borderRadius: '8px',
+          padding: '14px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontSize: '10.5px', fontWeight: '800', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>
+                Auditor Finding
+              </div>
+              <h4 style={{ fontSize: '13px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
+                {item.title || item.header}
+              </h4>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {renderCriticalityBadge(item.criticality)}
+              {renderFunctionPill(item.function || item.tech)}
+            </div>
+          </div>
+
+          <div style={{ fontSize: '12px', color: '#334155', lineHeight: '1.5', backgroundColor: '#ffffff', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '10px 12px' }}>
+            <div style={{ fontWeight: '700', fontSize: '11px', color: '#475569', marginBottom: '4px' }}>
+              Observation &amp; Non-Compliance Details:
+            </div>
+            <DescriptionWithViolations
+              text={item.issue || item.originalIssue || item.summaryFinding || ''}
+              onOpenViolationDoc={handleOpenViolationDoc}
+              isReadOnly={true}
+            />
+          </div>
+
+          {item.rootCause && (
+            <div style={{ fontSize: '11.5px', color: '#475569', lineHeight: '1.45', backgroundColor: '#ffffff', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '8px 10px' }}>
+              <span style={{ fontWeight: '700', color: '#1E293B' }}>Root Cause: </span>
+              {item.rootCause}
+            </div>
+          )}
+
+          {item.recommendation && (
+            <div style={{ fontSize: '11.5px', color: '#1E40AF', lineHeight: '1.45', backgroundColor: '#EFF6FF', border: '1px solid #DBEAFE', borderRadius: '6px', padding: '8px 10px' }}>
+              <span style={{ fontWeight: '700', color: '#1E3A8A' }}>Audit Recommendation: </span>
+              <span style={{ whiteSpace: 'pre-line' }}>{item.recommendation}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Section 1: Management Response */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <label style={{ fontSize: '12px', fontWeight: '800', color: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <MessageSquare style={{ width: '13px', height: '13px', color: '#2563EB' }} />
+              Management Response &amp; Corrective Action Plan <span style={{ color: '#DC2626' }}>*</span>
+            </span>
+            <span style={{ fontSize: '10.5px', fontWeight: '600', color: '#64748B' }}>
+              {(item.managementResponse || '').length} characters
+            </span>
+          </label>
+          <p style={{ fontSize: '11px', color: '#64748B', margin: 0 }}>
+            Specify the corrective actions agreed upon by management, systemic fixes, ownership, and milestones.
+          </p>
+          <textarea
+            rows={5}
+            value={item.managementResponse || ''}
+            onChange={(e) => {
+              if (businessResponseError) setBusinessResponseError('');
+              handleIssueFieldChange(item.id, 'managementResponse', e.target.value);
+            }}
+            placeholder="Enter detailed management response, corrective action plan, and accountability details..."
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              fontSize: '12.5px',
+              borderRadius: '6px',
+              border: '1.5px solid #CBD5E1',
+              backgroundColor: '#ffffff',
+              color: '#0F172A',
+              fontFamily: 'inherit',
+              lineHeight: '1.5',
+              outline: 'none',
+              resize: 'vertical',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
+
+        {/* Section 2: Agreed Remediation Date */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <label style={{ fontSize: '12px', fontWeight: '800', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Calendar style={{ width: '13px', height: '13px', color: '#2563EB' }} />
+            Agreed Remediation Date <span style={{ color: '#DC2626' }}>*</span>
+          </label>
+          <p style={{ fontSize: '11px', color: '#64748B', margin: 0 }}>
+            Target completion date agreed upon with Internal Audit for full closure of corrective actions.
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <input
+              type="date"
+              value={item.agreedRemediationDate || ''}
+              onChange={(e) => {
+                if (businessResponseError) setBusinessResponseError('');
+                handleIssueFieldChange(item.id, 'agreedRemediationDate', e.target.value);
+              }}
+              style={{
+                height: '36px',
+                padding: '0 10px',
+                fontSize: '12px',
+                fontWeight: '600',
+                borderRadius: '6px',
+                border: '1.5px solid #CBD5E1',
+                backgroundColor: '#ffffff',
+                color: '#0F172A',
+                outline: 'none',
+                cursor: 'pointer'
+              }}
+            />
+            {/* Quick Presets */}
+            {['2026-10-31', '2026-11-30', '2026-12-31', '2027-01-31'].map(presetDate => (
+              <button
+                key={presetDate}
+                type="button"
+                onClick={() => {
+                  if (businessResponseError) setBusinessResponseError('');
+                  handleIssueFieldChange(item.id, 'agreedRemediationDate', presetDate);
+                }}
+                style={{
+                  height: '32px',
+                  padding: '0 9px',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  borderRadius: '5px',
+                  border: item.agreedRemediationDate === presetDate ? '1.5px solid #2563EB' : '1px solid #CBD5E1',
+                  backgroundColor: item.agreedRemediationDate === presetDate ? '#EFF6FF' : '#F8FAFC',
+                  color: item.agreedRemediationDate === presetDate ? '#1D4ED8' : '#475569',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {presetDate}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Section 3: Upload Attachments */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <label style={{ fontSize: '12px', fontWeight: '800', color: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Paperclip style={{ width: '13px', height: '13px', color: '#2563EB' }} />
+              Upload Attachments &amp; Evidence Files
+            </span>
+            <span style={{ fontSize: '10.5px', fontWeight: '700', color: '#64748B' }}>
+              {attachments.length} {attachments.length === 1 ? 'file' : 'files'} attached
+            </span>
+          </label>
+          <p style={{ fontSize: '11px', color: '#64748B', margin: 0 }}>
+            Upload supporting artifacts such as ticket extracts, vendor agreements, architecture diagrams, or sign-off emails.
+          </p>
+
+          {/* Hidden File Input */}
+          <input
+            type="file"
+            ref={businessFileInputRef}
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) {
+                handleFileUpload(item.id, e.target.files);
+                e.target.value = '';
+              }
+            }}
+            multiple
+            style={{ display: 'none' }}
+          />
+
+          {/* Drag & Drop Zone */}
+          <div
+            onClick={() => businessFileInputRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setUploadDragOver(true);
+            }}
+            onDragLeave={() => setUploadDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setUploadDragOver(false);
+              if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                handleFileUpload(item.id, e.dataTransfer.files);
+              }
+            }}
+            style={{
+              padding: '20px',
+              border: uploadDragOver ? '2px dashed #2563EB' : '2px dashed #CBD5E1',
+              backgroundColor: uploadDragOver ? '#EFF6FF' : '#F8FAFC',
+              borderRadius: '8px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <div style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '50%',
+              backgroundColor: uploadDragOver ? '#DBEAFE' : '#E2E8F0',
+              color: uploadDragOver ? '#1D4ED8' : '#64748B',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <UploadCloud style={{ width: '20px', height: '20px' }} />
+            </div>
+            <div style={{ fontSize: '12px', fontWeight: '700', color: '#0F172A' }}>
+              Click to upload or drag and drop files here
+            </div>
+            <div style={{ fontSize: '10.5px', color: '#64748B' }}>
+              Supports PDF, DOCX, XLSX, PNG, JPG (up to 25 MB per file)
+            </div>
+          </div>
+
+          {/* Attachment Cards List */}
+          {attachments.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+              {attachments.map(att => (
+                <div
+                  key={att.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #CBD5E1',
+                    fontSize: '11.5px'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                    <div style={{
+                      width: '26px',
+                      height: '26px',
+                      borderRadius: '4px',
+                      backgroundColor: '#EFF6FF',
+                      color: '#2563EB',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}>
+                      <Paperclip style={{ width: '13px', height: '13px' }} />
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: '700', color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '320px' }}>
+                        {att.name}
+                      </div>
+                      <div style={{ fontSize: '10px', color: '#64748B', display: 'flex', gap: '8px' }}>
+                        <span>{att.size}</span>
+                        <span>•</span>
+                        <span>{att.uploadedAt}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveAttachment(item.id, att.id)}
+                    title="Remove attachment"
+                    style={{
+                      padding: '4px 6px',
+                      borderRadius: '4px',
+                      border: '1px solid #FECACA',
+                      backgroundColor: '#FEF2F2',
+                      color: '#DC2626',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '10.5px',
+                      fontWeight: '700'
+                    }}
+                  >
+                    <Trash2 style={{ width: '11px', height: '11px' }} />
+                    <span>Remove</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Validation Error Message */}
+        {businessResponseError && (
+          <div style={{
+            padding: '10px 12px',
+            borderRadius: '6px',
+            backgroundColor: '#FEF2F2',
+            border: '1px solid #FCA5A5',
+            color: '#B91C1C',
+            fontSize: '12px',
+            fontWeight: '600',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <AlertOctagon style={{ width: '16px', height: '16px', flexShrink: 0 }} />
+            <span>{businessResponseError}</span>
+          </div>
+        )}
+
+        {/* Submit & Save Draft Action Bar */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingTop: '12px',
+          borderTop: '1px solid #E2E8F0',
+          gap: '10px',
+          flexWrap: 'wrap'
+        }}>
+          <button
+            type="button"
+            onClick={() => handleSaveBusinessDraft(item.id)}
+            style={{
+              padding: '8px 14px',
+              fontSize: '12px',
+              fontWeight: '700',
+              borderRadius: '6px',
+              border: '1px solid #CBD5E1',
+              backgroundColor: '#F8FAFC',
+              color: '#334155',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <Save style={{ width: '13.5px', height: '13.5px', color: '#64748B' }} />
+            <span>Save Draft</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleSubmitBusinessResponse(item.id)}
+            style={{
+              padding: '8px 18px',
+              fontSize: '12.5px',
+              fontWeight: '800',
+              borderRadius: '6px',
+              border: 'none',
+              backgroundColor: '#0284C7',
+              color: '#ffffff',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 2px 4px rgba(2, 132, 199, 0.25)',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <Send style={{ width: '14px', height: '14px' }} />
+            <span>Submit Response to Director</span>
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   // Helper to render Form Fields for an issue
   const renderFormFields = (item) => {
     const editability = checkIssueEditability(item);
@@ -1571,39 +2693,57 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
 
     return (
       <>
-        {/* Form Row 1: Issue Title */}
-        <div>
-          <label style={labelStyle}>
-            <span style={{ fontWeight: '700' }}>Issue Title</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {item.isExcluded ? (
-                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                  <Ban style={{ width: '10px', height: '10px' }} />
-                  Excluded Finding (Disabled)
-                </span>
-              ) : item.isLocked ? (
-                <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '700' }}>🔒 Locked</span>
-              ) : isRoleRestricted ? (
-                <span style={{ fontSize: '10px', color: '#4338CA', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                  <ShieldAlert style={{ width: '10px', height: '10px' }} />
-                  Read-Only ({editability.userRoleLabel})
-                </span>
-              ) : null}
-              {renderFieldCommentTrigger(item.id, 'title', 'Issue Title', isReadOnly)}
-            </div>
-          </label>
-          <input
-            type="text"
-            disabled={isReadOnly}
-            readOnly={isReadOnly}
-            value={item.title}
-            onChange={(e) => handleIssueFieldChange(item.id, 'title', e.target.value)}
-            style={inputBaseStyle}
-          />
-        </div>
+        {/* ============================================================== */}
+        {/* ============================================================== */}
+        {/* 1. TOP SECTION: MANUAL IMPORTANT FIELDS                         */}
+        {/* ============================================================== */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {/* Field 1: Test Procedure */}
+          <div>
+            <label style={labelStyle}>
+              <span style={{ fontWeight: '700' }}>Test Procedure</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+                {renderFieldCommentTrigger(item.id, 'testProcedure', 'Test Procedure', isReadOnly)}
+              </div>
+            </label>
+            <select
+              disabled={isReadOnly}
+              value={item.testProcedure || ''}
+              onChange={(e) => handleIssueFieldChange(item.id, 'testProcedure', e.target.value)}
+              style={selectBaseStyle}
+            >
+              <option value="" disabled>Select Test Procedure...</option>
+              {item.testProcedure && !TEST_PROCEDURE_OPTIONS.includes(item.testProcedure) && (
+                <option value={item.testProcedure}>{item.testProcedure}</option>
+              )}
+              {TEST_PROCEDURE_OPTIONS.map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </div>
 
-        {/* Form Row 2: Criticality, Process Area (Function dropdown removed per user request) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          {/* Field 2: Original Issue (Textarea) */}
+          <div>
+            <label style={labelStyle}>
+              <span style={{ fontWeight: '700' }}>Original Issue</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+                {renderFieldCommentTrigger(item.id, 'originalIssue', 'Original Issue', isReadOnly)}
+              </div>
+            </label>
+            <textarea
+              rows={3}
+              disabled={isReadOnly}
+              readOnly={isReadOnly}
+              value={item.originalIssue || item.issue || ''}
+              placeholder="Enter original finding text..."
+              onChange={(e) => handleIssueFieldChange(item.id, 'originalIssue', e.target.value)}
+              style={textareaBaseStyle}
+            />
+          </div>
+
+          {/* Field 3: Criticality (Function dropdown removed per user request) */}
           <div>
             <label style={labelStyle}>
               <span style={{ fontWeight: '700' }}>Criticality</span>
@@ -1623,7 +2763,192 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
               <option value="Minor">Minor</option>
             </select>
           </div>
+        </div>
 
+        {/* ============================================================== */}
+        {/* 2. MIDDLE SECTION: AI GENERATED FIELDS (IN ONE CONTAINER)       */}
+        {/* ============================================================== */}
+        <div style={{
+          marginTop: '6px',
+          backgroundColor: '#F8FAFC',
+          border: '1.5px solid #E2E8F0',
+          borderRadius: '10px',
+          padding: '16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '14px',
+          boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)'
+        }}>
+          {/* Container Header */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid #E2E8F0',
+            paddingBottom: '10px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{
+                width: '26px',
+                height: '26px',
+                borderRadius: '6px',
+                backgroundColor: '#EFF6FF',
+                border: '1px solid #BFDBFE',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <Sparkles style={{ width: '14px', height: '14px', color: '#2563EB' }} />
+              </div>
+              <div>
+                <h4 style={{ fontSize: '13px', fontWeight: '800', color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>AI Generated Fields</span>
+                </h4>
+                <span style={{ fontSize: '10.5px', color: '#64748B' }}>
+                  AI Synthesized title, observation, root cause, impact &amp; recommendation
+                </span>
+              </div>
+            </div>
+
+            <span style={{
+              fontSize: '10px',
+              fontWeight: '700',
+              color: '#1D4ED8',
+              backgroundColor: '#DBEAFE',
+              border: '1px solid #BFDBFE',
+              padding: '2px 8px',
+              borderRadius: '12px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}>
+              <Sparkles style={{ width: '10px', height: '10px', color: '#2563EB' }} />
+              AI Synthesized
+            </span>
+          </div>
+
+          {/* AI Field 1: Issue Title */}
+          <div>
+            <label style={labelStyle}>
+              <span style={{ fontWeight: '700' }}>Issue Title</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {item.isExcluded ? (
+                  <span style={{ fontSize: '10px', color: '#64748B', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                    <Ban style={{ width: '10px', height: '10px' }} />
+                    Excluded Finding (Disabled)
+                  </span>
+                ) : item.isLocked ? (
+                  <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '700' }}>🔒 Locked</span>
+                ) : isRoleRestricted ? (
+                  <span style={{ fontSize: '10px', color: '#4338CA', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                    <ShieldAlert style={{ width: '10px', height: '10px' }} />
+                    Read-Only ({editability.userRoleLabel})
+                  </span>
+                ) : null}
+                {renderFieldCommentTrigger(item.id, 'title', 'Issue Title', isReadOnly)}
+              </div>
+            </label>
+            <input
+              type="text"
+              disabled={isReadOnly}
+              readOnly={isReadOnly}
+              value={item.title}
+              onChange={(e) => handleIssueFieldChange(item.id, 'title', e.target.value)}
+              style={inputBaseStyle}
+            />
+          </div>
+
+          {/* AI Field 2: Description (with clickable Violation References & PDF Viewer Drawer) */}
+          <DescriptionWithViolations
+            label="Description"
+            value={item.issue || ''}
+            onChange={(val) => handleIssueFieldChange(item.id, 'issue', val)}
+            isReadOnly={isReadOnly}
+            onOpenViolationDoc={handleOpenViolationDoc}
+            commentTrigger={renderFieldCommentTrigger(item.id, 'issue', 'Description', isReadOnly)}
+          />
+
+          {/* AI Field 3: Root Cause */}
+          <div>
+            <label style={labelStyle}>
+              <span style={{ fontWeight: '700' }}>Root Cause</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {isReadOnly && <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '700' }}>🔒 Read Only</span>}
+                {renderFieldCommentTrigger(item.id, 'rootCause', 'Root Cause', isReadOnly)}
+              </div>
+            </label>
+            <textarea
+              rows={3}
+              disabled={isReadOnly}
+              readOnly={isReadOnly}
+              value={item.rootCause}
+              onChange={(e) => handleIssueFieldChange(item.id, 'rootCause', e.target.value)}
+              style={{ ...textareaBaseStyle, backgroundColor: isReadOnly ? '#F8FAFC' : '#ffffff' }}
+            />
+          </div>
+
+          {/* AI Field 4: Impact */}
+          <div>
+            <label style={labelStyle}>
+              <span style={{ fontWeight: '700' }}>Impact</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {isReadOnly && <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '700' }}>🔒 Read Only</span>}
+                {renderFieldCommentTrigger(item.id, 'impact', 'Impact', isReadOnly)}
+              </div>
+            </label>
+            <textarea
+              rows={3}
+              disabled={isReadOnly}
+              readOnly={isReadOnly}
+              value={item.impact}
+              onChange={(e) => handleIssueFieldChange(item.id, 'impact', e.target.value)}
+              style={{ ...textareaBaseStyle, backgroundColor: isReadOnly ? '#F8FAFC' : '#ffffff' }}
+            />
+          </div>
+
+          {/* AI Field 5: Recommendation */}
+          <div>
+            <label style={labelStyle}>
+              <span style={{ fontWeight: '700' }}>Recommendation</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {isReadOnly && <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '700' }}>🔒 Read Only</span>}
+                {renderFieldCommentTrigger(item.id, 'recommendation', 'Recommendation', isReadOnly)}
+              </div>
+            </label>
+            <textarea
+              rows={3}
+              disabled={isReadOnly}
+              readOnly={isReadOnly}
+              value={item.recommendation}
+              onChange={(e) => handleIssueFieldChange(item.id, 'recommendation', e.target.value)}
+              style={{ ...textareaBaseStyle, backgroundColor: isReadOnly ? '#F8FAFC' : '#ffffff' }}
+            />
+          </div>
+        </div>
+
+        {/* ============================================================== */}
+        {/* 3. BOTTOM SECTION: ALL OTHER AUDIT & GOVERNANCE FIELDS          */}
+        {/* ============================================================== */}
+        <div style={{
+          marginTop: '8px',
+          paddingTop: '14px',
+          borderTop: '1px solid #E2E8F0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <div>
+            <h4 style={{ fontSize: '13px', fontWeight: '800', color: '#1E293B', margin: 0 }}>
+              Other Audit &amp; Governance Fields
+            </h4>
+            <span style={{ fontSize: '10.5px', color: '#64748B' }}>
+              Process categorization, contacts, remediation &amp; extended attributes
+            </span>
+          </div>
+        </div>
+
+        {/* Process Area & Issue Cause Type */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div>
             <label style={labelStyle}>
               <span style={{ fontWeight: '700' }}>Process Area</span>
@@ -1648,10 +2973,28 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
               ))}
             </select>
           </div>
+
+          <div>
+            <label style={labelStyle}>
+              <span style={{ fontWeight: '700' }}>Issue Cause Type</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+                {renderFieldCommentTrigger(item.id, 'issueCauseType', 'Cause Type', isReadOnly)}
+              </div>
+            </label>
+            <input
+              type="text"
+              disabled={isReadOnly}
+              readOnly={isReadOnly}
+              value={item.issueCauseType}
+              onChange={(e) => handleIssueFieldChange(item.id, 'issueCauseType', e.target.value)}
+              style={inputBaseStyle}
+            />
+          </div>
         </div>
 
-        {/* Form Row 3: SOX Reportable, Repeat Finding, Issue Cause Type */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+        {/* SOX Reportable & Repeat Finding */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div>
             <label style={labelStyle}>
               <span style={{ fontWeight: '700' }}>SOX Reportable</span>
@@ -1689,100 +3032,6 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
               <option value="Yes">Yes</option>
             </select>
           </div>
-
-          <div>
-            <label style={labelStyle}>
-              <span style={{ fontWeight: '700' }}>Issue Cause Type</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
-                {renderFieldCommentTrigger(item.id, 'issueCauseType', 'Cause Type', isReadOnly)}
-              </div>
-            </label>
-            <input
-              type="text"
-              disabled={isReadOnly}
-              readOnly={isReadOnly}
-              value={item.issueCauseType}
-              onChange={(e) => handleIssueFieldChange(item.id, 'issueCauseType', e.target.value)}
-              style={inputBaseStyle}
-            />
-          </div>
-        </div>
-
-        {/* Textarea 1: Issue Description */}
-        <div>
-          <label style={labelStyle}>
-            <span style={{ fontWeight: '700' }}>Issue Description</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {isReadOnly && <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '700' }}>🔒 Read Only</span>}
-              {renderFieldCommentTrigger(item.id, 'issue', 'Description', isReadOnly)}
-            </div>
-          </label>
-          <textarea
-            rows={3}
-            disabled={isReadOnly}
-            readOnly={isReadOnly}
-            value={item.issue}
-            onChange={(e) => handleIssueFieldChange(item.id, 'issue', e.target.value)}
-            style={textareaBaseStyle}
-          />
-        </div>
-
-        {/* Textarea 2: Root Cause */}
-        <div>
-          <label style={labelStyle}>
-            <span style={{ fontWeight: '700' }}>Root Cause</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {isReadOnly && <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '700' }}>🔒 Read Only</span>}
-              {renderFieldCommentTrigger(item.id, 'rootCause', 'Root Cause', isReadOnly)}
-            </div>
-          </label>
-          <textarea
-            rows={3}
-            disabled={isReadOnly}
-            readOnly={isReadOnly}
-            value={item.rootCause}
-            onChange={(e) => handleIssueFieldChange(item.id, 'rootCause', e.target.value)}
-            style={textareaBaseStyle}
-          />
-        </div>
-
-        {/* Textarea 3: Impact */}
-        <div>
-          <label style={labelStyle}>
-            <span style={{ fontWeight: '700' }}>Impact</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {isReadOnly && <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '700' }}>🔒 Read Only</span>}
-              {renderFieldCommentTrigger(item.id, 'impact', 'Impact', isReadOnly)}
-            </div>
-          </label>
-          <textarea
-            rows={3}
-            disabled={isReadOnly}
-            readOnly={isReadOnly}
-            value={item.impact}
-            onChange={(e) => handleIssueFieldChange(item.id, 'impact', e.target.value)}
-            style={textareaBaseStyle}
-          />
-        </div>
-
-        {/* Textarea 4: Recommendation */}
-        <div>
-          <label style={labelStyle}>
-            <span style={{ fontWeight: '700' }}>Recommendation</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {isReadOnly && <span style={{ fontSize: '10px', color: '#B45309', fontWeight: '700' }}>🔒 Read Only</span>}
-              {renderFieldCommentTrigger(item.id, 'recommendation', 'Recommendation', isReadOnly)}
-            </div>
-          </label>
-          <textarea
-            rows={3}
-            disabled={isReadOnly}
-            readOnly={isReadOnly}
-            value={item.recommendation}
-            onChange={(e) => handleIssueFieldChange(item.id, 'recommendation', e.target.value)}
-            style={textareaBaseStyle}
-          />
         </div>
 
         {/* Management Response */}
@@ -1812,6 +3061,7 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
               <span style={{ fontWeight: '700' }}>Accountable Contact</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+                {renderFieldCommentTrigger(item.id, 'accountableContact', 'Accountable Contact', isReadOnly)}
               </div>
             </label>
             <input
@@ -1829,6 +3079,7 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
               <span style={{ fontWeight: '700' }}>Agreed Remediation Date</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+                {renderFieldCommentTrigger(item.id, 'agreedRemediationDate', 'Agreed Remediation Date', isReadOnly)}
               </div>
             </label>
             <input
@@ -1842,6 +3093,427 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
             />
           </div>
         </div>
+
+        {/* Summary Finding (Executive Summary) */}
+        <div>
+          <label style={labelStyle}>
+            <span style={{ fontWeight: '700' }}>Summary Finding (Executive Summary)</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+              {renderFieldCommentTrigger(item.id, 'summaryFinding', 'Summary Finding', isReadOnly)}
+            </div>
+          </label>
+          <textarea
+            rows={3}
+            disabled={isReadOnly}
+            readOnly={isReadOnly}
+            value={item.summaryFinding || ''}
+            placeholder="Enter summary finding (executive summary)..."
+            onChange={(e) => handleIssueFieldChange(item.id, 'summaryFinding', e.target.value)}
+            style={textareaBaseStyle}
+          />
+        </div>
+
+        {/* Auditor Response */}
+        <div>
+          <label style={labelStyle}>
+            <span style={{ fontWeight: '700' }}>Auditor Response</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+              {renderFieldCommentTrigger(item.id, 'auditorResponse', 'Auditor Response', isReadOnly)}
+            </div>
+          </label>
+          <textarea
+            rows={3}
+            disabled={isReadOnly}
+            readOnly={isReadOnly}
+            value={item.auditorResponse || ''}
+            placeholder="Enter auditor response details..."
+            onChange={(e) => handleIssueFieldChange(item.id, 'auditorResponse', e.target.value)}
+            style={textareaBaseStyle}
+          />
+        </div>
+
+        {/* Mitigating Control */}
+        <div>
+          <label style={labelStyle}>
+            <span style={{ fontWeight: '700' }}>Mitigating Control</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+              {renderFieldCommentTrigger(item.id, 'mitigatingControl', 'Mitigating Control', isReadOnly)}
+            </div>
+          </label>
+          <textarea
+            rows={3}
+            disabled={isReadOnly}
+            readOnly={isReadOnly}
+            value={item.mitigatingControl || ''}
+            placeholder="Enter mitigating control details..."
+            onChange={(e) => handleIssueFieldChange(item.id, 'mitigatingControl', e.target.value)}
+            style={textareaBaseStyle}
+          />
+        </div>
+
+        {/* Exception Remed Comments */}
+        <div>
+          <label style={labelStyle}>
+            <span style={{ fontWeight: '700' }}>Exception Remed Comments</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+              {renderFieldCommentTrigger(item.id, 'exceptionRemedComments', 'Exception Remed Comments', isReadOnly)}
+            </div>
+          </label>
+          <textarea
+            rows={3}
+            disabled={isReadOnly}
+            readOnly={isReadOnly}
+            value={item.exceptionRemedComments || ''}
+            placeholder="Enter exception remediation comments..."
+            onChange={(e) => handleIssueFieldChange(item.id, 'exceptionRemedComments', e.target.value)}
+            style={textareaBaseStyle}
+          />
+        </div>
+
+        {/* Issue Type & Issue Source - Dropdowns */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div>
+            <label style={labelStyle}>
+              <span style={{ fontWeight: '700' }}>Issue Type</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+                {renderFieldCommentTrigger(item.id, 'issueType', 'Issue Type', isReadOnly)}
+              </div>
+            </label>
+            <select
+              disabled={isReadOnly}
+              value={item.issueType || ''}
+              onChange={(e) => handleIssueFieldChange(item.id, 'issueType', e.target.value)}
+              style={selectBaseStyle}
+            >
+              <option value="" disabled>Select Issue Type...</option>
+              {item.issueType && !ISSUE_TYPE_OPTIONS.includes(item.issueType) && (
+                <option value={item.issueType}>{item.issueType}</option>
+              )}
+              {ISSUE_TYPE_OPTIONS.map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>
+              <span style={{ fontWeight: '700' }}>Issue Source</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+                {renderFieldCommentTrigger(item.id, 'issueSource', 'Issue Source', isReadOnly)}
+              </div>
+            </label>
+            <select
+              disabled={isReadOnly}
+              value={item.issueSource || ''}
+              onChange={(e) => handleIssueFieldChange(item.id, 'issueSource', e.target.value)}
+              style={selectBaseStyle}
+            >
+              <option value="" disabled>Select Issue Source...</option>
+              {item.issueSource && !ISSUE_SOURCE_OPTIONS.includes(item.issueSource) && (
+                <option value={item.issueSource}>{item.issueSource}</option>
+              )}
+              {ISSUE_SOURCE_OPTIONS.map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Key Theme & Technology Related - Dropdowns */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div>
+            <label style={labelStyle}>
+              <span style={{ fontWeight: '700' }}>Key Theme</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+                {renderFieldCommentTrigger(item.id, 'keyTheme', 'Key Theme', isReadOnly)}
+              </div>
+            </label>
+            <select
+              disabled={isReadOnly}
+              value={item.keyTheme || ''}
+              onChange={(e) => handleIssueFieldChange(item.id, 'keyTheme', e.target.value)}
+              style={selectBaseStyle}
+            >
+              <option value="" disabled>Select Key Theme...</option>
+              {item.keyTheme && !KEY_THEME_OPTIONS.includes(item.keyTheme) && (
+                <option value={item.keyTheme}>{item.keyTheme}</option>
+              )}
+              {KEY_THEME_OPTIONS.map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>
+              <span style={{ fontWeight: '700' }}>Technology Related</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+                {renderFieldCommentTrigger(item.id, 'technologyRelated', 'Technology Related', isReadOnly)}
+              </div>
+            </label>
+            <select
+              disabled={isReadOnly}
+              value={item.technologyRelated || 'No'}
+              onChange={(e) => handleIssueFieldChange(item.id, 'technologyRelated', e.target.value)}
+              style={selectBaseStyle}
+            >
+              <option value="No">No</option>
+              <option value="Yes">Yes</option>
+            </select>
+          </div>
+        </div>
+
+        {/* IT Asset Accountable Sector & Impacted Region - Dropdowns */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div>
+            <label style={labelStyle}>
+              <span style={{ fontWeight: '700' }}>IT Asset Accountable Sector</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+                {renderFieldCommentTrigger(item.id, 'itAssetAccountableSector', 'IT Asset Accountable Sector', isReadOnly)}
+              </div>
+            </label>
+            <select
+              disabled={isReadOnly}
+              value={item.itAssetAccountableSector || ''}
+              onChange={(e) => handleIssueFieldChange(item.id, 'itAssetAccountableSector', e.target.value)}
+              style={selectBaseStyle}
+            >
+              <option value="" disabled>Select Sector...</option>
+              {item.itAssetAccountableSector && !IT_ASSET_ACCOUNTABLE_SECTOR_OPTIONS.includes(item.itAssetAccountableSector) && (
+                <option value={item.itAssetAccountableSector}>{item.itAssetAccountableSector}</option>
+              )}
+              {IT_ASSET_ACCOUNTABLE_SECTOR_OPTIONS.map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>
+              <span style={{ fontWeight: '700' }}>Impacted Region</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+                {renderFieldCommentTrigger(item.id, 'impactedRegion', 'Impacted Region', isReadOnly)}
+              </div>
+            </label>
+            <select
+              disabled={isReadOnly}
+              value={item.impactedRegion || ''}
+              onChange={(e) => handleIssueFieldChange(item.id, 'impactedRegion', e.target.value)}
+              style={selectBaseStyle}
+            >
+              <option value="" disabled>Select Region...</option>
+              {item.impactedRegion && !IMPACTED_REGION_OPTIONS.includes(item.impactedRegion) && (
+                <option value={item.impactedRegion}>{item.impactedRegion}</option>
+              )}
+              {IMPACTED_REGION_OPTIONS.map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Impacted Sector & Impacted MRC - Dropdowns */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div>
+            <label style={labelStyle}>
+              <span style={{ fontWeight: '700' }}>Impacted Sector</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+                {renderFieldCommentTrigger(item.id, 'impactedSector', 'Impacted Sector', isReadOnly)}
+              </div>
+            </label>
+            <select
+              disabled={isReadOnly}
+              value={item.impactedSector || ''}
+              onChange={(e) => handleIssueFieldChange(item.id, 'impactedSector', e.target.value)}
+              style={selectBaseStyle}
+            >
+              <option value="" disabled>Select Sector...</option>
+              {item.impactedSector && !IMPACTED_SECTOR_OPTIONS.includes(item.impactedSector) && (
+                <option value={item.impactedSector}>{item.impactedSector}</option>
+              )}
+              {IMPACTED_SECTOR_OPTIONS.map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>
+              <span style={{ fontWeight: '700' }}>Impacted MRC</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+                {renderFieldCommentTrigger(item.id, 'impactedMrc', 'Impacted MRC', isReadOnly)}
+              </div>
+            </label>
+            <select
+              disabled={isReadOnly}
+              value={item.impactedMrc || ''}
+              onChange={(e) => handleIssueFieldChange(item.id, 'impactedMrc', e.target.value)}
+              style={selectBaseStyle}
+            >
+              <option value="" disabled>Select MRC...</option>
+              {item.impactedMrc && !IMPACTED_MRC_OPTIONS.includes(item.impactedMrc) && (
+                <option value={item.impactedMrc}>{item.impactedMrc}</option>
+              )}
+              {IMPACTED_MRC_OPTIONS.map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Quarter Impacted - Dropdown */}
+        <div>
+          <label style={labelStyle}>
+            <span style={{ fontWeight: '700' }}>Quarter Impacted</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+              {renderFieldCommentTrigger(item.id, 'quarterImpacted', 'Quarter Impacted', isReadOnly)}
+            </div>
+          </label>
+          <select
+            disabled={isReadOnly}
+            value={item.quarterImpacted || ''}
+            onChange={(e) => handleIssueFieldChange(item.id, 'quarterImpacted', e.target.value)}
+            style={selectBaseStyle}
+          >
+            <option value="" disabled>Select Quarter Impacted...</option>
+            {item.quarterImpacted && !QUARTER_IMPACTED_OPTIONS.includes(item.quarterImpacted) && (
+              <option value={item.quarterImpacted}>{item.quarterImpacted}</option>
+            )}
+            {QUARTER_IMPACTED_OPTIONS.map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Financial Metrics: Sales (USD), IBT (USD), Net Income (USD), Total Assets (USD) */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div>
+            <label style={labelStyle}>
+              <span style={{ fontWeight: '700' }}>Sales (USD)</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+                {renderFieldCommentTrigger(item.id, 'salesUsd', 'Sales (USD)', isReadOnly)}
+              </div>
+            </label>
+            <input
+              type="text"
+              disabled={isReadOnly}
+              readOnly={isReadOnly}
+              value={item.salesUsd || ''}
+              placeholder="$0.00"
+              onChange={(e) => handleIssueFieldChange(item.id, 'salesUsd', e.target.value)}
+              style={inputBaseStyle}
+            />
+          </div>
+
+          <div>
+            <label style={labelStyle}>
+              <span style={{ fontWeight: '700' }}>IBT (USD)</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+                {renderFieldCommentTrigger(item.id, 'ibtUsd', 'IBT (USD)', isReadOnly)}
+              </div>
+            </label>
+            <input
+              type="text"
+              disabled={isReadOnly}
+              readOnly={isReadOnly}
+              value={item.ibtUsd || ''}
+              placeholder="$0.00"
+              onChange={(e) => handleIssueFieldChange(item.id, 'ibtUsd', e.target.value)}
+              style={inputBaseStyle}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div>
+            <label style={labelStyle}>
+              <span style={{ fontWeight: '700' }}>Net Income (USD)</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+                {renderFieldCommentTrigger(item.id, 'netIncomeUsd', 'Net Income (USD)', isReadOnly)}
+              </div>
+            </label>
+            <input
+              type="text"
+              disabled={isReadOnly}
+              readOnly={isReadOnly}
+              value={item.netIncomeUsd || ''}
+              placeholder="$0.00"
+              onChange={(e) => handleIssueFieldChange(item.id, 'netIncomeUsd', e.target.value)}
+              style={inputBaseStyle}
+            />
+          </div>
+
+          <div>
+            <label style={labelStyle}>
+              <span style={{ fontWeight: '700' }}>Total Assets (USD)</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+                {renderFieldCommentTrigger(item.id, 'totalAssetsUsd', 'Total Assets (USD)', isReadOnly)}
+              </div>
+            </label>
+            <input
+              type="text"
+              disabled={isReadOnly}
+              readOnly={isReadOnly}
+              value={item.totalAssetsUsd || ''}
+              placeholder="$0.00"
+              onChange={(e) => handleIssueFieldChange(item.id, 'totalAssetsUsd', e.target.value)}
+              style={inputBaseStyle}
+            />
+          </div>
+        </div>
+
+        {/* Exception - Remed Date (Checkbox & Date input) */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input
+                type="checkbox"
+                id={`exceptionRemedCheck_${item.id}`}
+                disabled={isReadOnly}
+                checked={!!item.hasExceptionRemedDate}
+                onChange={(e) => handleIssueFieldChange(item.id, 'hasExceptionRemedDate', e.target.checked)}
+                style={{ width: '15px', height: '15px', accentColor: '#D8001D', cursor: isReadOnly ? 'not-allowed' : 'pointer' }}
+              />
+              <label
+                htmlFor={`exceptionRemedCheck_${item.id}`}
+                style={{ fontSize: '11px', fontWeight: '700', color: isReadOnly ? '#64748B' : '#334155', cursor: isReadOnly ? 'not-allowed' : 'pointer' }}
+              >
+                Exception - Remed Date
+              </label>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {isReadOnly && <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />}
+              {renderFieldCommentTrigger(item.id, 'exceptionRemedDate', 'Exception - Remed Date', isReadOnly)}
+            </div>
+          </div>
+          {item.hasExceptionRemedDate && (
+            <input
+              type="date"
+              disabled={isReadOnly}
+              readOnly={isReadOnly}
+              value={item.exceptionRemedDate || ''}
+              onChange={(e) => handleIssueFieldChange(item.id, 'exceptionRemedDate', e.target.value)}
+              style={{ ...inputBaseStyle, marginTop: '4px' }}
+            />
+          )}
+        </div>
       </>
     );
   };
@@ -1854,6 +3526,7 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
     const isLockedByOther = !!target?.isLocked;
     const isActionDisabled = isRoleRestricted || isLockedByOther;
     const disabledTooltip = isRoleRestricted ? editability.reason : isLockedByOther ? "This issue is locked by another user" : undefined;
+    const roleConfig = getRoleSubmissionConfig(userRole);
 
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: '8px', paddingBottom: '4px' }}>
@@ -2031,10 +3704,10 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
           )}
         </div>
 
-        {/* Send To Button */}
+        {/* Call Back Button */}
         <button
           disabled={isActionDisabled}
-          onClick={() => handleSendToIssue(issueId)}
+          onClick={() => handleOpenCallbackModal(issueId)}
           style={{
             padding: '7px 14px',
             fontSize: '11.5px',
@@ -2052,11 +3725,39 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
           }}
           title={disabledTooltip}
         >
-          <GitBranch style={{ width: '13.5px', height: '13.5px' }} />
-          <span>Send To</span>
+          <RotateCcw style={{ width: '13.5px', height: '13.5px' }} />
+          <span>Call Back</span>
         </button>
 
-        {/* Submit Button */}
+        {/* Send to Management Response Button (Visible for Director at Issue Level) */}
+        {roleConfig.canSendToManagementResponse && (
+          <button
+            disabled={isActionDisabled}
+            onClick={() => handleSendToManagementResponse(issueId)}
+            style={{
+              padding: '7px 14px',
+              fontSize: '11.5px',
+              fontWeight: '800',
+              color: '#ffffff',
+              backgroundColor: isActionDisabled ? '#94A3B8' : '#0284C7',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: isActionDisabled ? 'not-allowed' : 'pointer',
+              opacity: isActionDisabled ? 0.45 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              boxShadow: isActionDisabled ? 'none' : '0 1px 3px rgba(2,132,199,0.25)',
+              transition: 'all 0.15s ease'
+            }}
+            title={disabledTooltip || "Send this issue to Business for Management Response"}
+          >
+            <MessageSquare style={{ width: '13.5px', height: '13.5px' }} />
+            <span>Send to Management Response</span>
+          </button>
+        )}
+
+        {/* Role-Specific Submit Button (Submit to TC / Submit to Manager / Submit to Director / Submit to VP / Sign-Off) */}
         <button
           disabled={isActionDisabled}
           onClick={() => handleSubmitIssue(issueId)}
@@ -2065,7 +3766,7 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
             fontSize: '11.5px',
             fontWeight: '800',
             color: '#ffffff',
-            backgroundColor: isActionDisabled ? '#94A3B8' : '#059669',
+            backgroundColor: isActionDisabled ? '#94A3B8' : (roleConfig.baseRole === 'vp' ? '#0D9488' : '#059669'),
             border: 'none',
             borderRadius: '6px',
             cursor: isActionDisabled ? 'not-allowed' : 'pointer',
@@ -2073,37 +3774,17 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
             display: 'flex',
             alignItems: 'center',
             gap: '5px',
-            boxShadow: isActionDisabled ? 'none' : '0 1px 3px rgba(5,150,105,0.2)'
+            boxShadow: isActionDisabled ? 'none' : (roleConfig.baseRole === 'vp' ? '0 1px 3px rgba(13,148,136,0.2)' : '0 1px 3px rgba(5,150,105,0.2)'),
+            transition: 'all 0.15s ease'
           }}
-          title={disabledTooltip}
+          title={disabledTooltip || `${roleConfig.submitLabel} for review`}
         >
-          <Send style={{ width: '13.5px', height: '13.5px' }} />
-          <span>Submit</span>
-        </button>
-
-        {/* Save Button */}
-        <button
-          disabled={isActionDisabled}
-          onClick={() => handleSaveIssue(issueId)}
-          style={{
-            padding: '7px 14px',
-            fontSize: '11.5px',
-            fontWeight: '800',
-            color: '#ffffff',
-            backgroundColor: isActionDisabled ? '#94A3B8' : '#2563EB',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: isActionDisabled ? 'not-allowed' : 'pointer',
-            opacity: isActionDisabled ? 0.45 : 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '5px',
-            boxShadow: isActionDisabled ? 'none' : '0 1px 3px rgba(37,99,235,0.2)'
-          }}
-          title={disabledTooltip}
-        >
-          <Save style={{ width: '13.5px', height: '13.5px' }} />
-          <span>Save</span>
+          {roleConfig.baseRole === 'vp' ? (
+            <CheckCircle2 style={{ width: '13.5px', height: '13.5px' }} />
+          ) : (
+            <Send style={{ width: '13.5px', height: '13.5px' }} />
+          )}
+          <span>{roleConfig.submitLabel}</span>
         </button>
 
       </div>
@@ -2182,6 +3863,11 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
                 <Lock style={{ width: '12px', height: '12px' }} />
                 Locked by {selectedIssue.lockedBy?.name || 'Another User'} (Read-Only)
               </span>
+            ) : isBusinessUser ? (
+              <span style={{ fontSize: '12px', fontWeight: '700', color: '#0284C7', backgroundColor: '#F0F9FF', padding: '2px 10px', borderRadius: '9999px', border: '1px solid #BAE6FD', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <MessageSquare style={{ width: '12px', height: '12px' }} />
+                Pending Response: {selectedIssue.id}
+              </span>
             ) : !selectedIssueEditability.canEdit ? (
               <span style={{ fontSize: '11.5px', fontWeight: '800', color: '#4338CA', backgroundColor: '#EEF2FF', padding: '2px 10px', borderRadius: '9999px', border: '1px solid #C7D2FE', display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <ShieldAlert style={{ width: '12px', height: '12px' }} />
@@ -2199,27 +3885,6 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
 
         {/* Top Right Job-Level Actions + Three-Dots Design Switcher Menu */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', position: 'relative' }}>
-          
-          {/* Generate Report Button */}
-          <button
-            onClick={() => alert(`Re-generating AI Report compile for ${job?.id || 'JOB-2026-881'}`)}
-            style={{
-              padding: '6px 14px',
-              fontSize: '12px',
-              fontWeight: '800',
-              color: '#ffffff',
-              backgroundColor: '#1E40AF',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <Sparkles style={{ width: '14px', height: '14px', color: '#FDE047' }} />
-            <span>Generate Report</span>
-          </button>
 
           {/* Switch to Executive Summary Report Button */}
           {onSwitchToExecutiveReport && (
@@ -2245,31 +3910,48 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
             </button>
           )}
 
-          {/* Report-Level Sign Off Button (Placed right of Generate Report; Visible only for Director and VP) */}
-          {isDirectorOrVP && (
-            <button
-              onClick={handleReportSignOff}
-              style={{
-                padding: '6px 14px',
-                fontSize: '12px',
-                fontWeight: '800',
-                color: '#ffffff',
-                backgroundColor: isReportSignedOff ? '#059669' : '#0D9488',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 1px 3px rgba(13,148,136,0.25)',
-                transition: 'all 0.15s ease'
-              }}
-              title="Sign off this complete Audit Report"
-            >
-              <CheckCircle2 style={{ width: '14px', height: '14px' }} />
-              <span>{isReportSignedOff ? 'Report Signed Off' : 'Sign Off'}</span>
-            </button>
-          )}
+          {/* Report-Level Submission / Sign Off Button (Only applicable for Manager, Director, and VP) */}
+          {(() => {
+            const roleConfig = getRoleSubmissionConfig(userRole);
+            if (!roleConfig.hasReportSubmission) return null;
+
+            const isVP = roleConfig.baseRole === 'vp';
+            const buttonLabel = isVP 
+              ? (isReportSignedOff ? 'Report Signed Off' : 'Sign-Off')
+              : roleConfig.reportSubmitLabel;
+            const buttonBg = isVP
+              ? (isReportSignedOff ? '#059669' : '#0D9488')
+              : '#059669';
+
+            return (
+              <button
+                onClick={handleReportSubmit}
+                style={{
+                  padding: '6px 14px',
+                  fontSize: '12px',
+                  fontWeight: '800',
+                  color: '#ffffff',
+                  backgroundColor: buttonBg,
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: isVP ? '0 1px 3px rgba(13,148,136,0.25)' : '0 1px 3px rgba(5,150,105,0.25)',
+                  transition: 'all 0.15s ease'
+                }}
+                title={isVP ? 'Sign off this complete Audit Report' : `${roleConfig.reportSubmitLabel} for review`}
+              >
+                {isVP ? (
+                  <CheckCircle2 style={{ width: '14px', height: '14px' }} />
+                ) : (
+                  <Send style={{ width: '13.5px', height: '13.5px' }} />
+                )}
+                <span>{buttonLabel}</span>
+              </button>
+            );
+          })()}
 
           {/* Download PDF Button */}
           <button
@@ -2290,6 +3972,30 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
           >
             <Download style={{ width: '14px', height: '14px', color: '#2563EB' }} />
             <span>Download PDF</span>
+          </button>
+
+          {/* Workflow Button */}
+          <button
+            onClick={() => setIsWorkflowModalOpen(true)}
+            style={{
+              padding: '6px 14px',
+              fontSize: '12px',
+              fontWeight: '800',
+              color: isWorkflowModalOpen ? '#ffffff' : '#2563EB',
+              backgroundColor: isWorkflowModalOpen ? '#2563EB' : '#ffffff',
+              border: '1.5px solid #2563EB',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+              transition: 'all 0.15s ease'
+            }}
+            title="View Workflow Stages & Status"
+          >
+            <GitBranch style={{ width: '14px', height: '14px', color: isWorkflowModalOpen ? '#ffffff' : '#2563EB' }} />
+            <span>Workflow</span>
           </button>
 
           {/* Track Changes Button */}
@@ -2378,6 +4084,18 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
                             </td>
                             <td style={{ padding: '12px 16px', fontWeight: '700', color: item.isExcluded ? '#64748B' : '#0F172A', textDecoration: item.isExcluded ? 'line-through' : 'none' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <span style={{
+                                  fontSize: '11px',
+                                  fontWeight: '800',
+                                  color: '#1E40AF',
+                                  backgroundColor: '#EFF6FF',
+                                  padding: '2px 8px',
+                                  borderRadius: '5px',
+                                  border: '1px solid #BFDBFE',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  Report Ref - {item.reportRef || (idx + 1)}
+                                </span>
                                 <span>{item.title}</span>
                                 {item.isExcluded ? (
                                   <span style={{ fontSize: '10px', fontWeight: '800', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#E2E8F0', color: '#475569', border: '1px solid #CBD5E1', display: 'inline-flex', alignItems: 'center', gap: '3px', whiteSpace: 'nowrap' }}>
@@ -2423,11 +4141,11 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
                                     renderLockedBanner(item)
                                   ) : !checkIssueEditability(item).canEdit ? (
                                     renderDomainRestrictedBanner(item, checkIssueEditability(item))
-                                  ) : (
+                                  ) : isBusinessUser ? null : (
                                     renderActionToolbar(item.id)
                                   )}
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '8px', padding: '16px' }}>
-                                    {renderFormFields(item)}
+                                    {isBusinessUser ? renderBusinessResponseSection(item) : renderFormFields(item)}
                                   </div>
                                 </div>
                               </td>
@@ -2526,7 +4244,7 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
                   {/* Left Group: Title + Count Badge + Minimum Width Filter Dropdown aligned right next to it */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flexWrap: 'nowrap' }}>
                     <h3 style={{ fontSize: '12px', fontWeight: '800', color: '#0F172A', margin: 0, whiteSpace: 'nowrap' }}>
-                      Master Issues
+                      {isBusinessUser ? 'Pending Issues' : 'Master Issues'}
                     </h3>
 
                     <span style={{
@@ -2534,66 +4252,68 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
                       fontWeight: '800',
                       padding: '1px 6px',
                       borderRadius: '8px',
-                      backgroundColor: '#F1F5F9',
-                      color: '#475569',
-                      border: '1px solid #E2E8F0',
+                      backgroundColor: isBusinessUser ? '#EFF6FF' : '#F1F5F9',
+                      color: isBusinessUser ? '#1D4ED8' : '#475569',
+                      border: isBusinessUser ? '1px solid #BFDBFE' : '1px solid #E2E8F0',
                       whiteSpace: 'nowrap'
                     }}>
-                      {functionFilter === 'all' ? issues.length : `${filteredIssues.length}/${issues.length}`}
+                      {isBusinessUser ? filteredIssues.length : (functionFilter === 'all' ? issues.length : `${filteredIssues.length}/${issues.length}`)}
                     </span>
 
-                    {/* Minimum Width Filter dropdown right next to title */}
-                    <div style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '3px',
-                      backgroundColor: functionFilter === 'IT' ? '#EFF6FF' : functionFilter === 'FinOps' ? '#ECFDF5' : '#F8FAFC',
-                      padding: '1px 4px',
-                      borderRadius: '5px',
-                      border: functionFilter === 'IT' ? '1px solid #BFDBFE' : functionFilter === 'FinOps' ? '1px solid #A7F3D0' : '1px solid #CBD5E1'
-                    }}>
-                      <Filter style={{ width: '10.5px', height: '10.5px', color: functionFilter === 'IT' ? '#1D4ED8' : functionFilter === 'FinOps' ? '#047857' : '#64748B', flexShrink: 0 }} />
-                      <select
-                        value={functionFilter}
-                        onChange={(e) => setFunctionFilter(e.target.value)}
-                        title="Filter issues by function"
-                        style={{
-                          height: '22px',
-                          padding: '0 2px',
-                          fontSize: '10.5px',
-                          fontWeight: '700',
-                          color: functionFilter === 'IT' ? '#1D4ED8' : functionFilter === 'FinOps' ? '#047857' : '#334155',
-                          backgroundColor: 'transparent',
-                          border: 'none',
-                          cursor: 'pointer',
-                          outline: 'none',
-                          width: 'auto'
-                        }}
-                      >
-                        <option value="all">All</option>
-                        <option value="IT">IT ({itCount})</option>
-                        <option value="FinOps">FinOps ({finOpsCount})</option>
-                      </select>
-
-                      {functionFilter !== 'all' && (
-                        <button
-                          onClick={() => setFunctionFilter('all')}
-                          title="Clear filter"
+                    {/* Minimum Width Filter dropdown right next to title (hidden for Business role) */}
+                    {!isBusinessUser && (
+                      <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        backgroundColor: functionFilter === 'IT' ? '#EFF6FF' : functionFilter === 'FinOps' ? '#ECFDF5' : '#F8FAFC',
+                        padding: '1px 4px',
+                        borderRadius: '5px',
+                        border: functionFilter === 'IT' ? '1px solid #BFDBFE' : functionFilter === 'FinOps' ? '1px solid #A7F3D0' : '1px solid #CBD5E1'
+                      }}>
+                        <Filter style={{ width: '10.5px', height: '10.5px', color: functionFilter === 'IT' ? '#1D4ED8' : functionFilter === 'FinOps' ? '#047857' : '#64748B', flexShrink: 0 }} />
+                        <select
+                          value={functionFilter}
+                          onChange={(e) => setFunctionFilter(e.target.value)}
+                          title="Filter issues by function"
                           style={{
-                            border: 'none',
-                            background: 'none',
-                            fontSize: '9.5px',
-                            color: '#2563EB',
-                            cursor: 'pointer',
+                            height: '22px',
                             padding: '0 2px',
-                            fontWeight: '800',
-                            lineHeight: 1
+                            fontSize: '10.5px',
+                            fontWeight: '700',
+                            color: functionFilter === 'IT' ? '#1D4ED8' : functionFilter === 'FinOps' ? '#047857' : '#334155',
+                            backgroundColor: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            outline: 'none',
+                            width: 'auto'
                           }}
                         >
-                          ✕
-                        </button>
-                      )}
-                    </div>
+                          <option value="all">All</option>
+                          <option value="IT">IT ({itCount})</option>
+                          <option value="FinOps">FinOps ({finOpsCount})</option>
+                        </select>
+
+                        {functionFilter !== 'all' && (
+                          <button
+                            onClick={() => setFunctionFilter('all')}
+                            title="Clear filter"
+                            style={{
+                              border: 'none',
+                              background: 'none',
+                              fontSize: '9.5px',
+                              color: '#2563EB',
+                              cursor: 'pointer',
+                              padding: '0 2px',
+                              fontWeight: '800',
+                              lineHeight: 1
+                            }}
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Right Side: Collapse Button */}
@@ -2622,14 +4342,16 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
                     <div style={{ padding: '36px 16px', textAlign: 'center', color: '#64748B' }}>
                       <AlertOctagon style={{ width: '30px', height: '30px', color: '#94A3B8', margin: '0 auto 8px' }} />
                       <div style={{ fontSize: '13px', fontWeight: '800', color: '#1E293B' }}>
-                        {functionFilter !== 'all' ? `No ${functionFilter} Issues` : 'No Issues in Audit'}
+                        {isBusinessUser ? 'No Pending Business Issues' : (functionFilter !== 'all' ? `No ${functionFilter} Issues` : 'No Issues in Audit')}
                       </div>
                       <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '4px' }}>
-                        {functionFilter !== 'all' 
-                          ? `There are no ${functionFilter} findings recorded for this audit.`
-                          : 'There are no tracked issues for this audit engagement.'}
+                        {isBusinessUser
+                          ? 'There are currently no findings requiring business response for this engagement.'
+                          : (functionFilter !== 'all' 
+                            ? `There are no ${functionFilter} findings recorded for this audit.`
+                            : 'There are no tracked issues for this audit engagement.')}
                       </div>
-                      {functionFilter !== 'all' && (
+                      {!isBusinessUser && functionFilter !== 'all' && (
                         <button
                           onClick={() => setFunctionFilter('all')}
                           style={{
@@ -2658,7 +4380,7 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
                     return (
                       <div
                         key={item.id}
-                        draggable={true}
+                        draggable={draggableCardId === item.id}
                         onDragStart={(e) => handleDragStart(e, item.id)}
                         onDragOver={(e) => handleDragOver(e, item.id)}
                         onDragLeave={(e) => handleDragLeave(e, item.id)}
@@ -2688,31 +4410,30 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
                             : (isSelected 
                               ? (isLocked ? '0 4px 12px rgba(217, 119, 6, 0.22)' : '0 4px 12px rgba(37,99,235,0.15)')
                               : (isLocked ? '0 2px 6px rgba(245, 158, 11, 0.10)' : '0 1px 3px rgba(0,0,0,0.03)')),
-                          cursor: isDragging ? 'grabbing' : 'grab',
+                          cursor: draggableCardId === item.id ? (isDragging ? 'grabbing' : 'grab') : 'pointer',
                           opacity: isDragging ? 0.45 : (isExcluded ? 0.65 : 1),
                           transform: isOver ? 'scale(1.02)' : 'none',
                           transition: 'all 0.15s ease',
                           position: 'relative'
                         }}
                       >
-                        {/* Top row: Drag Grip Handle + ID + IT/FinOps Pill + Locked indicator + Criticality badge */}
+                        {/* Top row: Report Ref Number + ID + IT/FinOps Pill + Locked indicator + Criticality badge */}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                            <span
-                              title="Drag to rearrange issue order"
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: isDragging ? '#2563EB' : '#94A3B8',
-                                cursor: 'grab',
-                                padding: '1px'
-                              }}
-                            >
-                              <GripVertical style={{ width: '13px', height: '13px' }} />
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: '800',
+                              color: isSelected ? (isExcluded ? '#475569' : isLocked ? '#854D0E' : '#1E40AF') : (isExcluded ? '#64748B' : isLocked ? '#854D0E' : '#0F172A'),
+                              backgroundColor: isSelected ? '#EFF6FF' : '#F1F5F9',
+                              padding: '1.5px 7px',
+                              borderRadius: '4px',
+                              border: isSelected ? '1px solid #BFDBFE' : '1px solid #CBD5E1',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              Report Ref - {item.reportRef || (issues.findIndex(i => i.id === item.id) + 1)}
                             </span>
-                            <span style={{ fontSize: '11px', fontWeight: '800', color: isSelected ? (isExcluded ? '#475569' : isLocked ? '#854D0E' : '#2563EB') : (isExcluded ? '#64748B' : isLocked ? '#854D0E' : '#475569') }}>
-                              {item.id}
+                            <span style={{ fontSize: '10.5px', fontWeight: '600', color: '#94A3B8' }}>
+                              ({item.id})
                             </span>
                             {renderFunctionPill(item.function)}
                             {isExcluded ? (
@@ -2773,17 +4494,46 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
                           {renderCriticalityBadge(item.criticality)}
                         </div>
 
-                        {/* Title */}
-                        <h4 style={{
-                          fontSize: '12px',
-                          fontWeight: '700',
-                          color: isExcluded ? '#64748B' : '#0F172A',
-                          textDecoration: isExcluded ? 'line-through' : 'none',
-                          lineHeight: '1.3',
-                          margin: '0 0 6px 0'
-                        }}>
-                          {item.title}
-                        </h4>
+                        {/* Title Row with Drag Control Icon Near the Title */}
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '6px' }}>
+                          <span
+                            title="Drag control: Click and hold here to drag and reorder"
+                            onMouseEnter={() => setDraggableCardId(item.id)}
+                            onMouseLeave={() => { if (!draggedIssueId) setDraggableCardId(null); }}
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              setDraggableCardId(item.id);
+                            }}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: isDragging ? '#2563EB' : (draggableCardId === item.id ? '#2563EB' : '#94A3B8'),
+                              backgroundColor: draggableCardId === item.id ? '#EFF6FF' : '#F1F5F9',
+                              border: draggableCardId === item.id ? '1px solid #BFDBFE' : '1px solid #E2E8F0',
+                              borderRadius: '4px',
+                              cursor: isDragging ? 'grabbing' : 'grab',
+                              padding: '2px',
+                              flexShrink: 0,
+                              marginTop: '0px',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <GripVertical style={{ width: '13px', height: '13px' }} />
+                          </span>
+
+                          <h4 style={{
+                            fontSize: '12px',
+                            fontWeight: '700',
+                            color: isExcluded ? '#64748B' : '#0F172A',
+                            textDecoration: isExcluded ? 'line-through' : 'none',
+                            lineHeight: '1.3',
+                            margin: 0,
+                            flex: 1
+                          }}>
+                            {item.title}
+                          </h4>
+                        </div>
 
                         {/* Process Area, Reorder Arrows & Status */}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '10.5px', color: '#64748B' }}>
@@ -3010,7 +4760,7 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
                   <h3 style={{ fontSize: '12.5px', fontWeight: '800', color: '#0F172A', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     {selectedIssue ? (
                       <>
-                        <span>Form Editor: {selectedIssue.id}</span>
+                        <span>{isBusinessUser ? `Business Response: ${selectedIssue.id}` : `Form Editor: ${selectedIssue.id}`}</span>
                         {selectedIssue.isExcluded ? (
                           <span style={{ fontSize: '10px', fontWeight: '800', color: '#475569', backgroundColor: '#E2E8F0', padding: '1px 6px', borderRadius: '4px', border: '1px solid #CBD5E1', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                             <Ban style={{ width: '9.5px', height: '9.5px' }} />
@@ -3020,6 +4770,11 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
                           <span style={{ fontSize: '10px', fontWeight: '800', color: '#92400E', backgroundColor: '#FEF3C7', padding: '1px 6px', borderRadius: '4px', border: '1px solid #FDE68A', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                             <Lock style={{ width: '9.5px', height: '9.5px' }} />
                             LOCKED (READ-ONLY)
+                          </span>
+                        ) : isBusinessUser ? (
+                          <span style={{ fontSize: '10px', fontWeight: '800', color: '#B45309', backgroundColor: '#FEF3C7', padding: '1px 6px', borderRadius: '4px', border: '1px solid #FDE68A', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                            <Clock style={{ width: '9.5px', height: '9.5px' }} />
+                            RESPONSE REQUIRED
                           </span>
                         ) : !selectedIssueEditability.canEdit ? (
                           <span style={{ fontSize: '10px', fontWeight: '800', color: '#4338CA', backgroundColor: '#EEF2FF', padding: '1px 6px', borderRadius: '4px', border: '1px solid #C7D2FE', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
@@ -3060,11 +4815,11 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
                       renderLockedBanner(selectedIssue)
                     ) : !selectedIssueEditability.canEdit ? (
                       renderDomainRestrictedBanner(selectedIssue, selectedIssueEditability)
-                    ) : (
+                    ) : isBusinessUser ? null : (
                       renderActionToolbar(selectedIssue.id)
                     )}
                     <div style={{ backgroundColor: '#ffffff', border: '1px solid #CBD5E1', borderRadius: '8px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {renderFormFields(selectedIssue)}
+                      {isBusinessUser ? renderBusinessResponseSection(selectedIssue) : renderFormFields(selectedIssue)}
                     </div>
                   </div>
                 ) : issues.length === 0 ? (
@@ -3248,11 +5003,11 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
                       renderLockedBanner(selectedIssue)
                     ) : !selectedIssueEditability.canEdit ? (
                       renderDomainRestrictedBanner(selectedIssue, selectedIssueEditability)
-                    ) : (
+                    ) : isBusinessUser ? null : (
                       renderActionToolbar(selectedIssue.id)
                     )}
-                    <div style={{ border: '1px solid #E2E8F0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                      {renderFormFields(selectedIssue)}
+                    <div style={{ border: '1px solid #E2E8F0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px', backgroundColor: '#ffffff' }}>
+                      {isBusinessUser ? renderBusinessResponseSection(selectedIssue) : renderFormFields(selectedIssue)}
                     </div>
                   </div>
                 </div>
@@ -3811,6 +5566,232 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
         isOpen={isIssueLogsModalOpen}
         report={job || { fileName: "MedTech Suzhou - Orthopedics Plant_AuditReport" }}
         onClose={() => setIsIssueLogsModalOpen(false)}
+      />
+
+      {/* Workflow Drawer Modal */}
+      <WorkflowModal
+        isOpen={isWorkflowModalOpen}
+        job={job}
+        issues={issues}
+        type="audit"
+        onClose={() => setIsWorkflowModalOpen(false)}
+      />
+
+      {/* Violation Document PDF Side Drawer */}
+      <ViolationPdfDrawer
+        isOpen={isViolationDrawerOpen}
+        onClose={() => setIsViolationDrawerOpen(false)}
+        violationDoc={selectedViolationDoc}
+      />
+
+      {/* Call Back Reason Modal */}
+      {isCallbackModalOpen && (() => {
+        const activeTarget = issues.find(i => i.id === callbackIssueId);
+        return (
+          <div
+            role="dialog"
+            aria-modal="true"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 9999,
+              backgroundColor: 'rgba(15, 23, 42, 0.6)',
+              backdropFilter: 'blur(3px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px'
+            }}
+            onClick={handleCloseCallbackModal}
+          >
+            <div
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: '16px',
+                maxWidth: '520px',
+                width: '100%',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.06)',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div style={{
+                padding: '18px 22px',
+                borderBottom: '1px solid #E2E8F0',
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                backgroundColor: '#F8FAFC'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '10px',
+                    backgroundColor: '#EDE9FE',
+                    border: '1px solid #DDD6FE',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#7C3AED',
+                    flexShrink: 0
+                  }}>
+                    <RotateCcw style={{ width: '18px', height: '18px' }} />
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      Call Back Issue
+                      {activeTarget?.referenceNumber && (
+                        <span style={{ fontSize: '11px', fontWeight: '600', padding: '2px 8px', borderRadius: '12px', backgroundColor: '#EDE9FE', color: '#6D28D9' }}>
+                          {activeTarget.referenceNumber}
+                        </span>
+                      )}
+                    </h3>
+                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748B' }}>
+                      {activeTarget?.title || activeTarget?.issueTitle ? (activeTarget.title || activeTarget.issueTitle) : 'Specify the reason for calling back this audit issue.'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCloseCallbackModal}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#94A3B8',
+                    cursor: 'pointer',
+                    padding: '4px',
+                    borderRadius: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                  title="Close"
+                >
+                  <X style={{ width: '18px', height: '18px' }} />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div style={{ padding: '20px 22px' }}>
+                <label
+                  htmlFor="callback-reason-input"
+                  style={{
+                    display: 'block',
+                    fontSize: '12.5px',
+                    fontWeight: '700',
+                    color: '#1E293B',
+                    marginBottom: '6px'
+                  }}
+                >
+                  Reason for Call Back <span style={{ color: '#EF4444' }}>*</span>
+                </label>
+                <p style={{ margin: '0 0 10px', fontSize: '12px', color: '#64748B', lineHeight: '1.4' }}>
+                  Please provide details explaining why this issue is being recalled or returned to the previous review stage.
+                </p>
+                <textarea
+                  id="callback-reason-input"
+                  autoFocus
+                  rows={4}
+                  value={callbackReason}
+                  onChange={(e) => {
+                    setCallbackReason(e.target.value);
+                    if (callbackError) setCallbackError('');
+                  }}
+                  placeholder="Enter reason for callback..."
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    padding: '10px 12px',
+                    fontSize: '13px',
+                    color: '#0F172A',
+                    backgroundColor: '#FFFFFF',
+                    border: callbackError ? '1.5px solid #EF4444' : '1px solid #CBD5E1',
+                    borderRadius: '8px',
+                    fontFamily: 'inherit',
+                    resize: 'vertical',
+                    minHeight: '90px',
+                    outline: 'none',
+                    boxShadow: callbackError ? '0 0 0 3px rgba(239, 68, 68, 0.15)' : 'none',
+                    transition: 'border-color 0.15s ease'
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                      e.preventDefault();
+                      handleConfirmCallback();
+                    }
+                  }}
+                />
+                {callbackError && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', color: '#DC2626', fontSize: '12px', fontWeight: '500' }}>
+                    <AlertOctagon style={{ width: '13px', height: '13px' }} />
+                    <span>{callbackError}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div style={{
+                padding: '14px 22px',
+                backgroundColor: '#F8FAFC',
+                borderTop: '1px solid #E2E8F0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                gap: '10px'
+              }}>
+                <button
+                  type="button"
+                  onClick={handleCloseCallbackModal}
+                  style={{
+                    padding: '8px 18px',
+                    fontSize: '12.5px',
+                    fontWeight: '600',
+                    color: '#475569',
+                    backgroundColor: '#FFFFFF',
+                    border: '1px solid #CBD5E1',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.15s ease'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmCallback}
+                  style={{
+                    padding: '8px 20px',
+                    fontSize: '12.5px',
+                    fontWeight: '700',
+                    color: '#FFFFFF',
+                    backgroundColor: '#7C3AED',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 2px 4px rgba(124, 58, 237, 0.25)',
+                    transition: 'background-color 0.15s ease'
+                  }}
+                >
+                  <RotateCcw style={{ width: '13px', height: '13px' }} />
+                  <span>Call Back</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Enterprise Toast Notification */}
+      <ToastNotification
+        toast={toastNotification}
+        onClose={() => setToastNotification(null)}
       />
 
     </div>

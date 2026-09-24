@@ -1183,12 +1183,12 @@ export default function ReportingNewDetailDrawer({
                     <span>Executive Workflow Stage Graph</span>
                   </div>
                   <span style={{ fontSize: '11px', fontWeight: '800', color: '#D8001D', backgroundColor: '#FFF0F2', padding: '3px 10px', borderRadius: '9999px', border: '1px solid #FCA5A5' }}>
-                    Stage 2 of 5 Active
+                    Stage 2 of 4 Active
                   </span>
                 </div>
 
                 {/* RESPONSIVE SVG & NODE PIPELINE CANVAS (Width 780px generous spacing) */}
-                <div style={{ position: 'relative', width: '100%', minHeight: '210px', padding: '10px 0' }}>
+                <div style={{ position: 'relative', width: '100%', minHeight: '80px', padding: '10px 0' }}>
 
                   {/* SVG Connector Lines */}
                   <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
@@ -1209,12 +1209,6 @@ export default function ReportingNewDetailDrawer({
 
                     {/* Connection 3: Director to Final Report */}
                     <line x1="510" y1="35" x2="575" y2="35" stroke="#CBD5E1" strokeWidth="2.5" strokeDasharray="5,5" markerEnd="url(#arrow)" />
-
-                    {/* Branch Path: Audit Manager down to Management Response */}
-                    <path d="M 260 55 L 260 135 L 420 135" fill="none" stroke="#CBD5E1" strokeWidth="2.5" strokeDasharray="5,5" markerEnd="url(#arrow)" />
-
-                    {/* Vertical Link: Director to Management Response */}
-                    <line x1="465" y1="58" x2="465" y2="120" stroke="#CBD5E1" strokeWidth="2" strokeDasharray="4,4" />
                   </svg>
 
                   {/* HTML NODE MINI-CARDS WITH RESPONSIVE PERCENTAGE SPACING */}
@@ -1303,32 +1297,10 @@ export default function ReportingNewDetailDrawer({
                         whiteSpace: 'nowrap'
                       }}>
                         <div style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: '#E2E8F0', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '800' }}>
-                          5
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '12.5px', fontWeight: '800', color: '#475569' }}>Final Report</div>
-                          <div style={{ fontSize: '10px', fontWeight: '600', color: '#94A3B8' }}>Not Started</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Node 5: Management Response (Branched Below Director) */}
-                    <div style={{ position: 'absolute', left: '52%', top: '110px', pointerEvents: 'auto' }}>
-                      <div style={{
-                        backgroundColor: '#F8FAFC',
-                        border: '1.5px solid #CBD5E1',
-                        borderRadius: '10px',
-                        padding: '8px 12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        whiteSpace: 'nowrap'
-                      }}>
-                        <div style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: '#E2E8F0', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '800' }}>
                           4
                         </div>
                         <div>
-                          <div style={{ fontSize: '12.5px', fontWeight: '800', color: '#475569' }}>Management Response</div>
+                          <div style={{ fontSize: '12.5px', fontWeight: '800', color: '#475569' }}>Final Report</div>
                           <div style={{ fontSize: '10px', fontWeight: '600', color: '#94A3B8' }}>Not Started</div>
                         </div>
                       </div>
@@ -1372,15 +1344,7 @@ export default function ReportingNewDetailDrawer({
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
                     <div>
-                      <div style={{ fontWeight: '800', color: '#64748B', fontSize: '13px' }}>4. Management Response (Pending)</div>
-                      <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>Awaiting Business Owner input</div>
-                    </div>
-                    <span style={{ fontSize: '11px', fontWeight: '600', color: '#94A3B8' }}>Not Started</span>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                    <div>
-                      <div style={{ fontWeight: '800', color: '#64748B', fontSize: '13px' }}>5. Final Report Publishing (Pending)</div>
+                      <div style={{ fontWeight: '800', color: '#64748B', fontSize: '13px' }}>4. Final Report Publishing (Pending)</div>
                       <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>Final Executive Sign-off</div>
                     </div>
                     <span style={{ fontSize: '11px', fontWeight: '600', color: '#94A3B8' }}>Not Started</span>
