@@ -7,13 +7,31 @@ import {
   Lock, Clock, ShieldAlert, MessageSquare, GripVertical, Filter,
   Ban, RotateCcw, UploadCloud, Paperclip, Calendar, Trash2
 } from 'lucide-react';
-import { mockAuditReportIssues } from '../data/reportIssuesData';
+import { getIssuesByEngagement, getTestProceduresByEngagement } from '../data/assignmentsData';
+import CreateIssueDrawerNew from '../components/issues/CreateIssueDrawerNew';
 import IssueLogsModal from '../components/issues/IssueLogsModal';
+import { logIssueEvent, logAuditReportEvent } from '../utils/auditLogEngine';
+import { 
+  getCommentsForIssueField, 
+  getTransitionComments, 
+  subscribeToCommentUpdates, 
+  addComment 
+} from '../utils/commentEngine';
+import { 
+  getVersionsForIssue, 
+  getActiveVersion, 
+  createAiVersion, 
+  subscribeToAiVersionUpdates 
+} from '../utils/aiVersionEngine';
+import AiVersionCompareModal from '../components/issues/AiVersionCompareModal';
+import FieldCommentPopover from '../components/common/FieldCommentPopover';
+import usersData from '../data/users.json';
 import WorkflowModal from '../components/reporting/WorkflowModal';
 import ToastNotification from '../components/ui/ToastNotification';
 import { APPLICATION_ROLES } from '../components/layout/Header';
 import DescriptionWithViolations, { parseDescriptionWithViolations } from '../components/common/DescriptionWithViolations';
 import ViolationPdfDrawer from '../components/common/ViolationPdfDrawer';
+import { getTaxonomyOptions } from '../utils/taxonomyEngine';
 
 // Standard Process Area options for audit findings
 export const PROCESS_AREA_OPTIONS = [
@@ -39,76 +57,14 @@ export const TEST_PROCEDURE_OPTIONS = [
   'TP-110: GxP Software Validation & Data Integrity Audit'
 ];
 
-export const ISSUE_TYPE_OPTIONS = [
-  'Operational',
-  'Compliance',
-  'Financial / SOX',
-  'IT / Cybersecurity',
-  'Regulatory / GxP',
-  'Reputational / Strategic'
-];
-
-export const ISSUE_SOURCE_OPTIONS = [
-  'Internal Audit',
-  'External Audit (PwC)',
-  'Regulatory Inspection (FDA / ISO)',
-  'Management Self-Identified',
-  'SOX 404 Assessment',
-  'Continuous Automated Monitoring'
-];
-
-export const KEY_THEME_OPTIONS = [
-  'Access Governance & Authorization Matrix',
-  'Financial Close & Account Reconciliation',
-  'Manufacturing Telemetry & Calibration Drift',
-  'Third-Party Vendor Risk & Deprovisioning',
-  'Data Integrity, Retention & GxP Archival',
-  'Change Management & Transport Release'
-];
-
-export const IT_ASSET_ACCOUNTABLE_SECTOR_OPTIONS = [
-  'Consumer',
-  'CORP',
-  'IM',
-  'ISRM',
-  'MT',
-  'TS'
-];
-
-export const IMPACTED_REGION_OPTIONS = [
-  'APAC',
-  'EMEA',
-  'LATAM',
-  'NA'
-];
-
-export const IMPACTED_SECTOR_OPTIONS = [
-  'CPC',
-  'GS-NOP',
-  'MED',
-  'NOP',
-  'PHR',
-  'Ortho_Synthes'
-];
-
-export const IMPACTED_MRC_OPTIONS = [
-  'MRC-01: Global Supply Chain & Manufacturing Operations',
-  'MRC-02: Commercial Operations & Hospital Distribution',
-  'MRC-03: Research, Clinical Trials & Biopharma Development',
-  'MRC-04: Corporate Shared Services & IT Infrastructure',
-  'MRC-05: Treasury, Capital Planning & Tax Strategy'
-];
-
-export const QUARTER_IMPACTED_OPTIONS = [
-  'Q1 2026',
-  'Q2 2026',
-  'Q3 2026',
-  'Q4 2026',
-  'Q1 2025',
-  'Q2 2025',
-  'Q3 2025',
-  'Q4 2025'
-];
+export const ISSUE_TYPE_OPTIONS = getTaxonomyOptions('ISSUE_TYPE');
+export const ISSUE_SOURCE_OPTIONS = getTaxonomyOptions('ISSUE_SOURCE');
+export const KEY_THEME_OPTIONS = getTaxonomyOptions('KEY_THEME');
+export const IT_ASSET_ACCOUNTABLE_SECTOR_OPTIONS = getTaxonomyOptions('IT_ASSET_ACCOUNTABLE_SECTOR');
+export const IMPACTED_REGION_OPTIONS = getTaxonomyOptions('IMPACTED_REGION');
+export const IMPACTED_SECTOR_OPTIONS = getTaxonomyOptions('IMPACTED_SECTOR');
+export const IMPACTED_MRC_OPTIONS = getTaxonomyOptions('IMPACTED_MRC');
+export const QUARTER_IMPACTED_OPTIONS = getTaxonomyOptions('QUARTER_IMPACTED');
 
 // Normalizer helper ensuring any issue from My Audits or Create Drawer works seamlessly in Audit Report Studio
 function normalizeIssueForReport(item, job) {
@@ -129,13 +85,17 @@ function normalizeIssueForReport(item, job) {
     status = 'Pending with Business';
   } else if (item.currentLevel === 'Completed & Signed Off' || item.status === 'Completed' || item.status === 'Signed Off') {
     status = 'Signed Off';
-  } else if (item.currentLevel?.includes('Manager')) {
-    status = 'Pending Manager';
-  } else if (item.currentLevel?.includes('Director')) {
+  } else if (item.status === 'Manager Completed (Waiting on other issues)' || item.status?.includes('Waiting on other')) {
+    status = 'Manager Completed (Waiting on other issues)';
+  } else if (item.status === 'Ready for Director Submission') {
     status = 'Pending Director';
-  } else if (item.currentLevel?.includes('VP')) {
+  } else if (item.currentLevel?.includes('Director') || item.status?.includes('Director')) {
+    status = 'Pending Director';
+  } else if (item.currentLevel?.includes('VP') || item.status?.includes('VP')) {
     status = 'Pending VP';
-  } else if (item.currentLevel?.includes('TC')) {
+  } else if (item.currentLevel?.includes('Manager') || item.status?.includes('Manager')) {
+    status = 'Pending Manager';
+  } else if (item.currentLevel?.includes('TC') || item.status?.includes('TC')) {
     status = 'In progress TC';
   }
 
@@ -236,6 +196,7 @@ function normalizeIssueForReport(item, job) {
     isExcluded: !!item.isExcluded,
     previousStatus: item.previousStatus || null,
     excludedAt: item.excludedAt || null,
+    lockedAt: item.lockedAt || null,
     lockedBy: item.lockedBy || (item.isLocked ? {
       name: "Marcus Vance",
       email: "mvance@its.jnj.com",
@@ -351,7 +312,7 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
   const isManuallyOrderedRef = useRef(false);
   const prevJobIdRef = useRef(job?.id);
 
-  // Derive issues directly from the active engagement's issuesList
+  // Derive issues directly from the active engagement's issuesList or pure database tables
   const getJobIssues = useCallback(() => {
     let rawList = [];
     if (job && Array.isArray(job.issuesList)) {
@@ -365,7 +326,9 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
         }));
       }
     } else {
-      rawList = mockAuditReportIssues.map(iss => normalizeIssueForReport(iss, job));
+      const dbIssues = getIssuesByEngagement(job?.id || job?.jobId || job?.reportId);
+      if (!dbIssues || dbIssues.length === 0) return [];
+      rawList = dbIssues.map(iss => normalizeIssueForReport(iss, job));
     }
     // Initial default sort by priority
     return sortIssuesByDefaultPriority(rawList);
@@ -400,10 +363,35 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
   const [expandedIssueId, setExpandedIssueId] = useState(null);
   const [isTrackChangesActive, setIsTrackChangesActive] = useState(false);
   const [isIssueLogsModalOpen, setIsIssueLogsModalOpen] = useState(false);
+  const [activeLogIssueId, setActiveLogIssueId] = useState(null);
   const [isWorkflowModalOpen, setIsWorkflowModalOpen] = useState(false);
   const [toastNotification, setToastNotification] = useState(null);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const actionMenuRef = useRef(null);
+
+  // Create Issue Modal State
+  const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
+
+  // Dynamically resolved test procedures for the active engagement
+  const activeTestProcedures = React.useMemo(() => {
+    const engId = job?.id || job?.jobId || job?.reportId;
+    if (!engId) return TEST_PROCEDURE_OPTIONS;
+    const mapped = getTestProceduresByEngagement(engId);
+    if (!mapped || mapped.length === 0) return TEST_PROCEDURE_OPTIONS;
+    return mapped.map(tp => tp.fullName || `${tp.code}: ${tp.name}`);
+  }, [job?.id, job?.jobId, job?.reportId]);
+
+  const handleSaveNewIssue = (savedPoint) => {
+    const normalized = normalizeIssueForReport(savedPoint, job);
+    const updated = [...issues, normalized];
+    updateIssuesAndSync(updated);
+    setIsCreateDrawerOpen(false);
+    setToastNotification({
+      title: 'Finding Created',
+      message: `Issue #${savedPoint.issueId || savedPoint.id} created successfully and added to engagement.`,
+      type: 'success'
+    });
+  };
 
   // Call Back Modal State
   const [isCallbackModalOpen, setIsCallbackModalOpen] = useState(false);
@@ -667,170 +655,109 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
     };
   }, [isDraggingSplitter1, isDraggingSplitter2, pane1Width, isPane1Collapsed]);
 
-  // Field Level Comments State & Mock Collaboration Data
-  const [fieldComments, setFieldComments] = useState({
-    "ISSUE-001": {
-      "title": [
-        {
-          id: "c-101",
-          user: "Marcus Vance",
-          role: "Lead Compliance Auditor",
-          avatar: "MV",
-          avatarBg: "#7C3AED",
-          timestamp: "15 mins ago",
-          comment: "Ensure the 10 business days threshold aligns with IAPP S-07 deprovisioning policy."
-        }
-      ],
-      "criticality": [
-        {
-          id: "c-102",
-          user: "Kevin Zhang",
-          role: "IT Audit Lead",
-          avatar: "KZ",
-          avatarBg: "#2563EB",
-          timestamp: "2 hours ago",
-          comment: "Categorized as Major due to potential unauthorized access window."
-        }
-      ],
-      "testProcedure": [
-        {
-          id: "c-103",
-          user: "Elena Rostova",
-          role: "Lead Quality Auditor",
-          avatar: "ER",
-          avatarBg: "#059669",
-          timestamp: "30 mins ago",
-          comment: "Verified against TP-101 procedure criteria. Complies with Q1 cycle requirements."
-        }
-      ],
-      "summaryFinding": [
-        {
-          id: "c-104",
-          user: "Rachel Green",
-          role: "FinOps Lead",
-          avatar: "RG",
-          avatarBg: "#D97706",
-          timestamp: "45 mins ago",
-          comment: "Ensure executive finding highlights both access security and telemetry log exposures."
-        }
-      ],
-      "mitigatingControl": [
-        {
-          id: "c-105",
-          user: "Kevin Zhang",
-          role: "IT Audit Lead",
-          avatar: "KZ",
-          avatarBg: "#2563EB",
-          timestamp: "1 hour ago",
-          comment: "Added secondary supervisory sign-off as interim mitigating control."
-        }
-      ]
-    },
-    "ISSUE-002": {
-      "title": [
-        {
-          id: "c-201",
-          user: "Marcus Vance",
-          role: "Lead Compliance Auditor",
-          avatar: "MV",
-          avatarBg: "#7C3AED",
-          timestamp: "12 mins ago",
-          comment: "Drift percentage updated to 4.2% based on latest calibration telemetry run."
-        }
-      ],
-      "impactedRegion": [
-        {
-          id: "c-202",
-          user: "Sarah Jenkins",
-          role: "Compliance Director",
-          avatar: "SJ",
-          avatarBg: "#DC2626",
-          timestamp: "25 mins ago",
-          comment: "APAC regional lead confirmed calibration sensor replacements are scheduled."
-        }
-      ]
-    },
-    "ISSUE-401": {
-      "title": [
-        {
-          id: "c-401",
-          user: "Marcus Vance",
-          role: "Lead Compliance Auditor",
-          avatar: "MV",
-          avatarBg: "#7C3AED",
-          timestamp: "20 mins ago",
-          comment: "Verified batch traveler serialization timestamps against shopfloor MES logs."
-        }
-      ],
-      "rootCause": [
-        {
-          id: "c-402",
-          user: "Kevin Zhang",
-          role: "IT Audit Lead",
-          avatar: "KZ",
-          avatarBg: "#2563EB",
-          timestamp: "1 hour ago",
-          comment: "Network latency between sub-assembly scanners and central ERP confirmed."
-        }
-      ]
-    },
-    "ISSUE-402": {
-      "title": [
-        {
-          id: "c-403",
-          user: "Sarah Jenkins",
-          role: "Quality Assurance Director",
-          avatar: "SJ",
-          avatarBg: "#059669",
-          timestamp: "30 mins ago",
-          comment: "Quarantine procedure initiated for all uncertified raw tubing lots."
-        }
-      ]
-    },
-    "ISSUE-201": {
-      "title": [
-        {
-          id: "c-201",
-          user: "Carlos Mendez",
-          role: "Plant Auditor",
-          avatar: "CM",
-          avatarBg: "#D97706",
-          timestamp: "45 mins ago",
-          comment: "Temperature probe re-calibrated; drift within allowable limits now."
-        }
-      ]
+  // Field Level Comments Reactive Subscription & Context
+  const [, setCommentTick] = useState(0);
+  useEffect(() => {
+    return subscribeToCommentUpdates(() => setCommentTick(t => t + 1));
+  }, []);
+
+  // Resolve Current User definition for comment author and strict resolution checks
+  const currentCommentUser = React.useMemo(() => {
+    const found = usersData.find(u => u.baselineRole === userRole);
+    if (found) {
+      return {
+        id: found.id,
+        userId: found.id,
+        name: found.name,
+        role: found.title,
+        avatar: found.initials || found.name.split(' ').map(n=>n[0]).join(''),
+        avatarBg: found.baselineRole?.includes('manager') ? '#D8001D' : found.baselineRole?.includes('director') ? '#059669' : '#2563EB'
+      };
     }
-  });
+    return {
+      id: 'USR-CURRENT',
+      userId: 'USR-CURRENT',
+      name: activeRoleObj?.label || 'Auditor',
+      role: activeRoleObj?.label || 'Auditor',
+      avatar: 'ME',
+      avatarBg: '#2563EB'
+    };
+  }, [userRole, activeRoleObj]);
 
-  const [activeCommentField, setActiveCommentField] = useState(null); // e.g. "ISSUE-001_rootCause"
-  const [newCommentInput, setNewCommentInput] = useState('');
+  // Available Team Members for Tagging / @Mentions
+  const availableEngagementUsers = React.useMemo(() => {
+    return usersData.map(u => ({
+      id: u.id,
+      userId: u.id,
+      name: u.name,
+      role: u.title,
+      avatar: u.initials || u.name.split(' ').map(n=>n[0]).join(''),
+      avatarBg: u.baselineRole?.includes('manager') ? '#D8001D' : u.baselineRole?.includes('director') ? '#059669' : '#2563EB'
+    }));
+  }, []);
 
-  const handleAddFieldComment = (issueId, fieldKey) => {
-    if (!newCommentInput.trim()) return;
+  const [activeCommentField, setActiveCommentField] = useState(null); // e.g. "ISSUE-801_rootCause"
+  const [transitionNoteModal, setTransitionNoteModal] = useState(null); // For transition hand-off remarks on submit/send
 
-    const newEntry = {
-      id: "c-" + Date.now(),
-      user: "You",
-      role: "Compliance Auditor",
-      avatar: "ME",
-      avatarBg: "#059669",
-      timestamp: "Just now",
-      comment: newCommentInput.trim()
+  // AI Version Management & Comparison State
+  const [aiCompareModalIssueId, setAiCompareModalIssueId] = useState(null);
+  const [, setAiVersionTick] = useState(0);
+  useEffect(() => {
+    return subscribeToAiVersionUpdates(() => setAiVersionTick(t => t + 1));
+  }, []);
+
+  const handleTriggerWorkpaperAiRegen = (issueItem) => {
+    if (!issueItem) return;
+    const testProcName = issueItem.testProcedure || 'Test Procedure';
+    const currentFunction = issueItem.function || issueItem.tech || 'IT';
+    
+    // Synthesize refined candidate version
+    const refinedFields = {
+      title: issueItem.title ? `AI Enhanced: ${issueItem.title.replace(/^AI (Refined|Enhanced): /, '')}` : `AI Enhanced: ${testProcName}`,
+      rootCause: `Comprehensive Root Cause: Systemic execution gap and manual verification latency in ${issueItem.processArea || 'production line'}, exacerbated under ${currentFunction} scope.`,
+      impact: `Escalated compliance and operational exposure: Criticality ${issueItem.criticality || 'Major'} with potential GxP batch timeline excursion impact.`,
+      recommendation: `1. Enforce automated verification protocols for ${testProcName}.\n2. Mandate secondary supervisory sign-off for threshold variances.\n3. Complete retrospective compliance impact review within 30 days.`,
+      description: issueItem.issue || issueItem.originalIssue || issueItem.description || `Assessment identified compliance exceptions for ${testProcName}.`
     };
 
-    setFieldComments(prev => {
-      const issueComments = prev[issueId] || {};
-      const fieldList = issueComments[fieldKey] || [];
-      return {
-        ...prev,
-        [issueId]: {
-          ...issueComments,
-          [fieldKey]: [...fieldList, newEntry]
-        }
-      };
+    createAiVersion({
+      issueId: issueItem.id,
+      engagementId: job?.id || job?.jobId || 'REP-2026-008',
+      triggerStage: 'WORKFLOW_REVIEW',
+      model: 'medtech-gx-compliance-v2.5',
+      fields: refinedFields,
+      createdBy: currentCommentUser,
+      status: 'CANDIDATE'
     });
 
-    setNewCommentInput('');
+    setAiCompareModalIssueId(issueItem.id);
+  };
+
+  const handleAdoptVersionFields = (issueId, adoptedFields) => {
+    const updated = issues.map(iss => {
+      if (iss.id === issueId) {
+        return {
+          ...iss,
+          title: adoptedFields.title || iss.title,
+          header: adoptedFields.title || iss.header,
+          rootCause: adoptedFields.rootCause || iss.rootCause,
+          impact: adoptedFields.impact || iss.impact,
+          recommendation: adoptedFields.recommendation || iss.recommendation,
+          description: adoptedFields.description || iss.description,
+          issue: adoptedFields.description || iss.issue
+        };
+      }
+      return iss;
+    });
+
+    updateIssuesAndSync(updated);
+
+    const target = issues.find(i => i.id === issueId);
+    setToastNotification({
+      type: 'success',
+      title: 'AI Version Adopted',
+      description: `Adopted new AI synthesis version for ${target?.referenceNumber || issueId}.`
+    });
   };
 
   // Click outside to close menus and active comment popovers
@@ -891,6 +818,7 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
     const editability = checkIssueEditability(target);
     if (!editability.canEdit) return;
 
+    const oldVal = target[field];
     const newIssues = issues.map(item => {
       if (item.id === issueId) {
         return { ...item, [field]: val };
@@ -898,6 +826,26 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
       return item;
     });
     updateIssuesAndSync(newIssues);
+
+    try {
+      logIssueEvent({
+        issueId,
+        engagementId: job?.id || job?.jobId || target.engagementId,
+        actor: {
+          name: activeRoleObj?.label || 'Auditor',
+          role: activeRoleObj?.label || 'Auditor',
+          domain: (userRole || '').toLowerCase().includes('finops') ? 'FinOps' : 'IT'
+        },
+        category: 'FIELD_EDIT',
+        badgeType: 'update',
+        action: `Updated field: ${field}`,
+        fieldChanged: field,
+        oldValue: oldVal || '',
+        newValue: val || ''
+      });
+    } catch (err) {
+      console.error('Failed to log field change:', err);
+    }
   };
 
   // Issue Action Handlers
@@ -918,7 +866,7 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
     alert(`Issue ${issueId} changes saved successfully to audit queue!`);
   };
 
-  const handleSubmitIssue = (issueId) => {
+  const handleSubmitIssue = (issueId, transitionNote = '', taggedUser = null) => {
     const target = issues.find(i => i.id === issueId);
     if (target) {
       const editability = checkIssueEditability(target);
@@ -936,30 +884,140 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
     const issueRef = targetIssue?.referenceNumber || (issueId ? `Issue #${issueId}` : 'Issue');
     const roleConfig = getRoleSubmissionConfig(userRole);
 
-    const updatedIssues = issues.map(item => {
-      if (item.id === issueId) {
-        return {
+    let updatedIssues;
+    let toastDesc = `Issue ${issueRef} ${roleConfig.successMessage}.`;
+
+    // Record Workflow Transition Hand-off Note if provided
+    if (transitionNote && transitionNote.trim()) {
+      try {
+        addComment({
+          targetType: 'WORKFLOW_TRANSITION',
+          engagementId: job?.id || job?.jobId || targetIssue?.engagementId || 'REP-2026-008',
+          issueId,
+          fieldKey: 'workflow_submission',
+          fieldName: `Submission to ${roleConfig.targetRole}`,
+          text: transitionNote.trim(),
+          author: currentCommentUser,
+          taggedUser: taggedUser || null
+        });
+      } catch (err) { console.error('Failed to log submission transition note:', err); }
+    }
+
+    if (roleConfig.baseRole === 'manager') {
+      const allOthersFinished = issues.every(item => {
+        if (item.id === issueId) return true;
+        const s = (item.status || '').toLowerCase();
+        return s.includes('waiting on other') || s.includes('waiting other') || s.includes('ready for director') || s.includes('director') || s === 'signed off' || s === 'completed';
+      });
+
+      if (allOthersFinished) {
+        // All issues completed by manager! Mark all issues as 'Pending Director'
+        updatedIssues = issues.map(item => ({
           ...item,
-          status: roleConfig.statusOnSubmit,
-          currentRoleTarget: roleConfig.targetRole,
-          currentLevel: `${roleConfig.targetRole} Review`,
+          status: 'Pending Director',
+          currentRoleTarget: 'Director',
+          currentLevel: 'Director Review',
           submittedAt: new Date().toISOString()
-        };
+        }));
+        toastDesc = `All issues completed by Manager — Audit Report compiled and submitted to Director!`;
+
+        try {
+          logIssueEvent({
+            issueId,
+            engagementId: job?.id || job?.jobId,
+            actor: { name: activeRoleObj?.label || 'Manager', role: activeRoleObj?.label || 'Manager' },
+            category: 'WORKFLOW_TRANSITION',
+            badgeType: 'workflow',
+            action: 'Manager Review Completed — Batch Promoted to Pending Director',
+            fieldChanged: 'Status',
+            oldValue: targetIssue?.status,
+            newValue: 'Pending Director',
+            details: { gateType: 'BATCH_REPORT_CLEARANCE', allIssuesCleared: true }
+          });
+          logAuditReportEvent({
+            engagementId: job?.id || job?.jobId,
+            issueId,
+            actor: { name: activeRoleObj?.label || 'Manager', role: activeRoleObj?.label || 'Manager' },
+            category: 'BATCH_ISSUES_COMPILED',
+            badgeType: 'workflow',
+            action: 'All Issues Completed by Manager — Audit Report Compiled for Director Review',
+            fieldChanged: 'Engagement Queue',
+            oldValue: 'Manager Review Queue',
+            newValue: 'Pending Director',
+            details: { triggerIssueId: issueId, totalIssuesCompiled: issues.length, allIssuesCleared: true }
+          });
+        } catch (err) { console.error('Failed to log batch completion:', err); }
+      } else {
+        // Interim issue completion - other issues are still pending
+        updatedIssues = issues.map(item => {
+          if (item.id === issueId) {
+            return {
+              ...item,
+              status: 'Manager Completed (Waiting on other issues)',
+              currentRoleTarget: 'Manager',
+              currentLevel: 'Manager Review (Waiting on other issues)',
+              submittedAt: new Date().toISOString()
+            };
+          }
+          return item;
+        });
+        toastDesc = `Issue ${issueRef} reviewed by Manager — waiting for remaining issues before Director submission.`;
+
+        try {
+          logIssueEvent({
+            issueId,
+            engagementId: job?.id || job?.jobId,
+            actor: { name: activeRoleObj?.label || 'Manager', role: activeRoleObj?.label || 'Manager' },
+            category: 'WORKFLOW_TRANSITION',
+            badgeType: 'workflow',
+            action: 'Manager Review Completed — Waiting for Remaining Audit Findings',
+            fieldChanged: 'Status',
+            oldValue: targetIssue?.status,
+            newValue: 'Manager Completed (Waiting on other issues)',
+            details: { gateType: 'INTERIM_ISSUE_CLEARANCE' }
+          });
+        } catch (err) { console.error('Failed to log interim completion:', err); }
       }
-      return item;
-    });
+    } else {
+      updatedIssues = issues.map(item => {
+        if (item.id === issueId) {
+          return {
+            ...item,
+            status: roleConfig.statusOnSubmit,
+            currentRoleTarget: roleConfig.targetRole,
+            currentLevel: `${roleConfig.targetRole} Review`,
+            submittedAt: new Date().toISOString()
+          };
+        }
+        return item;
+      });
+
+      try {
+        logIssueEvent({
+          issueId,
+          engagementId: job?.id || job?.jobId,
+          actor: { name: activeRoleObj?.label || 'Auditor', role: activeRoleObj?.label || 'Auditor' },
+          category: 'WORKFLOW_TRANSITION',
+          badgeType: 'workflow',
+          action: `Issue Submitted to ${roleConfig.targetRole}`,
+          fieldChanged: 'Status',
+          oldValue: targetIssue?.status,
+          newValue: roleConfig.statusOnSubmit
+        });
+      } catch (err) { console.error('Failed to log issue submit:', err); }
+    }
 
     updateIssuesAndSync(updatedIssues);
 
     setToastNotification({
       type: 'success',
       title: roleConfig.submitLabel,
-      description: `Issue ${issueRef} ${roleConfig.successMessage}.`
+      description: toastDesc
     });
   };
 
   // Director Action: Send Issue to Business for Management Response
-  const handleSendToManagementResponse = (issueId) => {
+  const handleSendToManagementResponse = (issueId, transitionNote = '', taggedUser = null) => {
     const target = issues.find(i => i.id === issueId);
     if (target) {
       const editability = checkIssueEditability(target);
@@ -975,6 +1033,22 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
 
     const targetIssue = issues.find(i => i.id === issueId);
     const issueRef = targetIssue?.referenceNumber || (issueId ? `Issue #${issueId}` : 'Issue');
+
+    // Record Management Response Transition Hand-off Note if provided
+    if (transitionNote && transitionNote.trim()) {
+      try {
+        addComment({
+          targetType: 'WORKFLOW_TRANSITION',
+          engagementId: job?.id || job?.jobId || targetIssue?.engagementId || 'REP-2026-008',
+          issueId,
+          fieldKey: 'management_response_request',
+          fieldName: 'Management Response Request',
+          text: transitionNote.trim(),
+          author: currentCommentUser,
+          taggedUser: taggedUser || null
+        });
+      } catch (err) { console.error('Failed to log management transition note:', err); }
+    }
 
     const updatedIssues = issues.map(item => {
       if (item.id === issueId) {
@@ -1140,6 +1214,42 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
       return item;
     });
 
+    try {
+      addComment({
+        targetType: 'WORKFLOW_TRANSITION',
+        engagementId: job?.id || job?.jobId || targetIssue?.engagementId || 'REP-2026-008',
+        issueId: callbackIssueId,
+        fieldKey: 'workflow_callback',
+        fieldName: 'Call Back Transition',
+        text: callbackReason.trim(),
+        author: currentCommentUser,
+        taggedUser: null
+      });
+    } catch (err) { console.error('Failed to register callback comment:', err); }
+
+    try {
+      logIssueEvent({
+        issueId: callbackIssueId,
+        engagementId: job?.id || job?.jobId || targetIssue?.engagementId,
+        actor: {
+          name: activeRoleObj?.label || 'Manager',
+          role: activeRoleObj?.label || 'Manager',
+          domain: (userRole || '').toLowerCase().includes('finops') ? 'FinOps' : 'IT'
+        },
+        category: 'CALL_BACK',
+        badgeType: 'callback',
+        action: `Issue Called Back: ${callbackReason.trim()}`,
+        fieldChanged: 'Workflow Status',
+        oldValue: targetIssue?.status || 'Pending with Business',
+        newValue: 'Called Back',
+        details: {
+          previousStatus: targetIssue?.status || 'Pending with Business',
+          targetStatus: 'Called Back',
+          reason: callbackReason.trim()
+        }
+      });
+    } catch (err) { console.error('Failed to log callback:', err); }
+
     updateIssuesAndSync(updatedIssues);
     setIsCallbackModalOpen(false);
 
@@ -1202,6 +1312,20 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
         currentLevel: 'Completed & Signed Off'
       }));
       updateIssuesAndSync(updatedIssues);
+
+      try {
+        logAuditReportEvent({
+          engagementId: job?.id || job?.jobId,
+          actor: { name: activeRoleObj?.label || 'Vice President', role: activeRoleObj?.label || 'Vice President' },
+          category: 'VP_SIGNOFF',
+          badgeType: 'signoff',
+          action: 'Official Vice President Sign-Off Executed — Audit Report Closed',
+          fieldChanged: 'Final Report Status',
+          oldValue: 'Pending VP',
+          newValue: 'Signed Off'
+        });
+      } catch (err) { console.error('Failed to log VP signoff:', err); }
+
       setToastNotification({
         type: 'success',
         title: 'Sign-Off',
@@ -1236,6 +1360,21 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
       return item;
     });
     updateIssuesAndSync(newIssues);
+
+    try {
+      logIssueEvent({
+        issueId,
+        engagementId: job?.id || job?.jobId,
+        actor: { name: activeRoleObj?.label || 'Auditor', role: activeRoleObj?.label || 'Auditor' },
+        category: 'NOT_MY_FUNCTION',
+        badgeType: 'function',
+        action: "Flagged as 'Not My Function Issue'",
+        fieldChanged: 'Functional Scope Status',
+        oldValue: target?.status,
+        newValue: 'Not My Function Issue',
+        details: { currentFunction: target?.function || 'IT' }
+      });
+    } catch (err) { console.error('Failed to log not my function:', err); }
   };
 
   const handleMarkExcludeIssue = (issueId) => {
@@ -1263,6 +1402,21 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
     const newIssues = [...remaining, updatedTarget];
     setExpandedIssueId(issueId); // Keep active so user can immediately view disabled state & exclusion banner
     updateIssuesAndSync(newIssues);
+
+    try {
+      logIssueEvent({
+        issueId,
+        engagementId: job?.id || job?.jobId,
+        actor: { name: activeRoleObj?.label || 'Auditor', role: activeRoleObj?.label || 'Auditor' },
+        category: 'EXCLUSION_TOGGLE',
+        badgeType: 'exclude',
+        action: 'Issue Excluded from Final Audit Report',
+        fieldChanged: 'Report Compilation Inclusion',
+        oldValue: 'Included',
+        newValue: 'Excluded',
+        details: { isExcluded: true, previousStatus: target?.status }
+      });
+    } catch (err) { console.error('Failed to log exclusion:', err); }
   };
 
   const handleIncludeIssue = (issueId) => {
@@ -1290,6 +1444,21 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
     const newIssues = [...active, restoredTarget, ...excluded];
     setExpandedIssueId(issueId);
     updateIssuesAndSync(newIssues);
+
+    try {
+      logIssueEvent({
+        issueId,
+        engagementId: job?.id || job?.jobId,
+        actor: { name: activeRoleObj?.label || 'Auditor', role: activeRoleObj?.label || 'Auditor' },
+        category: 'EXCLUSION_TOGGLE',
+        badgeType: 'create',
+        action: 'Issue Restored & Included Back into Report',
+        fieldChanged: 'Report Compilation Inclusion',
+        oldValue: 'Excluded',
+        newValue: 'Included',
+        details: { isExcluded: false, restoredStatus: target?.previousStatus || 'In progress TC' }
+      });
+    } catch (err) { console.error('Failed to log inclusion:', err); }
   };
 
   const renderCriticalityBadge = (crit) => {
@@ -1848,9 +2017,11 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
 
   // Helper to render Field-Level Comments in Top-Right Space of Input Boxes
   const renderFieldCommentTrigger = (issueId, fieldKey, fieldLabel, isReadOnly) => {
-    const comments = (fieldComments[issueId] && fieldComments[issueId][fieldKey]) || [];
+    const comments = getCommentsForIssueField(issueId, fieldKey);
     const fieldIdentifier = `${issueId}_${fieldKey}`;
     const isOpen = activeCommentField === fieldIdentifier;
+    const unresolvedCount = comments.filter(c => !c.isResolved).length;
+    const isAllResolved = comments.length > 0 && unresolvedCount === 0;
     const latestComment = comments.length > 0 ? comments[comments.length - 1] : null;
 
     return (
@@ -1861,67 +2032,79 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
             onClick={(e) => {
               e.stopPropagation();
               setActiveCommentField(isOpen ? null : fieldIdentifier);
-              setNewCommentInput('');
             }}
-            title={`Comments on ${fieldLabel}\n${comments.length} comment(s). Click to view thread & reply.`}
+            title={`Comments on ${fieldLabel}\n${comments.length} comment(s) (${unresolvedCount} open). Click to view thread & reply.`}
             style={{
-              padding: '2px 7px',
+              padding: '2px 8px',
               fontSize: '10px',
               fontWeight: '700',
               borderRadius: '12px',
-              border: isOpen ? '1.5px solid #2563EB' : '1px solid #BFDBFE',
-              backgroundColor: isOpen ? '#DBEAFE' : '#EFF6FF',
-              color: '#1E40AF',
+              border: isAllResolved 
+                ? (isOpen ? '1.5px solid #16A34A' : '1px solid #BBF7D0')
+                : (isOpen ? '1.5px solid #2563EB' : '1px solid #BFDBFE'),
+              backgroundColor: isAllResolved 
+                ? (isOpen ? '#DCFCE7' : '#F0FDF4')
+                : (isOpen ? '#DBEAFE' : '#EFF6FF'),
+              color: isAllResolved ? '#166534' : '#1E40AF',
               cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
               gap: '5px',
-              boxShadow: '0 1px 2px rgba(37,99,235,0.08)',
+              boxShadow: isAllResolved ? '0 1px 2px rgba(22,163,74,0.08)' : '0 1px 2px rgba(37,99,235,0.08)',
               transition: 'all 0.15s ease',
               maxWidth: '220px'
             }}
           >
-            {/* Avatar of Latest Commenter */}
-            <span style={{
-              width: '14px',
-              height: '14px',
-              borderRadius: '50%',
-              backgroundColor: latestComment.avatarBg || '#2563EB',
-              color: '#ffffff',
-              fontSize: '8px',
-              fontWeight: '800',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0
-            }}>
-              {latestComment.avatar || 'U'}
-            </span>
+            {isAllResolved ? (
+              <>
+                <CheckCircle2 style={{ width: '11px', height: '11px', color: '#16A34A' }} />
+                <span style={{ fontSize: '9.5px', fontWeight: '800' }}>✓ Resolved ({comments.length})</span>
+              </>
+            ) : (
+              <>
+                {/* Avatar of Latest Commenter */}
+                <span style={{
+                  width: '14px',
+                  height: '14px',
+                  borderRadius: '50%',
+                  backgroundColor: latestComment?.author?.avatarBg || '#2563EB',
+                  color: '#ffffff',
+                  fontSize: '8px',
+                  fontWeight: '800',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  {latestComment?.author?.avatar || 'U'}
+                </span>
 
-            {/* Commenter Name & Comment Snippet */}
-            <span style={{
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              maxWidth: '120px',
-              fontSize: '9.5px',
-              color: '#1E3A8A'
-            }}>
-              <strong>{latestComment.user.split(' ')[0]}:</strong> "{latestComment.comment}"
-            </span>
+                {/* Comment Snippet */}
+                <span style={{
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  maxWidth: '110px',
+                  fontSize: '9.5px',
+                  color: '#1E3A8A'
+                }}>
+                  <strong>{latestComment?.author?.name ? latestComment.author.name.split(' ')[0] : 'Note'}:</strong> "{latestComment?.text || ''}"
+                </span>
 
-            {/* Total Count Badge */}
-            <span style={{
-              backgroundColor: '#2563EB',
-              color: '#ffffff',
-              borderRadius: '8px',
-              padding: '0 4px',
-              fontSize: '9px',
-              fontWeight: '800',
-              lineHeight: '12px'
-            }}>
-              {comments.length}
-            </span>
+                {/* Open Badge Count */}
+                <span style={{
+                  backgroundColor: unresolvedCount > 0 ? '#2563EB' : '#16A34A',
+                  color: '#ffffff',
+                  borderRadius: '8px',
+                  padding: '0 5px',
+                  fontSize: '9px',
+                  fontWeight: '800',
+                  lineHeight: '12px'
+                }}>
+                  {unresolvedCount}
+                </span>
+              </>
+            )}
           </button>
         ) : (
           <button
@@ -1929,9 +2112,8 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
             onClick={(e) => {
               e.stopPropagation();
               setActiveCommentField(isOpen ? null : fieldIdentifier);
-              setNewCommentInput('');
             }}
-            title={`Add a comment on ${fieldLabel}`}
+            title={`Add a comment or tag team member on ${fieldLabel}`}
             style={{
               padding: '1px 6px',
               fontSize: '9.5px',
@@ -1952,196 +2134,20 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
           </button>
         )}
 
-        {/* FIELD COMMENTS POPOVER */}
-        {isOpen && (
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: 'absolute',
-              top: 'calc(100% + 4px)',
-              right: 0,
-              width: '320px',
-              maxWidth: '90vw',
-              backgroundColor: '#ffffff',
-              borderRadius: '8px',
-              border: '1px solid #CBD5E1',
-              boxShadow: '0 12px 28px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.06)',
-              zIndex: 200,
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-              textAlign: 'left'
-            }}
-          >
-            {/* Popover Header */}
-            <div style={{
-              padding: '9px 12px',
-              backgroundColor: '#0F172A',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <MessageSquare style={{ width: '13px', height: '13px', color: '#60A5FA' }} />
-                <span style={{ fontSize: '11.5px', fontWeight: '800', letterSpacing: '0.2px' }}>
-                  {fieldLabel} Comments
-                </span>
-                <span style={{
-                  backgroundColor: '#1E293B',
-                  color: '#94A3B8',
-                  fontSize: '9.5px',
-                  fontWeight: '700',
-                  padding: '1px 5px',
-                  borderRadius: '10px'
-                }}>
-                  {comments.length}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setActiveCommentField(null)}
-                style={{
-                  border: 'none',
-                  background: 'none',
-                  color: '#94A3B8',
-                  cursor: 'pointer',
-                  padding: '2px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <X style={{ width: '14px', height: '14px' }} />
-              </button>
-            </div>
-
-            {/* Comments List */}
-            <div style={{
-              maxHeight: '220px',
-              overflowY: 'auto',
-              padding: '10px 12px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
-              backgroundColor: '#F8FAFC'
-            }}>
-              {comments.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '16px 8px', color: '#94A3B8', fontSize: '11px' }}>
-                  No comments yet on this field.<br />
-                  Be the first to leave a review note below!
-                </div>
-              ) : (
-                comments.map(c => (
-                  <div key={c.id} style={{
-                    backgroundColor: '#ffffff',
-                    border: '1px solid #E2E8F0',
-                    borderRadius: '6px',
-                    padding: '8px 10px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '4px',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{
-                          width: '18px',
-                          height: '18px',
-                          borderRadius: '50%',
-                          backgroundColor: c.avatarBg || '#2563EB',
-                          color: '#ffffff',
-                          fontSize: '9px',
-                          fontWeight: '800',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}>
-                          {c.avatar || 'U'}
-                        </span>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <span style={{ fontSize: '11px', fontWeight: '700', color: '#0F172A' }}>
-                            {c.user}
-                          </span>
-                          {c.role && (
-                            <span style={{ fontSize: '9px', color: '#64748B' }}>
-                              {c.role}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <span style={{ fontSize: '9.5px', color: '#94A3B8', whiteSpace: 'nowrap' }}>
-                        {c.timestamp}
-                      </span>
-                    </div>
-                    <p style={{ fontSize: '11px', color: '#334155', margin: '2px 0 0 0', lineHeight: '1.4', wordBreak: 'break-word' }}>
-                      {c.comment}
-                    </p>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Add New Comment Box */}
-            <div style={{
-              padding: '10px 12px',
-              borderTop: '1px solid #E2E8F0',
-              backgroundColor: '#ffffff',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px'
-            }}>
-              <textarea
-                rows={2}
-                placeholder={`Type a comment on ${fieldLabel}...`}
-                value={newCommentInput}
-                onChange={(e) => setNewCommentInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                    handleAddFieldComment(issueId, fieldKey);
-                  }
-                }}
-                style={{
-                  width: '100%',
-                  padding: '6px 8px',
-                  fontSize: '11.5px',
-                  borderRadius: '5px',
-                  border: '1px solid #CBD5E1',
-                  outline: 'none',
-                  fontFamily: 'inherit',
-                  resize: 'none',
-                  boxSizing: 'border-box'
-                }}
-              />
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '9.5px', color: '#94A3B8' }}>
-                  Press Ctrl+Enter to post
-                </span>
-                <button
-                  type="button"
-                  disabled={!newCommentInput.trim()}
-                  onClick={() => handleAddFieldComment(issueId, fieldKey)}
-                  style={{
-                    padding: '4px 10px',
-                    fontSize: '11px',
-                    fontWeight: '700',
-                    color: '#ffffff',
-                    backgroundColor: newCommentInput.trim() ? '#2563EB' : '#94A3B8',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: newCommentInput.trim() ? 'pointer' : 'not-allowed',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                >
-                  <Send style={{ width: '10.5px', height: '10.5px' }} />
-                  <span>Post Comment</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* FIELD COMMENTS POPOVER WITH TAGGING & RESOLUTION GOVERNANCE */}
+        <FieldCommentPopover
+          isOpen={isOpen}
+          onClose={() => setActiveCommentField(null)}
+          targetType="ISSUE_FIELD"
+          engagementId={job?.id || job?.jobId || 'REP-2026-008'}
+          issueId={issueId}
+          fieldKey={fieldKey}
+          fieldLabel={fieldLabel}
+          comments={comments}
+          currentUser={currentCommentUser}
+          availableUsers={availableEngagementUsers}
+          placement="down"
+        />
       </div>
     );
   };
@@ -2289,6 +2295,7 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
               Observation &amp; Non-Compliance Details:
             </div>
             <DescriptionWithViolations
+              issueId={item.id}
               text={item.issue || item.originalIssue || item.summaryFinding || ''}
               onOpenViolationDoc={handleOpenViolationDoc}
               isReadOnly={true}
@@ -2693,6 +2700,54 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
 
     return (
       <>
+        {/* Workflow Transition Hand-Off Banner (if transition remarks exist for this issue) */}
+        {(() => {
+          const transNotes = getTransitionComments(job?.id || job?.jobId, item.id);
+          if (transNotes.length === 0) return null;
+          const latestNote = transNotes[transNotes.length - 1];
+          return (
+            <div style={{
+              marginBottom: '16px',
+              padding: '12px 14px',
+              borderRadius: '8px',
+              backgroundColor: '#EFF6FF',
+              border: '1.5px solid #BFDBFE',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px',
+              boxShadow: '0 1px 3px rgba(37,99,235,0.06)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <History style={{ width: '14px', height: '14px', color: '#2563EB' }} />
+                  <span style={{ fontSize: '11px', fontWeight: '800', color: '#1E40AF', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                    Latest Workflow Transition Note • {latestNote.fieldName || 'Routing Remark'}
+                  </span>
+                  {latestNote.taggedUser && (
+                    <span style={{
+                      fontSize: '9.5px',
+                      fontWeight: '800',
+                      color: '#4338CA',
+                      backgroundColor: '#EEF2FF',
+                      border: '1px solid #C7D2FE',
+                      padding: '1px 6px',
+                      borderRadius: '10px'
+                    }}>
+                      Tagged @{latestNote.taggedUser.name}
+                    </span>
+                  )}
+                </div>
+                <span style={{ fontSize: '10px', color: '#64748B' }}>
+                  {latestNote.author?.name} ({latestNote.author?.role}) • {latestNote.displayTime || 'Recently'}
+                </span>
+              </div>
+              <p style={{ margin: 0, fontSize: '12px', color: '#1E293B', fontStyle: 'italic', lineHeight: 1.45, paddingLeft: '22px' }}>
+                "{latestNote.text}"
+              </p>
+            </div>
+          );
+        })()}
+
         {/* ============================================================== */}
         {/* ============================================================== */}
         {/* 1. TOP SECTION: MANUAL IMPORTANT FIELDS                         */}
@@ -2714,10 +2769,10 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
               style={selectBaseStyle}
             >
               <option value="" disabled>Select Test Procedure...</option>
-              {item.testProcedure && !TEST_PROCEDURE_OPTIONS.includes(item.testProcedure) && (
+              {item.testProcedure && !activeTestProcedures.includes(item.testProcedure) && (
                 <option value={item.testProcedure}>{item.testProcedure}</option>
               )}
-              {TEST_PROCEDURE_OPTIONS.map(opt => (
+              {activeTestProcedures.map(opt => (
                 <option key={opt} value={opt}>{opt}</option>
               ))}
             </select>
@@ -2810,21 +2865,86 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
               </div>
             </div>
 
-            <span style={{
-              fontSize: '10px',
-              fontWeight: '700',
-              color: '#1D4ED8',
-              backgroundColor: '#DBEAFE',
-              border: '1px solid #BFDBFE',
-              padding: '2px 8px',
-              borderRadius: '12px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}>
-              <Sparkles style={{ width: '10px', height: '10px', color: '#2563EB' }} />
-              AI Synthesized
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {(() => {
+                const issueVersions = getVersionsForIssue(item.id);
+                const activeVer = getActiveVersion(item.id);
+                const hasCandidate = issueVersions.some(v => v.status === 'CANDIDATE');
+                const versionCount = issueVersions.length > 0 ? issueVersions.length : 1;
+                const activeNum = activeVer?.versionNumber || 1;
+
+                return (
+                  <>
+                    {/* Active Version Pill */}
+                    <span style={{
+                      fontSize: '10.5px',
+                      fontWeight: '800',
+                      color: '#166534',
+                      backgroundColor: '#DCFCE7',
+                      border: '1px solid #BBF7D0',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      <Sparkles style={{ width: '10.5px', height: '10.5px', color: '#16A34A' }} />
+                      <span>AI v{activeNum} (Active)</span>
+                    </span>
+
+                    {/* Version History & Compare Trigger Button */}
+                    <button
+                      type="button"
+                      onClick={() => setAiCompareModalIssueId(item.id)}
+                      title={`View and compare all ${versionCount} AI generated versions for this finding`}
+                      style={{
+                        padding: '3px 9px',
+                        fontSize: '10.5px',
+                        fontWeight: '700',
+                        color: hasCandidate ? '#92400E' : '#1D4ED8',
+                        backgroundColor: hasCandidate ? '#FEF3C7' : '#EFF6FF',
+                        border: hasCandidate ? '1.5px solid #FCD34D' : '1px solid #BFDBFE',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <History style={{ width: '11px', height: '11px' }} />
+                      <span>{hasCandidate ? 'Compare Candidate' : `Version History (${versionCount})`}</span>
+                    </button>
+
+                    {/* AI Regenerate / Refine Action Button */}
+                    {!isReadOnly && !item.isExcluded && !item.isLocked && (
+                      <button
+                        type="button"
+                        onClick={() => handleTriggerWorkpaperAiRegen(item)}
+                        title="Regenerate & synthesize enhanced candidate version for review"
+                        style={{
+                          padding: '3px 9px',
+                          fontSize: '10.5px',
+                          fontWeight: '700',
+                          color: '#FFFFFF',
+                          backgroundColor: '#2563EB',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          boxShadow: '0 1px 3px rgba(37,99,235,0.2)'
+                        }}
+                      >
+                        <RefreshCw style={{ width: '10.5px', height: '10.5px' }} />
+                        <span>AI Refine</span>
+                      </button>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
           </div>
 
           {/* AI Field 1: Issue Title */}
@@ -2860,6 +2980,7 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
 
           {/* AI Field 2: Description (with clickable Violation References & PDF Viewer Drawer) */}
           <DescriptionWithViolations
+            issueId={item.id}
             label="Description"
             value={item.issue || ''}
             onChange={(val) => handleIssueFieldChange(item.id, 'issue', val)}
@@ -3578,6 +3699,7 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
               <button
                 onClick={() => {
                   setIsMoreMenuOpen(false);
+                  setActiveLogIssueId(issueId);
                   setIsIssueLogsModalOpen(true);
                 }}
                 style={{
@@ -3733,7 +3855,16 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
         {roleConfig.canSendToManagementResponse && (
           <button
             disabled={isActionDisabled}
-            onClick={() => handleSendToManagementResponse(issueId)}
+            onClick={() => {
+              if (isActionDisabled) return;
+              setTransitionNoteModal({
+                issueId,
+                actionType: 'management_response',
+                actionTitle: 'Send to Management Response',
+                noteText: '',
+                taggedUser: null
+              });
+            }}
             style={{
               padding: '7px 14px',
               fontSize: '11.5px',
@@ -3760,7 +3891,16 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
         {/* Role-Specific Submit Button (Submit to TC / Submit to Manager / Submit to Director / Submit to VP / Sign-Off) */}
         <button
           disabled={isActionDisabled}
-          onClick={() => handleSubmitIssue(issueId)}
+          onClick={() => {
+            if (isActionDisabled) return;
+            setTransitionNoteModal({
+              issueId,
+              actionType: 'submit',
+              actionTitle: roleConfig.submitLabel,
+              noteText: '',
+              taggedUser: null
+            });
+          }}
           style={{
             padding: '7px 14px',
             fontSize: '11.5px',
@@ -3953,6 +4093,29 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
             );
           })()}
 
+          {/* Add Finding Button */}
+          <button
+            onClick={() => setIsCreateDrawerOpen(true)}
+            style={{
+              padding: '6px 14px',
+              fontSize: '12px',
+              fontWeight: '700',
+              color: '#ffffff',
+              backgroundColor: '#E11D48',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 1px 3px rgba(225, 29, 72, 0.2)'
+            }}
+            title="Create and draft a new audit finding"
+          >
+            <Plus style={{ width: '14px', height: '14px' }} />
+            <span>Add Finding</span>
+          </button>
+
           {/* Download PDF Button */}
           <button
             onClick={() => alert(`Downloading PDF Report for ${job?.id || 'JOB-2026-881'}`)}
@@ -4000,7 +4163,10 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
 
           {/* Track Changes Button */}
           <button
-            onClick={() => setIsIssueLogsModalOpen(true)}
+            onClick={() => {
+              setActiveLogIssueId(null);
+              setIsIssueLogsModalOpen(true);
+            }}
             style={{
               padding: '6px 14px',
               fontSize: '12px',
@@ -4062,6 +4228,27 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
                           <AlertOctagon style={{ width: '36px', height: '36px', color: '#94A3B8', margin: '0 auto 10px' }} />
                           <div style={{ fontSize: '14px', fontWeight: '800', color: '#1E293B' }}>No Issues in Audit Engagement</div>
                           <div style={{ fontSize: '12px', color: '#64748B', marginTop: '4px' }}>There are currently no findings or issues logged for {job?.fileName || job?.engagement || 'this engagement'}.</div>
+                          <button
+                            onClick={() => setIsCreateDrawerOpen(true)}
+                            style={{
+                              marginTop: '16px',
+                              padding: '8px 18px',
+                              backgroundColor: '#E11D48',
+                              color: '#ffffff',
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontWeight: '700',
+                              fontSize: '12.5px',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              boxShadow: '0 2px 4px rgba(225, 29, 72, 0.2)'
+                            }}
+                          >
+                            <Plus style={{ width: '15px', height: '15px' }} />
+                            <span>Draft New Finding</span>
+                          </button>
                         </td>
                       </tr>
                     ) : (
@@ -5565,7 +5752,13 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
       <IssueLogsModal
         isOpen={isIssueLogsModalOpen}
         report={job || { fileName: "MedTech Suzhou - Orthopedics Plant_AuditReport" }}
-        onClose={() => setIsIssueLogsModalOpen(false)}
+        engagementId={job?.id || job?.jobId || job?.reportId}
+        issueId={activeLogIssueId}
+        issue={issues.find(i => i.id === activeLogIssueId)}
+        onClose={() => {
+          setIsIssueLogsModalOpen(false);
+          setActiveLogIssueId(null);
+        }}
       />
 
       {/* Workflow Drawer Modal */}
@@ -5785,6 +5978,263 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
               </div>
             </div>
           </div>
+        );
+      })()}
+
+      {/* Workflow Transition Hand-off Remarks Modal */}
+      {transitionNoteModal && (() => {
+        const targetIss = issues.find(i => i.id === transitionNoteModal.issueId);
+        const noteText = transitionNoteModal.noteText || '';
+        const setNoteText = (val) => setTransitionNoteModal(prev => ({ ...prev, noteText: val }));
+        const selectedUser = transitionNoteModal.taggedUser;
+
+        const handleExecute = (withNote = true) => {
+          const finalNote = withNote ? noteText : '';
+          const finalTagged = withNote ? selectedUser : null;
+          const { issueId, actionType } = transitionNoteModal;
+          setTransitionNoteModal(null);
+          if (actionType === 'management_response') {
+            handleSendToManagementResponse(issueId, finalNote, finalTagged);
+          } else {
+            handleSubmitIssue(issueId, finalNote, finalTagged);
+          }
+        };
+
+        return (
+          <div
+            role="dialog"
+            aria-modal="true"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 9999,
+              backgroundColor: 'rgba(15, 23, 42, 0.65)',
+              backdropFilter: 'blur(3px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px'
+            }}
+            onClick={() => setTransitionNoteModal(null)}
+          >
+            <div
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: '16px',
+                maxWidth: '520px',
+                width: '100%',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div style={{
+                padding: '18px 22px',
+                borderBottom: '1px solid #E2E8F0',
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                backgroundColor: '#F8FAFC'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '10px',
+                    backgroundColor: transitionNoteModal.actionType === 'management_response' ? '#E0F2FE' : '#DCFCE7',
+                    border: transitionNoteModal.actionType === 'management_response' ? '1px solid #BAE6FD' : '1px solid #BBF7D0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: transitionNoteModal.actionType === 'management_response' ? '#0284C7' : '#166534',
+                    flexShrink: 0
+                  }}>
+                    {transitionNoteModal.actionType === 'management_response' ? (
+                      <MessageSquare style={{ width: '18px', height: '18px' }} />
+                    ) : (
+                      <Send style={{ width: '18px', height: '18px' }} />
+                    )}
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {transitionNoteModal.actionTitle || 'Workflow Progression'}
+                      {targetIss?.referenceNumber && (
+                        <span style={{ fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '12px', backgroundColor: '#EDE9FE', color: '#6D28D9' }}>
+                          {targetIss.referenceNumber}
+                        </span>
+                      )}
+                    </h3>
+                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748B' }}>
+                      {targetIss?.title || targetIss?.issueTitle || 'Attach an optional hand-off remark for the recipient.'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTransitionNoteModal(null)}
+                  style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: '4px' }}
+                >
+                  <X style={{ width: '18px', height: '18px' }} />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#1E293B', marginBottom: '5px' }}>
+                    Transition Hand-Off Note (Optional)
+                  </label>
+                  <textarea
+                    rows={3}
+                    autoFocus
+                    placeholder="Enter instructions, notes, or context for the receiving reviewer..."
+                    value={noteText}
+                    onChange={(e) => setNoteText(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '10px 12px',
+                      fontSize: '12.5px',
+                      color: '#0F172A',
+                      borderRadius: '8px',
+                      border: '1px solid #CBD5E1',
+                      fontFamily: 'inherit',
+                      resize: 'vertical',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                {/* Tag Recipient Selector */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#475569', marginBottom: '4px' }}>
+                    Tag Specific Recipient (Optional)
+                  </label>
+                  <select
+                    value={selectedUser?.id || ''}
+                    onChange={(e) => {
+                      const u = availableEngagementUsers.find(x => x.id === e.target.value);
+                      setTransitionNoteModal(prev => ({ ...prev, taggedUser: u || null }));
+                    }}
+                    style={{
+                      width: '100%',
+                      height: '34px',
+                      padding: '0 8px',
+                      fontSize: '12px',
+                      borderRadius: '6px',
+                      border: '1px solid #CBD5E1',
+                      backgroundColor: '#FFFFFF',
+                      color: '#0F172A',
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="">No specific tag (General queue)</option>
+                    {availableEngagementUsers.map(u => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} — {u.role}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div style={{
+                padding: '14px 22px',
+                backgroundColor: '#F8FAFC',
+                borderTop: '1px solid #E2E8F0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '10px'
+              }}>
+                <button
+                  type="button"
+                  onClick={() => setTransitionNoteModal(null)}
+                  style={{
+                    padding: '8px 14px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    color: '#64748B',
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleExecute(false)}
+                    style={{
+                      padding: '8px 14px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#475569',
+                      backgroundColor: '#FFFFFF',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '6px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Skip Note &amp; Send
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleExecute(true)}
+                    style={{
+                      padding: '8px 18px',
+                      fontSize: '12.5px',
+                      fontWeight: '700',
+                      color: '#FFFFFF',
+                      backgroundColor: transitionNoteModal.actionType === 'management_response' ? '#0284C7' : '#059669',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <Send style={{ width: '13px', height: '13px' }} />
+                    <span>Send with Note</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Create Issue Drawer Pop-over */}
+      {isCreateDrawerOpen && (
+        <CreateIssueDrawerNew
+          isOpen={isCreateDrawerOpen}
+          onClose={() => setIsCreateDrawerOpen(false)}
+          onSaveDiscussionPoint={handleSaveNewIssue}
+          defaultFunction={job?.tech || 'IT'}
+          jobId={job?.id || job?.jobId}
+          engagementId={job?.id}
+          job={job}
+        />
+      )}
+
+      {/* AI Version History & Comparison Modal */}
+      {aiCompareModalIssueId && (() => {
+        const modalIssue = issues.find(i => i.id === aiCompareModalIssueId);
+        return (
+          <AiVersionCompareModal
+            isOpen={Boolean(aiCompareModalIssueId)}
+            onClose={() => setAiCompareModalIssueId(null)}
+            issueId={aiCompareModalIssueId}
+            issueReference={modalIssue?.referenceNumber || modalIssue?.id}
+            currentUser={currentCommentUser}
+            onAdoptFields={(adoptedFields) => handleAdoptVersionFields(aiCompareModalIssueId, adoptedFields)}
+          />
         );
       })()}
 

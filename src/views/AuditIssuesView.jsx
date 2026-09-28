@@ -3,7 +3,7 @@ import {
   ArrowLeft, Search, RotateCcw, Plus, History, ShieldCheck, DollarSign,
   Filter, ArrowUpDown, MoreVertical, Edit2, ChevronDown, Check, X, AlertTriangle, CheckCircle2
 } from 'lucide-react';
-import { mockDiscussionPointsNew, mockDiscussionPointsByReport } from '../data/reportingNewMockData';
+import { getIssuesByEngagement } from '../data/assignmentsData.js';
 import CreateIssueDrawerNew from '../components/issues/CreateIssueDrawerNew';
 
 export default function AuditIssuesView({ 
@@ -13,61 +13,57 @@ export default function AuditIssuesView({
   onOpenHistoryModal
 }) {
   const getInitialPoints = (repObj) => {
-    if (!repObj) return mockDiscussionPointsByReport["20260884"];
+    if (!repObj) return [];
 
-    // 1. Check if repObj has its own issuesList array
-    if (repObj.issuesList && Array.isArray(repObj.issuesList) && repObj.issuesList.length > 0) {
-      return repObj.issuesList.map((iss, idx) => ({
-        ...iss,
-        id: iss.id?.replace('ISSUE-', '') || `${idx + 101}`,
-        issueId: iss.id?.replace('ISSUE-', '') || `${idx + 101}`,
-        header: iss.title || iss.header,
-        title: iss.title || iss.header,
-        criticality: iss.severity || iss.criticality || "Major",
-        tech: iss.tech || "IT",
-        functionType: iss.functionType || iss.tech || "IT",
-        description: iss.description || `${iss.title} identified during ${repObj.fileName || repObj.engagement || 'audit'}.`,
-        addedBy: iss.createdBy || "Rachel Green",
-        lastUpdatedBy: iss.lastEditedBy || "Carlos Mendez",
-        status: iss.status || "Manager Pending",
-        updatedOn: iss.updatedOn || "2026-08-05 10:15 AM",
-        rowNum: idx + 1,
-        testProcedure: iss.testProcedure || 'TP-101: User Access & Authentication Review',
-        summaryFinding: iss.summaryFinding || '',
-        auditorResponse: iss.auditorResponse || '',
-        mitigatingControl: iss.mitigatingControl || '',
-        exceptionRemedComments: iss.exceptionRemedComments || '',
-        issueType: iss.issueType || 'Compliance',
-        issueSource: iss.issueSource || 'Internal Audit',
-        keyTheme: iss.keyTheme || 'Access Governance & Authorization Matrix',
-        technologyRelated: iss.technologyRelated || 'Yes',
-        itAssetAccountableSector: iss.itAssetAccountableSector || 'MT',
-        impactedRegion: iss.impactedRegion || 'NA',
-        impactedSector: iss.impactedSector || 'MED',
-        impactedMrc: iss.impactedMrc || iss.auditableEntity || 'MRC-01: Global Supply Chain & Manufacturing Operations',
-        quarterImpacted: iss.quarterImpacted || 'Q1 2026',
-        salesUsd: iss.salesUsd || '$1,200,000',
-        ibtUsd: iss.ibtUsd || '$350,000',
-        netIncomeUsd: iss.netIncomeUsd || '$280,000',
-        totalAssetsUsd: iss.totalAssetsUsd || '$4,500,000',
-        hasExceptionRemedDate: iss.hasExceptionRemedDate !== undefined ? iss.hasExceptionRemedDate : true,
-        exceptionRemedDate: iss.exceptionRemedDate || '2026-10-31'
-      }));
+    // 1. Check if repObj has its own issuesList array, or query via engagement ID
+    let issuesArr = [];
+    if (repObj.issuesList && Array.isArray(repObj.issuesList)) {
+      issuesArr = repObj.issuesList;
+    } else {
+      const repId = repObj.id || repObj.reportId || repObj.jobId || '';
+      issuesArr = getIssuesByEngagement(repId);
     }
 
-    // 2. Check mockDiscussionPointsByReport by ID or reportId
-    const repId = repObj.id || repObj.reportId || '';
-    if (mockDiscussionPointsByReport[repId]) {
-      return mockDiscussionPointsByReport[repId];
+    if (!issuesArr || issuesArr.length === 0) {
+      return [];
     }
 
-    // 3. Match by fileName
-    const matchByFile = Object.entries(mockDiscussionPointsByReport).find(([k, arr]) => 
-      repObj.fileName && arr.some(p => p.description && p.description.toLowerCase().includes(repObj.fileName.toLowerCase()))
-    );
-    if (matchByFile) return matchByFile[1];
-
-    return mockDiscussionPointsByReport["20260884"];
+    return issuesArr.map((iss, idx) => ({
+      ...iss,
+      id: iss.id?.replace('ISSUE-', '') || `${idx + 101}`,
+      issueId: iss.id?.replace('ISSUE-', '') || `${idx + 101}`,
+      header: iss.title || iss.header,
+      title: iss.title || iss.header,
+      criticality: iss.severity || iss.criticality || "Major",
+      tech: iss.tech || "IT",
+      functionType: iss.functionType || iss.tech || "IT",
+      description: iss.description || `${iss.title} identified during ${repObj.fileName || repObj.engagement || 'audit'}.`,
+      addedBy: iss.createdBy || "Rachel Green",
+      lastUpdatedBy: iss.lastEditedBy || "Carlos Mendez",
+      status: iss.status || "Manager Pending",
+      updatedOn: iss.updatedOn || "2026-08-05 10:15 AM",
+      rowNum: idx + 1,
+      testProcedure: iss.testProcedure || 'TP-101: User Access & Authentication Review',
+      summaryFinding: iss.summaryFinding || '',
+      auditorResponse: iss.auditorResponse || '',
+      mitigatingControl: iss.mitigatingControl || '',
+      exceptionRemedComments: iss.exceptionRemedComments || '',
+      issueType: iss.issueType || 'Compliance',
+      issueSource: iss.issueSource || 'Internal Audit',
+      keyTheme: iss.keyTheme || 'Access Governance & Authorization Matrix',
+      technologyRelated: iss.technologyRelated || 'Yes',
+      itAssetAccountableSector: iss.itAssetAccountableSector || 'MT',
+      impactedRegion: iss.impactedRegion || 'NA',
+      impactedSector: iss.impactedSector || 'MED',
+      impactedMrc: iss.impactedMrc || iss.auditableEntity || 'MRC-01: Global Supply Chain & Manufacturing Operations',
+      quarterImpacted: iss.quarterImpacted || 'Q1 2026',
+      salesUsd: iss.salesUsd || '$1,200,000',
+      ibtUsd: iss.ibtUsd || '$350,000',
+      netIncomeUsd: iss.netIncomeUsd || '$280,000',
+      totalAssetsUsd: iss.totalAssetsUsd || '$4,500,000',
+      hasExceptionRemedDate: iss.hasExceptionRemedDate !== undefined ? iss.hasExceptionRemedDate : true,
+      exceptionRemedDate: iss.exceptionRemedDate || '2026-10-31'
+    }));
   };
 
   const [points, setPoints] = useState(() => getInitialPoints(report));
@@ -866,6 +862,9 @@ export default function AuditIssuesView({
         onSaveDiscussionPoint={handleSaveDiscussionPoint}
         defaultFunction={techFilter !== 'All' ? techFilter : 'IT'}
         initialData={editingPoint}
+        jobId={report?.id || report?.jobId}
+        engagementId={report?.id}
+        job={report}
       />
 
       {/* Embedded CSS Keyframes for Toast Animations */}

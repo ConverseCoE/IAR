@@ -4,7 +4,15 @@ import {
   Sparkles, MoreVertical, Check, CheckCircle2, Layout, Columns, PanelLeft, Layers, X,
   Printer, FileText, ChevronRight, Eye, ZoomIn, ZoomOut, MessageSquare
 } from 'lucide-react';
-import { mockExecutiveSummaryData, mockExecutiveSummaryLogs, generateExecutiveSummaryData } from '../data/execReportData';
+import { mockExecutiveSummaryData, generateExecutiveSummaryData } from '../data/execReportData';
+import { getExecutiveReportLogs, logExecutiveReportEvent } from '../utils/auditLogEngine';
+import { 
+  getCommentsForExecutiveField, 
+  subscribeToCommentUpdates, 
+  addComment 
+} from '../utils/commentEngine';
+import FieldCommentPopover from '../components/common/FieldCommentPopover';
+import usersData from '../data/users.json';
 import IssueLogsModal from '../components/issues/IssueLogsModal';
 import WorkflowModal from '../components/reporting/WorkflowModal';
 import RichTextEditor from '../components/ui/RichTextEditor';
@@ -52,11 +60,18 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
   const isPushDisabled = isDirector && !isVP && hasCriticalIssues;
   const pushTooltipText = "Report contains critical issues, VP signoff is mandatory";
   
-  // Accordion Expand States: 'scope', 'insights', 'criticalMajor'
   const [expandedSection, setExpandedSection] = useState('scope');
   const [isLogsModalOpen, setIsLogsModalOpen] = useState(false);
   const [isWorkflowModalOpen, setIsWorkflowModalOpen] = useState(false);
-  const [execLogs, setExecLogs] = useState(mockExecutiveSummaryLogs);
+  const [execLogs, setExecLogs] = useState(() => 
+    getExecutiveReportLogs(job?.id || job?.jobId || job?.reportId)
+  );
+
+  useEffect(() => {
+    if (job) {
+      setExecLogs(getExecutiveReportLogs(job?.id || job?.jobId || job?.reportId));
+    }
+  }, [job?.id]);
 
   // Derive Current Pending Stage for Header Pill
   const getPendingStageInfo = () => {
@@ -108,8 +123,10 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
     const newLog = {
       id: `EXEC-LIVE-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       timestamp: "Just now",
+      displayTime: "Just now",
       date: new Date().toLocaleDateString('en-US'),
       user: "Current Auditor",
+      actor: { name: "Current Auditor", role: "Internal Audit (Active Session)" },
       role: "Internal Audit (Active Session)",
       action: `Modified ${fieldName}`,
       fieldChanged: fieldName,
@@ -118,6 +135,21 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
       badgeType: badgeType
     };
     setExecLogs(prev => [newLog, ...prev]);
+
+    try {
+      logExecutiveReportEvent({
+        engagementId: job?.id || job?.jobId || job?.reportId,
+        actor: { name: "Current Auditor", role: "Internal Audit (Active Session)" },
+        category: 'FIELD_EDIT',
+        badgeType: badgeType,
+        action: `Modified ${fieldName}`,
+        fieldChanged: fieldName,
+        oldValue: typeof oldVal === 'object' ? JSON.stringify(oldVal) : String(oldVal ?? '-'),
+        newValue: typeof newVal === 'object' ? JSON.stringify(newVal) : String(newVal ?? '-')
+      });
+    } catch (err) {
+      console.error('Failed to log exec report change:', err);
+    }
   };
 
   // Field change handlers (Instant real-time update to live HTML PDF preview)
@@ -366,56 +398,48 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
     return val;
   };
 
-  // Field-level & Row-level Comments State
-  const [fieldComments, setFieldComments] = useState({
-    "scope_objective": [
-      {
-        id: "ec-1",
-        user: "Marcus Vance",
-        role: "Lead Compliance Auditor",
-        avatar: "MV",
-        avatarBg: "#7C3AED",
-        timestamp: "25 mins ago",
-        comment: "Ensure manufacturing automation drift controls align with the Q2 scope mandate."
-      }
-    ],
-    "processMatrix_row_0": [
-      {
-        id: "ec-2",
-        user: "Sarah Jenkins",
-        role: "Quality Assurance Director",
-        avatar: "SJ",
-        avatarBg: "#059669",
-        timestamp: "1 hour ago",
-        comment: "Reclassified 1 Minor finding under this process to ensure alignment with local SOP-402."
-      }
-    ],
-    "insights_narrative": [
-      {
-        id: "ec-3",
-        user: "Kevin Zhang",
-        role: "IT Audit Lead",
-        avatar: "KZ",
-        avatarBg: "#2563EB",
-        timestamp: "2 hours ago",
-        comment: "Executive insights narrative verified against Plant Leadership exit interview takeaways."
-      }
-    ],
-    "criticalIssue_description": [
-      {
-        id: "ec-4",
-        user: "Elena Rostova",
-        role: "VP Global Quality",
-        avatar: "ER",
-        avatarBg: "#DC2626",
-        timestamp: "3 hours ago",
-        comment: "Confirmed remediating CAPA timeline is capped at 30 days due to critical status."
-      }
-    ]
-  });
+  // Field Level & Process Row Comments Reactive Hook
+  const [, setCommentTick] = useState(0);
+  useEffect(() => {
+    return subscribeToCommentUpdates(() => setCommentTick(t => t + 1));
+  }, []);
+
+  // Resolve Current User for Executive Report Comments
+  const currentCommentUser = React.useMemo(() => {
+    const found = usersData.find(u => u.baselineRole === userRole);
+    if (found) {
+      return {
+        id: found.id,
+        userId: found.id,
+        name: found.name,
+        role: found.title,
+        avatar: found.initials || found.name.split(' ').map(n=>n[0]).join(''),
+        avatarBg: found.baselineRole?.includes('vp') ? '#0D9488' : found.baselineRole?.includes('director') ? '#059669' : '#2563EB'
+      };
+    }
+    return {
+      id: 'USR-CURRENT',
+      userId: 'USR-CURRENT',
+      name: isVP ? 'Elena Rostova' : isDirector ? 'Brian Cox' : 'Auditor',
+      role: isVP ? 'VP Global Audit' : isDirector ? 'IT Audit Director' : 'Auditor',
+      avatar: isVP ? 'ER' : isDirector ? 'BC' : 'ME',
+      avatarBg: isVP ? '#0D9488' : '#059669'
+    };
+  }, [userRole, isVP, isDirector]);
+
+  // Available Team Members for Tagging
+  const availableEngagementUsers = React.useMemo(() => {
+    return usersData.map(u => ({
+      id: u.id,
+      userId: u.id,
+      name: u.name,
+      role: u.title,
+      avatar: u.initials || u.name.split(' ').map(n=>n[0]).join(''),
+      avatarBg: u.baselineRole?.includes('manager') ? '#D8001D' : u.baselineRole?.includes('director') ? '#059669' : '#2563EB'
+    }));
+  }, []);
 
   const [activeCommentField, setActiveCommentField] = useState(null);
-  const [newCommentInput, setNewCommentInput] = useState('');
   const [popoverPlacement, setPopoverPlacement] = useState('down');
 
   // Click outside to close active comment popover
@@ -429,47 +453,11 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleAddComment = (fieldIdentifier) => {
-    if (!newCommentInput.trim()) return;
-
-    let authorName = "You";
-    let authorRole = "Audit Contributor";
-    let authorAvatar = "ME";
-    let authorBg = "#059669";
-
-    if (isVP) {
-      authorName = "Elena Rostova";
-      authorRole = "VP Global Audit & Quality";
-      authorAvatar = "ER";
-      authorBg = "#DC2626";
-    } else if (isDirector) {
-      authorName = "Marcus Vance";
-      authorRole = "IT Audit Director";
-      authorAvatar = "MV";
-      authorBg = "#7C3AED";
-    }
-
-    const newEntry = {
-      id: "ec-" + Date.now(),
-      user: authorName,
-      role: authorRole,
-      avatar: authorAvatar,
-      avatarBg: authorBg,
-      timestamp: "Just now",
-      comment: newCommentInput.trim()
-    };
-
-    setFieldComments(prev => ({
-      ...prev,
-      [fieldIdentifier]: [...(prev[fieldIdentifier] || []), newEntry]
-    }));
-
-    setNewCommentInput('');
-  };
-
   const renderFieldCommentTrigger = (fieldKey, fieldLabel, isRowLevel = false) => {
-    const commentsList = fieldComments[fieldKey] || [];
+    const commentsList = getCommentsForExecutiveField(job?.id || job?.jobId || 'REP-2026-008', fieldKey);
     const isOpen = activeCommentField === fieldKey;
+    const unresolvedCount = commentsList.filter(c => !c.isResolved).length;
+    const isAllResolved = commentsList.length > 0 && unresolvedCount === 0;
     const latestComment = commentsList.length > 0 ? commentsList[commentsList.length - 1] : null;
 
     const handleToggleComment = (e) => {
@@ -481,7 +469,6 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
         const spaceBelow = window.innerHeight - rect.bottom;
         setPopoverPlacement(spaceBelow < 330 ? 'up' : 'down');
         setActiveCommentField(fieldKey);
-        setNewCommentInput('');
       }
     };
 
@@ -494,67 +481,80 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
           <button
             type="button"
             onClick={handleToggleComment}
-            title={`Comments on ${fieldLabel}\n${commentsList.length} comment(s). Click to view thread & reply.`}
+            title={`Comments on ${fieldLabel}\n${commentsList.length} comment(s) (${unresolvedCount} open). Click to view thread & reply.`}
             style={{
-              padding: isRowLevel ? '2px 6px' : '2px 7px',
+              padding: isRowLevel ? '2px 6px' : '2px 8px',
               fontSize: isRowLevel ? '9.5px' : '10px',
               fontWeight: '700',
               borderRadius: '12px',
-              border: isOpen ? '1.5px solid #2563EB' : '1px solid #BFDBFE',
-              backgroundColor: isOpen ? '#DBEAFE' : '#EFF6FF',
-              color: '#1E40AF',
+              border: isAllResolved
+                ? (isOpen ? '1.5px solid #16A34A' : '1px solid #BBF7D0')
+                : (isOpen ? '1.5px solid #2563EB' : '1px solid #BFDBFE'),
+              backgroundColor: isAllResolved
+                ? (isOpen ? '#DCFCE7' : '#F0FDF4')
+                : (isOpen ? '#DBEAFE' : '#EFF6FF'),
+              color: isAllResolved ? '#166534' : '#1E40AF',
               cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
               gap: '4px',
-              boxShadow: '0 1px 2px rgba(37,99,235,0.08)',
+              boxShadow: isAllResolved ? '0 1px 2px rgba(22,163,74,0.08)' : '0 1px 2px rgba(37,99,235,0.08)',
               transition: 'all 0.15s ease',
               maxWidth: isRowLevel ? '70px' : '220px'
             }}
           >
-            {/* Avatar of Latest Commenter */}
-            <span style={{
-              width: '14px',
-              height: '14px',
-              borderRadius: '50%',
-              backgroundColor: latestComment.avatarBg || '#2563EB',
-              color: '#ffffff',
-              fontSize: '8px',
-              fontWeight: '800',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0
-            }}>
-              {latestComment.avatar || 'U'}
-            </span>
+            {isAllResolved ? (
+              <>
+                <CheckCircle2 style={{ width: '11px', height: '11px', color: '#16A34A' }} />
+                <span style={{ fontSize: '9.5px', fontWeight: '800' }}>✓ {isRowLevel ? commentsList.length : `Resolved (${commentsList.length})`}</span>
+              </>
+            ) : (
+              <>
+                {/* Avatar of Latest Commenter */}
+                <span style={{
+                  width: '14px',
+                  height: '14px',
+                  borderRadius: '50%',
+                  backgroundColor: latestComment?.author?.avatarBg || '#2563EB',
+                  color: '#ffffff',
+                  fontSize: '8px',
+                  fontWeight: '800',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  {latestComment?.author?.avatar || 'U'}
+                </span>
 
-            {/* Commenter Name & Comment Snippet (field-level only) */}
-            {!isRowLevel && (
-              <span style={{
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                maxWidth: '120px',
-                fontSize: '9.5px',
-                color: '#1E3A8A'
-              }}>
-                <strong>{latestComment.user.split(' ')[0]}:</strong> "{latestComment.comment}"
-              </span>
+                {/* Commenter Name & Comment Snippet (field-level only) */}
+                {!isRowLevel && (
+                  <span style={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    maxWidth: '110px',
+                    fontSize: '9.5px',
+                    color: '#1E3A8A'
+                  }}>
+                    <strong>{latestComment?.author?.name ? latestComment.author.name.split(' ')[0] : 'Note'}:</strong> "{latestComment?.text || ''}"
+                  </span>
+                )}
+
+                {/* Total Count Badge */}
+                <span style={{
+                  backgroundColor: unresolvedCount > 0 ? '#2563EB' : '#16A34A',
+                  color: '#ffffff',
+                  borderRadius: '8px',
+                  padding: '0 4px',
+                  fontSize: '9px',
+                  fontWeight: '800',
+                  lineHeight: '12px'
+                }}>
+                  {unresolvedCount}
+                </span>
+              </>
             )}
-
-            {/* Total Count Badge */}
-            <span style={{
-              backgroundColor: '#2563EB',
-              color: '#ffffff',
-              borderRadius: '8px',
-              padding: '0 4px',
-              fontSize: '9px',
-              fontWeight: '800',
-              lineHeight: '12px'
-            }}>
-              {commentsList.length}
-            </span>
           </button>
         ) : (
           <button
@@ -581,194 +581,20 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
           </button>
         )}
 
-        {/* COMMENTS POPOVER */}
-        {isOpen && (
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: 'absolute',
-              top: popoverPlacement === 'up' ? 'auto' : 'calc(100% + 4px)',
-              bottom: popoverPlacement === 'up' ? 'calc(100% + 4px)' : 'auto',
-              right: 0,
-              width: '320px',
-              maxWidth: '90vw',
-              backgroundColor: '#ffffff',
-              borderRadius: '8px',
-              border: '1px solid #CBD5E1',
-              boxShadow: '0 12px 28px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.06)',
-              zIndex: 9999,
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-              textAlign: 'left'
-            }}
-          >
-            {/* Popover Header */}
-            <div style={{
-              padding: '9px 12px',
-              backgroundColor: '#0F172A',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <MessageSquare style={{ width: '13px', height: '13px', color: '#60A5FA' }} />
-                <span style={{ fontSize: '11.5px', fontWeight: '800', letterSpacing: '0.2px' }}>
-                  {fieldLabel} Comments
-                </span>
-                <span style={{
-                  backgroundColor: '#1E293B',
-                  color: '#94A3B8',
-                  fontSize: '9.5px',
-                  fontWeight: '700',
-                  padding: '1px 5px',
-                  borderRadius: '10px'
-                }}>
-                  {commentsList.length}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setActiveCommentField(null)}
-                style={{
-                  border: 'none',
-                  background: 'none',
-                  color: '#94A3B8',
-                  cursor: 'pointer',
-                  padding: '2px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <X style={{ width: '14px', height: '14px' }} />
-              </button>
-            </div>
-
-            {/* Comments List */}
-            <div style={{
-              maxHeight: '220px',
-              overflowY: 'auto',
-              padding: '10px 12px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
-              backgroundColor: '#F8FAFC'
-            }}>
-              {commentsList.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '16px 8px', color: '#94A3B8', fontSize: '11px' }}>
-                  No comments yet on this {isRowLevel ? 'process row' : 'field'}.<br />
-                  Be the first to leave a review note below!
-                </div>
-              ) : (
-                commentsList.map(c => (
-                  <div key={c.id} style={{
-                    backgroundColor: '#ffffff',
-                    border: '1px solid #E2E8F0',
-                    borderRadius: '6px',
-                    padding: '8px 10px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '4px',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{
-                          width: '18px',
-                          height: '18px',
-                          borderRadius: '50%',
-                          backgroundColor: c.avatarBg || '#2563EB',
-                          color: '#ffffff',
-                          fontSize: '9px',
-                          fontWeight: '800',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}>
-                          {c.avatar || 'U'}
-                        </span>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <span style={{ fontSize: '11px', fontWeight: '700', color: '#0F172A' }}>
-                            {c.user}
-                          </span>
-                          {c.role && (
-                            <span style={{ fontSize: '9px', color: '#64748B' }}>
-                              {c.role}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <span style={{ fontSize: '9.5px', color: '#94A3B8', whiteSpace: 'nowrap' }}>
-                        {c.timestamp}
-                      </span>
-                    </div>
-                    <p style={{ fontSize: '11px', color: '#334155', margin: '2px 0 0 0', lineHeight: '1.4', wordBreak: 'break-word' }}>
-                      {c.comment}
-                    </p>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Add New Comment Box */}
-            <div style={{
-              padding: '10px 12px',
-              borderTop: '1px solid #E2E8F0',
-              backgroundColor: '#ffffff',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px'
-            }}>
-              <textarea
-                rows={2}
-                placeholder={`Type a comment on ${fieldLabel}...`}
-                value={newCommentInput}
-                onChange={(e) => setNewCommentInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                    handleAddComment(fieldKey);
-                  }
-                }}
-                style={{
-                  width: '100%',
-                  padding: '6px 8px',
-                  fontSize: '11.5px',
-                  borderRadius: '5px',
-                  border: '1px solid #CBD5E1',
-                  outline: 'none',
-                  fontFamily: 'inherit',
-                  resize: 'none',
-                  boxSizing: 'border-box'
-                }}
-              />
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '9.5px', color: '#94A3B8' }}>
-                  Press Ctrl+Enter to post
-                </span>
-                <button
-                  type="button"
-                  disabled={!newCommentInput.trim()}
-                  onClick={() => handleAddComment(fieldKey)}
-                  style={{
-                    padding: '4px 10px',
-                    fontSize: '11px',
-                    fontWeight: '700',
-                    color: '#ffffff',
-                    backgroundColor: newCommentInput.trim() ? '#2563EB' : '#94A3B8',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: newCommentInput.trim() ? 'pointer' : 'not-allowed',
-                    transition: 'background 0.15s ease'
-                  }}
-                >
-                  Post Comment
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* COMMENTS POPOVER WITH TAGGING & RESOLUTION GOVERNANCE */}
+        <FieldCommentPopover
+          isOpen={isOpen}
+          onClose={() => setActiveCommentField(null)}
+          targetType="EXECUTIVE_FIELD"
+          engagementId={job?.id || job?.jobId || 'REP-2026-008'}
+          issueId={null}
+          fieldKey={fieldKey}
+          fieldLabel={fieldLabel}
+          comments={commentsList}
+          currentUser={currentCommentUser}
+          availableUsers={availableEngagementUsers}
+          placement={popoverPlacement}
+        />
       </div>
     );
   };
@@ -2175,10 +2001,11 @@ export default function ExecutiveReportView({ job, onClose, onSwitchToAuditRepor
       <IssueLogsModal
         isOpen={isLogsModalOpen}
         report={job || { fileName: execData.fileName }}
+        engagementId={job?.id || job?.jobId || job?.reportId}
         onClose={() => setIsLogsModalOpen(false)}
         title={`Track Changes — ${job?.fileName || execData.fileName}`}
         category="Executive Report Field Edits"
-        description="Audit trail and field edit history for Executive Summary sections"
+        description="Audit trail, AI syntheses, and field edit history for Executive Summary sections"
         logs={execLogs}
       />
 

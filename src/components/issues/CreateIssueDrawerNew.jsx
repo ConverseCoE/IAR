@@ -5,6 +5,11 @@ import {
 } from 'lucide-react';
 import ViolationPdfDrawer from '../common/ViolationPdfDrawer';
 import { parseDescriptionWithViolations } from '../common/DescriptionWithViolations';
+import { getTestProceduresByEngagement } from '../../data/assignmentsData';
+import { logIssueEvent } from '../../utils/auditLogEngine';
+import { createAiVersion, adoptVersion } from '../../utils/aiVersionEngine';
+import { linkAiSuggestedViolations, formatViolationsAsCorporateText } from '../../utils/complianceEngine';
+import { getTaxonomyOptions } from '../../utils/taxonomyEngine';
 
 // Custom Enterprise SaaS Form Select Dropdown
 function FormSelectDropdown({ label, required, value, onChange, options, placeholder = "Select option...", isMulti = false }) {
@@ -272,76 +277,14 @@ const TEST_PROCEDURE_OPTIONS = [
   'TP-110: GxP Software Validation & Data Integrity Audit'
 ];
 
-const ISSUE_TYPE_OPTIONS = [
-  'Operational',
-  'Compliance',
-  'Financial / SOX',
-  'IT / Cybersecurity',
-  'Regulatory / GxP',
-  'Reputational / Strategic'
-];
-
-const ISSUE_SOURCE_OPTIONS = [
-  'Internal Audit',
-  'External Audit (PwC)',
-  'Regulatory Inspection (FDA / ISO)',
-  'Management Self-Identified',
-  'SOX 404 Assessment',
-  'Continuous Automated Monitoring'
-];
-
-const KEY_THEME_OPTIONS = [
-  'Access Governance & Authorization Matrix',
-  'Financial Close & Account Reconciliation',
-  'Manufacturing Telemetry & Calibration Drift',
-  'Third-Party Vendor Risk & Deprovisioning',
-  'Data Integrity, Retention & GxP Archival',
-  'Change Management & Transport Release'
-];
-
-const IT_ASSET_ACCOUNTABLE_SECTOR_OPTIONS = [
-  'Consumer',
-  'CORP',
-  'IM',
-  'ISRM',
-  'MT',
-  'TS'
-];
-
-const IMPACTED_REGION_OPTIONS = [
-  'APAC',
-  'EMEA',
-  'LATAM',
-  'NA'
-];
-
-const IMPACTED_SECTOR_OPTIONS = [
-  'CPC',
-  'GS-NOP',
-  'MED',
-  'NOP',
-  'PHR',
-  'Ortho_Synthes'
-];
-
-const IMPACTED_MRC_OPTIONS = [
-  'MRC-01: Global Supply Chain & Manufacturing Operations',
-  'MRC-02: Commercial Operations & Hospital Distribution',
-  'MRC-03: Research, Clinical Trials & Biopharma Development',
-  'MRC-04: Corporate Shared Services & IT Infrastructure',
-  'MRC-05: Treasury, Capital Planning & Tax Strategy'
-];
-
-const QUARTER_IMPACTED_OPTIONS = [
-  'Q1 2026',
-  'Q2 2026',
-  'Q3 2026',
-  'Q4 2026',
-  'Q1 2025',
-  'Q2 2025',
-  'Q3 2025',
-  'Q4 2025'
-];
+const ISSUE_TYPE_OPTIONS = getTaxonomyOptions('ISSUE_TYPE');
+const ISSUE_SOURCE_OPTIONS = getTaxonomyOptions('ISSUE_SOURCE');
+const KEY_THEME_OPTIONS = getTaxonomyOptions('KEY_THEME');
+const IT_ASSET_ACCOUNTABLE_SECTOR_OPTIONS = getTaxonomyOptions('IT_ASSET_ACCOUNTABLE_SECTOR');
+const IMPACTED_REGION_OPTIONS = getTaxonomyOptions('IMPACTED_REGION');
+const IMPACTED_SECTOR_OPTIONS = getTaxonomyOptions('IMPACTED_SECTOR');
+const IMPACTED_MRC_OPTIONS = getTaxonomyOptions('IMPACTED_MRC');
+const QUARTER_IMPACTED_OPTIONS = getTaxonomyOptions('QUARTER_IMPACTED');
 
 export default function CreateIssueDrawerNew({
   isOpen,
@@ -349,8 +292,20 @@ export default function CreateIssueDrawerNew({
   onSaveDiscussionPoint,
   defaultFunction = 'IT',
   initialData = null,
-  isReadOnly = false
+  isReadOnly = false,
+  jobId = null,
+  engagementId = null,
+  job = null
 }) {
+  const activeEngId = engagementId || jobId || job?.id || job?.jobId || job?.reportId || initialData?.engagementId || initialData?.reportId || '';
+
+  const dynamicTestProcedures = React.useMemo(() => {
+    if (!activeEngId) return TEST_PROCEDURE_OPTIONS;
+    const mapped = getTestProceduresByEngagement(activeEngId);
+    if (!mapped || mapped.length === 0) return TEST_PROCEDURE_OPTIONS;
+    return mapped.map(tp => tp.fullName || `${tp.code}: ${tp.name}`);
+  }, [activeEngId]);
+
   // Manual Entry Section State
   const [formData, setFormData] = useState({
     testProcedure: '',
@@ -809,15 +764,83 @@ export default function CreateIssueDrawerNew({
         ? formData.testProcedure.split(':')[1].trim() 
         : formData.testProcedure;
 
+      // Determine contextual standard citations
+      const combinedText = `${formData.testProcedure} ${formData.originalIssue || ''} ${formData.processArea || ''}`.toLowerCase();
+      let suggestedViolations = [];
+
+      if (combinedText.includes('access') || combinedText.includes('user') || combinedText.includes('authentication') || combinedText.includes('dormant')) {
+        suggestedViolations = [
+          { standardId: 'STD-IAPP-S07', standardCode: 'S-07', sectionNumber: '10', sectionTitle: 'Semi-Annual User Access Certification', rationale: 'Dormant accounts with active access must be identified, isolated, and recertified semi-annually.', aiConfidence: 0.96 },
+          { standardId: 'STD-IAPP-S07', standardCode: 'S-07', sectionNumber: '9', sectionTitle: 'Privileged User Access Recertification Review', rationale: 'Comprehensive privileged account user listing required for periodic recertification.', aiConfidence: 0.92 }
+        ];
+      } else if (combinedText.includes('telemetry') || combinedText.includes('sensor') || combinedText.includes('calibration') || combinedText.includes('gain')) {
+        suggestedViolations = [
+          { standardId: 'STD-IAPP-S12', standardCode: 'S-12', sectionNumber: '3.4', sectionTitle: 'Automated System Telemetry Logging & Monitoring', rationale: 'Sensor calibration drift exceeds allowable operating tolerance limits without real-time supervisory alarm triggering.', aiConfidence: 0.95 },
+          { standardId: 'STD-IAPP-S12', standardCode: 'S-12', sectionNumber: '8.1', sectionTitle: 'Hardware Integrity & Recalibration Protocols', rationale: 'Mandatory gain verification cycles omitted during multi-batch continuous production.', aiConfidence: 0.91 }
+        ];
+      } else if (combinedText.includes('vendor') || combinedText.includes('log') || combinedText.includes('retention') || combinedText.includes('gxp')) {
+        suggestedViolations = [
+          { standardId: 'STD-IAPP-S19', standardCode: 'S-19', sectionNumber: '5', sectionTitle: 'GxP Audit Trail & Log Retention Policy', rationale: 'Purging access logs prior to the mandatory 7-year retention period violates compliance standards.', aiConfidence: 0.98 },
+          { standardId: 'STD-IAPP-S19', standardCode: 'S-19', sectionNumber: '12', sectionTitle: 'Vendor Hosted Application Verification', rationale: 'Absence of contractual automated log archiving for third-party cloud platforms.', aiConfidence: 0.90 }
+        ];
+      } else if (combinedText.includes('scrap') || combinedText.includes('variance') || combinedText.includes('material') || combinedText.includes('inventory')) {
+        suggestedViolations = [
+          { standardId: 'STD-IAPP-S04', standardCode: 'S-04', sectionNumber: '6.2', sectionTitle: 'Inventory Variance & Scrap Reconciliation Protocol', rationale: 'Material variance thresholds exceeded without supervisory sign-off.', aiConfidence: 0.97 },
+          { standardId: 'STD-IAPP-S04', standardCode: 'S-04', sectionNumber: '9', sectionTitle: 'Batch Integrity & Financial Material Scrap Verification', rationale: 'Lack of mandatory secondary financial review for scrap exceeding $25,000 threshold.', aiConfidence: 0.93 }
+        ];
+      } else {
+        suggestedViolations = [
+          { standardId: 'STD-IAPP-S15', standardCode: 'S-15', sectionNumber: '2', sectionTitle: 'Security Assessment for COTS Systems/Applications', rationale: 'Security assessment not completed for the environment prior to deployment.', aiConfidence: 0.97 },
+          { standardId: 'STD-IAPP-S15', standardCode: 'S-15', sectionNumber: '11', sectionTitle: 'ISRM Approval Prior to Production', rationale: 'ISRM approval lacking due to missing application security assessment.', aiConfidence: 0.94 },
+          { standardId: 'STD-IAPP-S15', standardCode: 'S-15', sectionNumber: '4.18', sectionTitle: 'Periodic Application Architecture/Code/Config Assessment', rationale: 'No periodic assessment of architecture, code, configuration conducted.', aiConfidence: 0.89 }
+        ];
+      }
+
+      const rawFindingObservation = formData.originalIssue || `An application security assessment for the ${testProcName} environment had not been completed at the time of review.`;
+      const corporateViolationText = formatViolationsAsCorporateText(suggestedViolations);
+
       const newVersion = {
         updatedIssueHeader: formData.originalIssue 
           ? `AI Refined: ${testProcName} - ${formData.processArea || 'Compliance Exception'}`
           : `AI Refined: ${testProcName}`,
         rootCause: `Enhanced Root Cause Analysis: Systemic telemetry & gain offset in ${formData.processArea || 'production line'} related to ${testProcName}, exacerbated under ${currentFunction} scope.`,
         impact: `Escalated operational risk variance: Criticality level ${formData.criticality || 'Major'} with potential compliance and delivery timeline excursion impact.`,
-        description: `${formData.originalIssue || `An application security assessment for the ${testProcName} environment had not been completed at the time of review.`}\n\nViolation Reference\nNon-Compliant with some of the sections of IAPP:\n1. S-15 Section No. [2] - Security Assessment for COTS Systems/Applications — Security assessment not completed for the environment\n2. S-15 Section No. [11] - ISRM Approval Prior to Production — ISRM approval lacking due to missing assessment\n3. S-15 Section No. [4.18] - Periodic Application Architecture/Code/Config Assessment — No periodic assessment of architecture, code, configuration`,
+        description: `${rawFindingObservation}\n\n${corporateViolationText}`,
         recommendation: `1. Enforce automated verification protocols for ${testProcName}.\n2. Mandate MFA override approval for ${formData.accountableFunction || currentFunction || 'Tech Lead'}.\n3. Schedule periodic compliance reconciliation audits.`
       };
+
+      const targetIssueId = initialData?.id || initialData?.issueId || `ISSUE-${Date.now().toString().slice(-4)}`;
+
+      // Register AI suggested violations with complianceEngine
+      try {
+        linkAiSuggestedViolations(targetIssueId, suggestedViolations, 'AI Engine (medtech-gx-compliance-v2.5)');
+      } catch (err) {
+        console.error('Failed to link AI suggested violations:', err);
+      }
+
+      // Register with AI Version Engine
+      try {
+        createAiVersion({
+          issueId: targetIssueId,
+          engagementId: activeEngId,
+          triggerStage: (isAiGenerated && currentPrev) ? 'PRE_SAVE_REGENERATION' : 'INITIAL_CREATION',
+          model: 'medtech-gx-compliance-v2.5',
+          fields: {
+            title: newVersion.updatedIssueHeader,
+            rootCause: newVersion.rootCause,
+            impact: newVersion.impact,
+            recommendation: newVersion.recommendation,
+            description: newVersion.description
+          },
+          createdBy: {
+            name: 'Auditor',
+            role: currentFunction === 'FinOps' ? 'FinOps Auditor' : 'IT Auditor'
+          },
+          status: (isAiGenerated && currentPrev) ? 'CANDIDATE' : 'ACTIVE'
+        });
+      } catch (err) {
+        console.error('Failed to register AI version:', err);
+      }
 
       if (isAiGenerated && currentPrev) {
         setIsComparing(true);
@@ -832,6 +855,33 @@ export default function CreateIssueDrawerNew({
       } else {
         setAiData(newVersion);
         setIsAiGenerated(true);
+      }
+
+      // Dispatch audit log
+      try {
+        logIssueEvent({
+          issueId: targetIssueId,
+          engagementId: activeEngId,
+          actor: {
+            userId: 'SYS-AI',
+            name: 'Vertex AI Assistant',
+            role: 'MedTech GxP Compliance Engine',
+            domain: currentFunction === 'FinOps' ? 'FinOps' : 'IT'
+          },
+          category: (isAiGenerated && currentPrev) ? 'AI_REGENERATION' : 'AI_GENERATION',
+          badgeType: 'ai',
+          action: (isAiGenerated && currentPrev)
+            ? 'AI Prompt Regeneration & Card Comparison Selection'
+            : 'AI Magic Wand Generated Issue Finding & Citations',
+          fieldChanged: 'Header, Root Cause, Impact, Recommendation',
+          newValue: newVersion.updatedIssueHeader,
+          details: {
+            generationCycle: (isAiGenerated && currentPrev) ? 2 : 1,
+            testProcedure: testProcName
+          }
+        });
+      } catch (err) {
+        console.error('Failed to log AI event:', err);
       }
     }, 900);
   };
@@ -865,22 +915,38 @@ export default function CreateIssueDrawerNew({
       ? formData.testProcedure.split(':')[1].trim() 
       : formData.testProcedure;
 
+    const resolvedEngId = engagementId || jobId || job?.id || job?.jobId || job?.reportId || initialData?.engagementId || initialData?.reportId || "REP-2026-001";
+    const resolvedJobId = job?.jobId || jobId || resolvedEngId;
+    const resolvedFileName = job?.fileName || initialData?.fileName || "Audit_Finding";
+    const mappedProcs = getTestProceduresByEngagement(resolvedEngId);
+    const matchedProc = mappedProcs.find(tp => (tp.fullName === formData.testProcedure || tp.name === formData.testProcedure || tp.code === formData.testProcedure));
+
     const savedPoint = {
-      id: initialData ? initialData.id : `${Date.now().toString().slice(-3)}`,
-      issueId: initialData ? (initialData.issueId || initialData.id) : `${Date.now().toString().slice(-3)}`,
-      reportId: "REP-2026-006",
-      fileName: "BiosenseWebster_Catheters_Audit",
+      id: initialData ? initialData.id : `ISSUE-${Date.now().toString().slice(-4)}`,
+      issueId: initialData ? (initialData.issueId || initialData.id) : `ISSUE-${Date.now().toString().slice(-4)}`,
+      engagementId: resolvedEngId,
+      jobId: resolvedJobId,
+      reportId: resolvedEngId,
+      fileName: resolvedFileName,
+      testProcedureId: matchedProc ? matchedProc.id : null,
+      testProcedureCode: matchedProc ? matchedProc.code : (formData.testProcedure.includes(':') ? formData.testProcedure.split(':')[0].trim() : null),
       rowNum: initialData ? initialData.rowNum : Date.now(),
       testProcedure: formData.testProcedure,
       header: aiData.updatedIssueHeader || formData.issueHeader || testProcName,
       title: aiData.updatedIssueHeader || formData.issueHeader || testProcName,
       criticality: formData.criticality || 'Major',
       tech: currentFunction,
+      function: currentFunction === 'Tech' ? 'IT' : currentFunction,
       functionType: formData.accountableFunction || currentFunction,
       description: aiData.description || formData.originalIssue || "No description provided.",
+      issue: aiData.description || formData.originalIssue || "No description provided.",
+      originalIssue: formData.originalIssue || "No description provided.",
+      rootCause: aiData.rootCause || "",
+      impact: aiData.impact || "",
+      recommendation: aiData.recommendation || "",
       addedBy: delegatedTo || (formData.primaryContact ? formData.primaryContact.split(' ')[0] : "Kevin Zhang"),
       lastUpdatedBy: "Kevin Zhang",
-      status: initialData ? initialData.status : "Manager Pending",
+      status: initialData ? initialData.status : "Pending Staff",
       isIssue: true,
       delegatedTo: delegatedTo,
 
@@ -902,8 +968,37 @@ export default function CreateIssueDrawerNew({
       netIncomeUsd: formData.netIncomeUsd,
       totalAssetsUsd: formData.totalAssetsUsd,
       hasExceptionRemedDate: formData.hasExceptionRemedDate,
-      exceptionRemedDate: formData.exceptionRemedDate
+      exceptionRemedDate: formData.exceptionRemedDate,
+
+      isLocked: false,
+      lockedBy: null,
+      lockedAt: null
     };
+
+    // Dispatch audit log
+    try {
+      logIssueEvent({
+        issueId: savedPoint.id,
+        engagementId: resolvedEngId,
+        actor: {
+          name: savedPoint.addedBy || 'Current Auditor',
+          role: 'Auditor',
+          domain: currentFunction === 'FinOps' ? 'FinOps' : 'IT'
+        },
+        category: initialData ? 'FIELD_EDIT' : 'CREATION',
+        badgeType: initialData ? 'update' : 'create',
+        action: initialData ? `Issue ${savedPoint.id} Updated` : `Issue ${savedPoint.id} Created from ${testProcName}`,
+        fieldChanged: initialData ? 'Multiple Fields' : 'Record Initialization',
+        newValue: savedPoint.header,
+        details: {
+          source: 'TEST_PROCEDURE',
+          testProcedureCode: savedPoint.testProcedureCode,
+          criticality: savedPoint.criticality
+        }
+      });
+    } catch (err) {
+      console.error('Failed to log issue event on save:', err);
+    }
 
     onSaveDiscussionPoint(savedPoint);
     onClose();
@@ -1038,7 +1133,7 @@ export default function CreateIssueDrawerNew({
                     required={true}
                     value={formData.testProcedure}
                     onChange={(val) => handleChange('testProcedure', val)}
-                    options={TEST_PROCEDURE_OPTIONS}
+                    options={dynamicTestProcedures}
                     placeholder="Select Test Procedure..."
                   />
                 </div>

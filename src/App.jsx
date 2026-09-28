@@ -10,8 +10,7 @@ import AuditReportView from './views/AuditReportView';
 import ExecutiveReportView from './views/ExecutiveReportView';
 import ReportingNewDetailDrawer from './components/reporting/ReportingNewDetailDrawer';
 import CreateIssueDrawerNew from './components/issues/CreateIssueDrawerNew';
-import { initialReports } from './data/mockData';
-import { mockReportingNewJobs } from './data/reportingNewMockData';
+import { getInitialReportingJobs, getEngagementWorkflowState } from './utils/auditWorkflowEngine.js';
 import {
   PrePlanningView,
   PlanningView,
@@ -22,8 +21,7 @@ import { MoreVertical, Check, CheckCircle2, X } from 'lucide-react';
 
 export default function App() {
   const [currentPhase, setCurrentPhase] = useState('reporting');
-  const [reports, setReports] = useState(initialReports);
-  const [reportingJobs, setReportingJobs] = useState(mockReportingNewJobs);
+  const [reportingJobs, setReportingJobs] = useState(getInitialReportingJobs);
   const [selectedReportId, setSelectedReportId] = useState("REP-2026-006"); // BiosenseWebster_Catheters_Audit as default
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
@@ -34,9 +32,17 @@ export default function App() {
   // Update an engagement's issues list from AuditReportView or drawers
   const handleUpdateJobIssues = (jobId, updatedIssues) => {
     setReportingJobs(prev => prev.map(j => {
-      if (j.id === jobId) {
+      if (j.id === jobId || j.jobId === jobId || j.reportId === jobId) {
+        const wf = getEngagementWorkflowState({ ...j, issuesList: updatedIssues });
+        const newStatus = j.status === 'Completed' ? 'Completed' : (updatedIssues.length > 0 ? 'In Progress' : 'Not Started');
+        const newSubStatus = j.status === 'Completed' ? 'Executive Report Completed' : (updatedIssues.length > 0 ? 'Audit Report In Progress' : 'Not Started');
         return {
           ...j,
+          status: newStatus,
+          subStatus: newSubStatus,
+          workflowStatus: wf.status,
+          currentQueue: wf.queue,
+          currentOwner: wf.ownerText,
           issuesList: updatedIssues,
           discussionPoints: {
             ...j.discussionPoints,
@@ -49,11 +55,17 @@ export default function App() {
 
     // Keep activeWorkOnReportJob synchronized in real time
     setActiveWorkOnReportJob(prev => {
-      if (!prev || prev.job.id !== jobId) return prev;
+      if (!prev || (prev.job.id !== jobId && prev.job.jobId !== jobId && prev.job.reportId !== jobId)) return prev;
+      const wf = getEngagementWorkflowState({ ...prev.job, issuesList: updatedIssues });
+      const newStatus = prev.job.status === 'Completed' ? 'Completed' : (updatedIssues.length > 0 ? 'In Progress' : 'Not Started');
       return {
         ...prev,
         job: {
           ...prev.job,
+          status: newStatus,
+          workflowStatus: wf.status,
+          currentQueue: wf.queue,
+          currentOwner: wf.ownerText,
           issuesList: updatedIssues,
           discussionPoints: {
             ...prev.job.discussionPoints,
@@ -83,26 +95,21 @@ export default function App() {
 
   const handleSaveIssueFromDrawer = (savedPoint) => {
     if (createIssueJob) {
-      setReports(prev => prev.map(r => {
-        if (r.id === createIssueJob.id || r.fileName === createIssueJob.fileName || r.engagement === createIssueJob.engagement) {
-          return {
-            ...r,
-            status: 'In Progress'
-          };
-        }
-        return r;
-      }));
-
-      // Also append to reportingJobs so Audit Report and My Audits immediately reflect the new issue
+      // Append to reportingJobs so Audit Report and My Audits immediately reflect the new issue
       setReportingJobs(prev => prev.map(j => {
-        if (j.id === createIssueJob.id || j.fileName === createIssueJob.fileName || j.engagement === createIssueJob.engagement) {
+        if (j.id === createIssueJob.id || j.jobId === createIssueJob.jobId || j.reportId === createIssueJob.id || j.fileName === createIssueJob.fileName || j.engagement === createIssueJob.engagement) {
           const updatedIssues = [
             ...(j.issuesList || []),
             savedPoint
           ];
+          const wf = getEngagementWorkflowState({ ...j, issuesList: updatedIssues });
           return {
             ...j,
-            status: 'In Progress',
+            status: j.status === 'Completed' ? 'Completed' : 'In Progress',
+            subStatus: j.status === 'Completed' ? 'Executive Report Completed' : 'Audit Report In Progress',
+            workflowStatus: wf.status,
+            currentQueue: wf.queue,
+            currentOwner: wf.ownerText,
             issuesList: updatedIssues,
             discussionPoints: {
               ...j.discussionPoints,
@@ -167,7 +174,7 @@ export default function App() {
   });
 
   const activeReportingNewJob = reportingJobs.find(j => j.id === selectedReportId || j.id === selectedReportingJobId || j.reportId === selectedReportId) || null;
-  const selectedReport = activeReportingNewJob || (reports.find(r => r.id === selectedReportId) || reports.find(r => r.id === "REP-2026-006") || reports[0]);
+  const selectedReport = activeReportingNewJob || (reportingJobs.find(r => r.id === selectedReportId) || reportingJobs.find(r => r.id === "REP-2026-006") || reportingJobs[0]);
 
   const selectedReportingJob = reportingJobs.find(j => j.id === selectedReportingJobId) || null;
 
@@ -201,7 +208,7 @@ export default function App() {
 
   // Discussion Save Handler
   const handleSaveDiscussion = (type, items) => {
-    setReports(prev => prev.map(r => {
+    setReportingJobs(prev => prev.map(r => {
       if (selectedReport && r.id === selectedReport.id) {
         if (type === 'IT') {
           return {
@@ -229,10 +236,11 @@ export default function App() {
 
   // Issue Save Handler
   const handleSaveIssues = (reportId, newIssues) => {
-    setReports(prev => prev.map(r => {
+    setReportingJobs(prev => prev.map(r => {
       if (r.id === reportId) {
         return {
           ...r,
+          issuesList: newIssues,
           issueIndicator: {
             count: newIssues.length,
             critical: newIssues.filter(i => i.severity === 'Critical').length,
@@ -260,10 +268,11 @@ export default function App() {
     });
   };
 
-  const handleOpenWorkflowModal = ({ title, workflows }) => {
+  const handleOpenWorkflowModal = ({ title, workflows, job }) => {
     setWorkflowModal({
       isOpen: true,
       title: title || "Workflow Stages",
+      job: job || null,
       workflows: workflows || []
     });
   };
@@ -347,7 +356,7 @@ export default function App() {
                   viewMode={auditQueueViewMode}
                   userRole={userRole}
                   onOpenDiscussionPoints={(job) => {
-                    const matchingReport = reports.find(r =>
+                    const matchingReport = reportingJobs.find(r =>
                       r.id === job.id ||
                       r.fileName === job.fileName ||
                       r.engagement === job.engagement ||
@@ -383,7 +392,7 @@ export default function App() {
                 userRole={userRole}
                 onClose={handleCloseReportingDrawer}
                 onOpenDiscussionPoints={(job) => {
-                  const matchingReport = reports.find(r =>
+                  const matchingReport = reportingJobs.find(r =>
                     r.id === job.id ||
                     r.fileName === job.fileName ||
                     r.engagement === job.engagement ||
@@ -403,9 +412,10 @@ export default function App() {
                 onOpenCreateIssue={handleOpenCreateIssue}
                 onOpenWorkflow={(job) => handleOpenWorkflowModal({
                   title: `${job.id} — Workflow Stages`,
+                  job,
                   workflows: [
-                    { groupTitle: "Audit Report Workflow", status: job.auditReport.validationStatus, steps: [] },
-                    { groupTitle: "Executive Report Workflow", status: job.executiveSummaryReport.validationStatus, steps: [] }
+                    { groupTitle: "Audit Report Workflow", status: job.auditReport?.validationStatus, steps: [] },
+                    { groupTitle: "Executive Report Workflow", status: job.executiveSummaryReport?.validationStatus, steps: [] }
                   ]
                 })}
                 onOpenHistory={(job) => handleOpenHistoryModal({ id: job.id, header: job.engagement })}
@@ -424,6 +434,9 @@ export default function App() {
         }}
         onSaveDiscussionPoint={handleSaveIssueFromDrawer}
         defaultFunction={createIssueJob?.tech || 'IT'}
+        jobId={createIssueJob?.id || createIssueJob?.jobId}
+        engagementId={createIssueJob?.id}
+        job={createIssueJob}
       />
 
       {/* Embedded CSS Keyframes for Toast Animations */}
@@ -544,8 +557,9 @@ export default function App() {
       <WorkflowModal
         isOpen={workflowModal.isOpen}
         title={workflowModal.title}
+        job={workflowModal.job}
         workflows={workflowModal.workflows}
-        onClose={() => setWorkflowModal({ isOpen: false, title: '', workflows: [] })}
+        onClose={() => setWorkflowModal({ isOpen: false, title: '', job: null, workflows: [] })}
       />
 
       {/* Issue Audit Log Pop-up Modal */}

@@ -3,17 +3,17 @@ import {
   Search, RotateCcw, Filter, ArrowUpDown, Clock,
   FileText, ChevronRight, ChevronDown, Check, X,
   Plus, MessageSquare, PlayCircle, ShieldCheck, Shield,
-  UserCheck, Users, AlertCircle, CheckCircle, GitCommit, Eye, User, Layers, ArrowRight, CheckCircle2, Edit2, ExternalLink, Maximize2, Minimize2
+  UserCheck, Users, AlertCircle, CheckCircle, GitCommit, Eye, User, Layers, ArrowRight, CheckCircle2, Edit2, ExternalLink, Maximize2, Minimize2, Calendar
 } from 'lucide-react';
-import { mockReportingNewJobs } from '../data/reportingNewMockData';
+import { assessments, getInitialReportingJobs } from '../data/assignmentsData';
+import { getEngagementWorkflowState, ENGAGEMENT_STATUS } from '../utils/auditWorkflowEngine.js';
 import CreateIssueDrawerNew from '../components/issues/CreateIssueDrawerNew';
 
 const STATUS_OPTIONS = [
   { id: 'Not Started', label: 'Not Started', color: '#64748B', bg: '#F8FAFC', border: '#E2E8F0' },
-  { id: 'Audit Report In Progress', label: 'Audit Report In Progress', color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE' },
-  { id: 'Audit Report Completed', label: 'Audit Report Completed', color: '#0284C7', bg: '#E0F2FE', border: '#BAE6FD' },
-  { id: 'Executive Report In Progress', label: 'Executive Report In Progress', color: '#D97706', bg: '#FEF3C7', border: '#FDE68A' },
-  { id: 'Executive Report Completed', label: 'Executive Report Completed', color: '#15803D', bg: '#F0FDF4', border: '#BBF2D0' }
+  { id: 'Audit Report Inprogress', label: 'Audit Report Inprogress', color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE' },
+  { id: 'Executive Report Inprogress', label: 'Executive Report Inprogress', color: '#B45309', bg: '#FEF3C7', border: '#FDE68A' },
+  { id: 'Completed', label: 'Completed', color: '#15803D', bg: '#F0FDF4', border: '#BBF2D0' }
 ];
 
 const formatUSDateTime = (dateTimeStr) => {
@@ -48,7 +48,7 @@ export default function MyAuditsView({
   onWorkOnReport,
   onOpenHistory
 }) {
-  const [localJobs, setLocalJobs] = useState(mockReportingNewJobs);
+  const [localJobs, setLocalJobs] = useState(getInitialReportingJobs);
   const jobs = externalJobs || localJobs;
   const setJobs = (newJobsOrUpdater) => {
     if (onUpdateJobs) {
@@ -263,6 +263,9 @@ export default function MyAuditsView({
 
   // Filters State
   const [selectedStatuses, setSelectedStatuses] = useState([]);
+  const [selectedAssessment, setSelectedAssessment] = useState('All');
+  const [isAssessmentDropdownOpen, setIsAssessmentDropdownOpen] = useState(false);
+  const assessmentDropdownRef = useRef(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [personaFilterTab, setPersonaFilterTab] = useState('all'); // 'all', 'pending', 'contributions'
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
@@ -281,6 +284,9 @@ export default function MyAuditsView({
     function handleClickOutside(event) {
       if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target)) {
         setIsStatusDropdownOpen(false);
+      }
+      if (assessmentDropdownRef.current && !assessmentDropdownRef.current.contains(event.target)) {
+        setIsAssessmentDropdownOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -613,7 +619,15 @@ export default function MyAuditsView({
       if (!hasBusinessIssue && !isJobBusiness) return false;
     }
 
-    if (!includeCompletedAudits && job.status === 'Completed') return false;
+    // Assessment Filter (2024, 2025, 2026, 2027)
+    if (selectedAssessment !== 'All') {
+      const jobAsm = job.assessmentId || (job.id.startsWith('2025') ? 'ASM-2025' : job.id.startsWith('2027') ? 'ASM-2027' : 'ASM-2026');
+      if (jobAsm !== selectedAssessment) return false;
+    }
+
+    // Auto-include completed audits if user explicitly selects 2025 Closed assessment
+    const isViewingClosedAssessment = selectedAssessment === 'ASM-2025';
+    if (!isViewingClosedAssessment && !includeCompletedAudits && job.status === 'Completed') return false;
 
     // 1. Primary Category Tab Filter ('my-actions' | 'all-associated')
     if (auditTab === 'my-actions' && !isBusinessRole) {
@@ -621,16 +635,20 @@ export default function MyAuditsView({
     }
 
     if (selectedStatuses.length > 0) {
-      const currentSub = getSubStatus(job);
-      const matchesStatus = selectedStatuses.includes(job.status) || selectedStatuses.includes(currentSub);
+      const wfState = getEngagementWorkflowState(job);
+      const matchesStatus = selectedStatuses.includes(wfState.status);
       if (!matchesStatus) return false;
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
+      const wfState = getEngagementWorkflowState(job);
       const match = job.id.toLowerCase().includes(q) ||
         (job.engagement && job.engagement.toLowerCase().includes(q)) ||
         job.fileName.toLowerCase().includes(q) ||
-        (job.subStatus && job.subStatus.toLowerCase().includes(q));
+        wfState.status.toLowerCase().includes(q) ||
+        wfState.queue.toLowerCase().includes(q) ||
+        wfState.ownerText.toLowerCase().includes(q) ||
+        (job.assessmentName && job.assessmentName.toLowerCase().includes(q));
       if (!match) return false;
     }
     if (viewMode === 'persona-lens') {
@@ -645,8 +663,23 @@ export default function MyAuditsView({
       const dateB = new Date((b.lastUpdated || '').replace(' ', 'T')).getTime() || 0;
       return sortAsc ? dateA - dateB : dateB - dateA;
     }
-    let valA = sortField === 'engagement' ? a.fileName : sortField === 'subStatus' ? getSubStatus(a) : a[sortField];
-    let valB = sortField === 'engagement' ? b.fileName : sortField === 'subStatus' ? getSubStatus(b) : b[sortField];
+    let valA, valB;
+    if (sortField === 'engagement') {
+      valA = a.fileName || a.engagement;
+      valB = b.fileName || b.engagement;
+    } else if (sortField === 'status' || sortField === 'subStatus') {
+      valA = getEngagementWorkflowState(a).status;
+      valB = getEngagementWorkflowState(b).status;
+    } else if (sortField === 'currentQueue') {
+      valA = getEngagementWorkflowState(a).queue;
+      valB = getEngagementWorkflowState(b).queue;
+    } else if (sortField === 'currentOwner') {
+      valA = getEngagementWorkflowState(a).ownerText;
+      valB = getEngagementWorkflowState(b).ownerText;
+    } else {
+      valA = a[sortField];
+      valB = b[sortField];
+    }
     valA = (valA || '').toString().toLowerCase();
     valB = (valB || '').toString().toLowerCase();
     if (valA < valB) return sortAsc ? -1 : 1;
@@ -675,11 +708,12 @@ export default function MyAuditsView({
 
   const handleClearFilters = () => {
     setSelectedStatuses([]);
+    setSelectedAssessment('All');
     setSearchQuery('');
   };
 
-  const isFilterActive = selectedStatuses.length > 0 || searchQuery.trim() !== '';
-  const activeFilterCount = selectedStatuses.length + (searchQuery.trim() ? 1 : 0);
+  const isFilterActive = selectedStatuses.length > 0 || searchQuery.trim() !== '' || selectedAssessment !== 'All';
+  const activeFilterCount = selectedStatuses.length + (searchQuery.trim() ? 1 : 0) + (selectedAssessment !== 'All' ? 1 : 0);
 
   const renderStatusPill = (statusText) => {
     const s = (statusText || '').toLowerCase();
@@ -813,16 +847,260 @@ export default function MyAuditsView({
     );
   };
 
+  const renderEngagementStatusPill = (statusText) => {
+    const s = statusText || 'Not Started';
+    let color = '#475569';
+    let bg = '#F8FAFC';
+    let border = '#E2E8F0';
+    let dotColor = '#94A3B8';
+
+    if (s === 'Completed') {
+      color = '#15803D';
+      bg = '#F0FDF4';
+      border = '#BBF2D0';
+      dotColor = '#22C55E';
+    } else if (s === 'Audit Report Inprogress') {
+      color = '#1D4ED8';
+      bg = '#EFF6FF';
+      border = '#BFDBFE';
+      dotColor = '#3B82F6';
+    } else if (s === 'Executive Report Inprogress') {
+      color = '#B45309';
+      bg = '#FEF3C7';
+      border = '#FDE68A';
+      dotColor = '#F59E0B';
+    }
+
+    return (
+      <span style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+        padding: '3px 9px',
+        borderRadius: '5px',
+        fontSize: '11px',
+        fontWeight: '700',
+        color,
+        backgroundColor: bg,
+        border: `1px solid ${border}`,
+        whiteSpace: 'nowrap',
+        flexShrink: 0
+      }}>
+        <span style={{
+          width: '7px',
+          height: '7px',
+          borderRadius: '50%',
+          backgroundColor: dotColor
+        }} />
+        {s}
+      </span>
+    );
+  };
+
+  const getSingleRolePill = (roleName) => {
+    const r = (roleName || '').trim();
+    if (!r) return null;
+
+    let color = '#334155';
+    let bg = '#F1F5F9';
+    let border = '#CBD5E1';
+    let icon = <User style={{ width: '11px', height: '11px', color: '#475569' }} />;
+
+    if (r === 'Manager') {
+      color = '#92400E';
+      bg = '#FEF3C7';
+      border = '#FCD34D';
+      icon = <ShieldCheck style={{ width: '11px', height: '11px', color: '#D97706' }} />;
+    } else if (r === 'Director') {
+      color = '#6B21A8';
+      bg = '#F3E8FF';
+      border = '#D8B4FE';
+      icon = <Shield style={{ width: '11px', height: '11px', color: '#9333EA' }} />;
+    } else if (r === 'Vice President' || r === 'VP') {
+      color = '#9F1239';
+      bg = '#FFE4E6';
+      border = '#FECDD3';
+      icon = <Shield style={{ width: '11px', height: '11px', color: '#E11D48' }} />;
+    } else if (r === 'Business Contact' || r.toLowerCase().includes('business')) {
+      color = '#0369A1';
+      bg = '#E0F2FE';
+      border = '#BAE6FD';
+      icon = <UserCheck style={{ width: '11px', height: '11px', color: '#0284C7' }} />;
+    } else if (r.includes('Team Coordinator') || r === 'TC') {
+      color = '#1E40AF';
+      bg = '#DBEAFE';
+      border = '#93C5FD';
+      icon = <Users style={{ width: '11px', height: '11px', color: '#2563EB' }} />;
+    } else if (r === 'Closed') {
+      color = '#15803D';
+      bg = '#F0FDF4';
+      border = '#BBF2D0';
+      icon = <CheckCircle2 style={{ width: '11px', height: '11px', color: '#16A34A' }} />;
+    } else if (r === 'Staff') {
+      color = '#334155';
+      bg = '#F1F5F9';
+      border = '#CBD5E1';
+      icon = <User style={{ width: '11px', height: '11px', color: '#475569' }} />;
+    }
+
+    return (
+      <span
+        key={r}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px',
+          padding: '2.5px 7px',
+          borderRadius: '5px',
+          fontSize: '11px',
+          fontWeight: '700',
+          color,
+          backgroundColor: bg,
+          border: `1px solid ${border}`,
+          whiteSpace: 'nowrap',
+          lineHeight: '1.2'
+        }}
+      >
+        {icon}
+        <span>{r}</span>
+      </span>
+    );
+  };
+
+  const renderCurrentQueuePill = (queue, queueVariant, queueList) => {
+    if (!queue) return null;
+    const roles = (Array.isArray(queueList) && queueList.length > 0)
+      ? queueList
+      : (typeof queue === 'string' ? queue.split(',').map(s => s.trim()).filter(Boolean) : [queue]);
+
+    return (
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+        {roles.map(r => getSingleRolePill(r))}
+      </div>
+    );
+  };
+
+  const renderCurrentOwnerCell = (owners = [], isPendingBusiness, queue, ownersByRole = {}) => {
+    if (!owners || owners.length === 0) {
+      return <span style={{ fontSize: '12px', color: '#94A3B8' }}>—</span>;
+    }
+
+    if (queue === 'Closed') {
+      return (
+        <span style={{ fontSize: '11.5px', color: '#64748B', fontStyle: 'italic', fontWeight: '500' }}>
+          Finalized (Archive)
+        </span>
+      );
+    }
+
+    // Identify which role each owner belongs to, if available
+    const findOwnerRole = (name) => {
+      for (const [role, userList] of Object.entries(ownersByRole || {})) {
+        if (Array.isArray(userList) && userList.includes(name)) {
+          return role;
+        }
+      }
+      return null;
+    };
+
+    const maxDisplay = 3;
+    const displayedOwners = owners.slice(0, maxDisplay);
+    const hiddenOwners = owners.slice(maxDisplay);
+
+    return (
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+        {displayedOwners.map((ownerName, idx) => {
+          const initials = ownerName
+            .split(' ')
+            .map(part => part[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2);
+
+          const ownerRole = findOwnerRole(ownerName);
+          const isBiz = isPendingBusiness && (
+            ownerRole === 'Business Contact' ||
+            ownerName.toLowerCase().includes('vinay') || 
+            ownerName.toLowerCase().includes('narasimha') ||
+            ownerName.toLowerCase().includes('elena') ||
+            ownerName.toLowerCase().includes('wright') ||
+            ownerName.toLowerCase().includes('contact')
+          );
+
+          return (
+            <div
+              key={idx}
+              title={ownerRole ? `${ownerName} (${ownerRole})` : ownerName}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '2px 7px',
+                borderRadius: '12px',
+                fontSize: '11px',
+                fontWeight: '600',
+                backgroundColor: isBiz ? '#E0F2FE' : '#F8FAFC',
+                border: isBiz ? '1px solid #7DD3FC' : '1px solid #E2E8F0',
+                color: isBiz ? '#0369A1' : '#334155',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <span style={{
+                width: '16px',
+                height: '16px',
+                borderRadius: '50%',
+                backgroundColor: isBiz ? '#0284C7' : '#94A3B8',
+                color: '#ffffff',
+                fontSize: '9px',
+                fontWeight: '800',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                {initials}
+              </span>
+              <span>{ownerName}</span>
+              {ownerRole && (
+                <span style={{
+                  fontSize: '9px',
+                  fontWeight: '700',
+                  color: isBiz ? '#0284C7' : '#64748B',
+                  backgroundColor: isBiz ? 'rgba(2, 132, 199, 0.12)' : '#F1F5F9',
+                  padding: '1px 4px',
+                  borderRadius: '4px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.3px'
+                }}>
+                  {ownerRole === 'Team Coordinator' ? 'TC' : ownerRole === 'Business Contact' ? 'Biz' : ownerRole}
+                </span>
+              )}
+            </div>
+          );
+        })}
+        {hiddenOwners.length > 0 && (
+          <span
+            title={hiddenOwners.join(', ')}
+            style={{
+              fontSize: '10px',
+              fontWeight: '700',
+              padding: '2px 6px',
+              borderRadius: '8px',
+              backgroundColor: '#F1F5F9',
+              color: '#64748B',
+              border: '1px solid #CBD5E1',
+              cursor: 'help'
+            }}
+          >
+            +{hiddenOwners.length} more
+          </span>
+        )}
+      </div>
+    );
+  };
+
   const getColSpanCount = () => {
-    if (viewMode === 'default') return 6;
-    if (viewMode === 'with-substatus') return 7;
-    if (viewMode === 'inline-action') return 5;
-    if (viewMode === 'expand-action') return 5;
-    if (viewMode === 'persona-lens') return 7;
-    if (['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode)) return 7;
-    if (viewMode === 'enhanced-lineage') return 7;
-    if (viewMode === 'roster-matrix') return 7;
-    return 6;
+    return 9;
   };
 
   return (
@@ -912,6 +1190,179 @@ export default function MyAuditsView({
       {!fullScreenJobId && (
         <div className="single-row-filter-panel" style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
 
+        {/* Assessment Year Filter Dropdown */}
+        <div ref={assessmentDropdownRef} style={{ position: 'relative' }}>
+          <button
+            type="button"
+            onClick={() => setIsAssessmentDropdownOpen(!isAssessmentDropdownOpen)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '6px 12px',
+              height: '36px',
+              backgroundColor: '#ffffff',
+              border: isAssessmentDropdownOpen ? '1px solid #94A3B8' : '1px solid #CBD5E1',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: '600',
+              color: '#1E293B',
+              boxShadow: isAssessmentDropdownOpen ? '0 1px 3px rgba(0, 0, 0, 0.08)' : '0 1px 2px rgba(0, 0, 0, 0.04)',
+              transition: 'all 0.15s ease',
+              outline: 'none'
+            }}
+          >
+            <Calendar style={{ width: '13px', height: '13px', color: selectedAssessment !== 'All' ? '#D8001D' : '#64748B' }} />
+            <span style={{ whiteSpace: 'nowrap' }}>
+              {selectedAssessment === 'All'
+                ? 'All Assessments'
+                : (assessments.find(a => a.id === selectedAssessment)?.name || selectedAssessment)}
+            </span>
+            {selectedAssessment !== 'All' && (
+              <span style={{
+                fontSize: '10px',
+                fontWeight: '700',
+                borderRadius: '8px',
+                padding: '1px 6px',
+                backgroundColor: selectedAssessment === 'ASM-2025' ? '#F1F5F9' : '#ECFDF5',
+                color: selectedAssessment === 'ASM-2025' ? '#475569' : '#047857',
+                border: `1px solid ${selectedAssessment === 'ASM-2025' ? '#CBD5E1' : '#A7F3D0'}`
+              }}>
+                {assessments.find(a => a.id === selectedAssessment)?.status || 'Open'}
+              </span>
+            )}
+            <ChevronDown style={{
+              width: '14px',
+              height: '14px',
+              color: '#64748B',
+              transform: isAssessmentDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s ease'
+            }} />
+          </button>
+
+          {isAssessmentDropdownOpen && (
+            <div style={{
+              position: 'absolute',
+              top: 'calc(100% + 6px)',
+              left: 0,
+              zIndex: 100,
+              minWidth: '310px',
+              backgroundColor: '#ffffff',
+              borderRadius: '10px',
+              border: '1px solid #E2E8F0',
+              boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 4px 10px -2px rgba(15, 23, 42, 0.06)',
+              padding: '6px',
+              animation: 'fadeInScale 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
+            }}>
+              <div style={{ padding: '6px 10px 4px 10px', fontSize: '11px', fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase' }}>
+                Select Annual Assessment
+              </div>
+              <div
+                onClick={() => {
+                  setSelectedAssessment('All');
+                  setIsAssessmentDropdownOpen(false);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 10px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  backgroundColor: selectedAssessment === 'All' ? '#FFF5F6' : 'transparent',
+                  transition: 'background-color 0.15s ease'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{
+                    width: '16px',
+                    height: '16px',
+                    borderRadius: '4px',
+                    border: selectedAssessment === 'All' ? '1.5px solid #D8001D' : '1.5px solid #CBD5E1',
+                    backgroundColor: selectedAssessment === 'All' ? '#D8001D' : '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    {selectedAssessment === 'All' && <Check style={{ width: '11px', height: '11px', color: '#ffffff', strokeWidth: 3 }} />}
+                  </div>
+                  <span style={{ fontSize: '12px', fontWeight: selectedAssessment === 'All' ? '700' : '500', color: selectedAssessment === 'All' ? '#D8001D' : '#334155' }}>
+                    All Assessments
+                  </span>
+                </div>
+                <span style={{ fontSize: '10.5px', fontWeight: '800', color: '#64748B', backgroundColor: '#F1F5F9', padding: '1px 7px', borderRadius: '10px' }}>
+                  {jobs.length}
+                </span>
+              </div>
+
+              {assessments.map(asm => {
+                const isSelected = selectedAssessment === asm.id;
+                const asmCount = jobs.filter(j => (j.assessmentId || (j.id.startsWith('2025') ? 'ASM-2025' : j.id.startsWith('2027') ? 'ASM-2027' : 'ASM-2026')) === asm.id).length;
+                const isClosed = asm.status === 'Closed';
+                const isReopened = asm.status === 'Re-Opened';
+
+                return (
+                  <div
+                    key={asm.id}
+                    onClick={() => {
+                      setSelectedAssessment(asm.id);
+                      setIsAssessmentDropdownOpen(false);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      backgroundColor: isSelected ? '#FFF5F6' : 'transparent',
+                      transition: 'background-color 0.15s ease'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                      <div style={{
+                        width: '16px',
+                        height: '16px',
+                        borderRadius: '4px',
+                        border: isSelected ? '1.5px solid #D8001D' : '1.5px solid #CBD5E1',
+                        backgroundColor: isSelected ? '#D8001D' : '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                      }}>
+                        {isSelected && <Check style={{ width: '11px', height: '11px', color: '#ffffff', strokeWidth: 3 }} />}
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <span style={{ fontSize: '12px', fontWeight: isSelected ? '700' : '500', color: isSelected ? '#D8001D' : '#334155', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {asm.name}
+                        </span>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                      <span style={{
+                        fontSize: '9.5px',
+                        fontWeight: '700',
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                        backgroundColor: isClosed ? '#F1F5F9' : isReopened ? '#FEF3C7' : '#ECFDF5',
+                        color: isClosed ? '#475569' : isReopened ? '#92400E' : '#047857',
+                        border: `1px solid ${isClosed ? '#CBD5E1' : isReopened ? '#FDE68A' : '#A7F3D0'}`
+                      }}>
+                        {asm.status}
+                      </span>
+                      <span style={{ fontSize: '10.5px', fontWeight: '800', color: isSelected ? '#ffffff' : '#64748B', backgroundColor: isSelected ? '#D8001D' : '#F1F5F9', padding: '1px 7px', borderRadius: '10px' }}>
+                        {asmCount}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* Premium Multi-Select Status Filter */}
         <div ref={statusDropdownRef} style={{ position: 'relative' }}>
           <button
@@ -983,7 +1434,7 @@ export default function MyAuditsView({
               <div style={{ padding: '2px 0' }}>
                 {STATUS_OPTIONS.map((opt) => {
                   const isChecked = selectedStatuses.includes(opt.id);
-                  const optCount = jobs.filter(j => getSubStatus(j) === opt.id || j.status === opt.id).length;
+                  const optCount = jobs.filter(j => getEngagementWorkflowState(j).status === opt.id).length;
                   return (
                     <div
                       key={opt.id}
@@ -1287,25 +1738,29 @@ export default function MyAuditsView({
                       </div>
                     </th>
 
-                    {/* 3. Status (Removed for Concept 1, 2, Tree-Table & Split-Pane) */}
-                    {!['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) && (
-                      <th onClick={() => handleSort('status')} style={{ cursor: 'pointer' }}>
-                        <div className="th-content">
-                          <span>Status</span>
-                          <ArrowUpDown className="th-sort-icon" />
-                        </div>
-                      </th>
-                    )}
+                    {/* 3. Engagement Status Header */}
+                    <th onClick={() => handleSort('status')} style={{ cursor: 'pointer', minWidth: '165px' }}>
+                      <div className="th-content">
+                        <span>Engagement Status</span>
+                        <ArrowUpDown className="th-sort-icon" />
+                      </div>
+                    </th>
 
-                    {/* 4. Report Status / Sub-Status */}
-                    {(viewMode === 'with-substatus' || ['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode)) && (
-                      <th onClick={() => handleSort('subStatus')} style={{ cursor: 'pointer', width: ['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) ? '20%' : 'auto', minWidth: '185px' }}>
-                        <div className="th-content">
-                          <span>{['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) ? 'Report Status' : 'Sub-Status'}</span>
-                          <ArrowUpDown className="th-sort-icon" />
-                        </div>
-                      </th>
-                    )}
+                    {/* 4. Current Queue Header */}
+                    <th onClick={() => handleSort('currentQueue')} style={{ cursor: 'pointer', minWidth: '150px' }}>
+                      <div className="th-content">
+                        <span>Current Queue</span>
+                        <ArrowUpDown className="th-sort-icon" />
+                      </div>
+                    </th>
+
+                    {/* 5. Current Owner Header */}
+                    <th onClick={() => handleSort('currentOwner')} style={{ cursor: 'pointer', minWidth: '190px' }}>
+                      <div className="th-content">
+                        <span>Current Owner</span>
+                        <ArrowUpDown className="th-sort-icon" />
+                      </div>
+                    </th>
 
                     {viewMode === 'persona-lens' && (
                       <th style={{ minWidth: '220px' }}>
@@ -1412,6 +1867,7 @@ export default function MyAuditsView({
                       const isExpanded = expandedRowId === job.id;
                       const pState = getPersonaAuditState(job, userRole);
                       const isNotStarted = (job.status || '').toLowerCase() === 'not started' || (job.subStatus || '').toLowerCase() === 'not started' || (getSubStatus(job) || '').toLowerCase() === 'not started';
+                      const wf = getEngagementWorkflowState(job);
 
                       return (
                         <React.Fragment key={job.id}>
@@ -1464,76 +1920,20 @@ export default function MyAuditsView({
                                 </div>
                               </td>
 
-                              {/* 3. Status Column */}
-                              {!['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) && (
-                                <td style={{ padding: '10px 18px' }}>
-                                  {renderStatusPill(job.status)}
-                                </td>
-                              )}
+                              {/* 3. Engagement Status Cell */}
+                              <td style={{ padding: '10px 14px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                                {renderEngagementStatusPill(wf.status)}
+                              </td>
 
-                              {/* 4. Report Status / Sub-Status Column */}
-                              {(viewMode === 'with-substatus' || ['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode)) && (
-                                <td style={{ padding: '8px 18px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
-                                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
-                                    {renderSubStatusPill(job)}
-                                    {(() => {
-                                      const actionCount = (job.issuesList || []).filter(iss => isIssueNeedingUserAction(iss, userRole)).length;
-                                      const isNotStartedAuditor = isAuditor && (job.status || '').toLowerCase() === 'not started';
-                                      if (actionCount > 0) {
-                                        return (
-                                          <span
-                                            title={`${actionCount} Action ${actionCount === 1 ? 'Item' : 'Items'} Pending`}
-                                            style={{
-                                              display: 'inline-flex',
-                                              alignItems: 'center',
-                                              gap: '3px',
-                                              padding: '2px 6px',
-                                              borderRadius: '5px',
-                                              fontSize: '10.5px',
-                                              fontWeight: '700',
-                                              backgroundColor: '#FEF3C7',
-                                              color: '#B45309',
-                                              border: '1px solid #FDE68A',
-                                              whiteSpace: 'nowrap',
-                                              flexShrink: 0,
-                                              cursor: 'default'
-                                            }}
-                                          >
-                                            <span>⚡</span>
-                                            <span>{actionCount}</span>
-                                          </span>
-                                        );
-                                      }
-                                      if (isNotStartedAuditor) {
-                                        return (
-                                          <span
-                                            title="Drafting Required"
-                                            style={{
-                                              display: 'inline-flex',
-                                              alignItems: 'center',
-                                              gap: '3px',
-                                              padding: '2px 6px',
-                                              borderRadius: '5px',
-                                              fontSize: '10.5px',
-                                              fontWeight: '700',
-                                              backgroundColor: '#EFF6FF',
-                                              color: '#1D4ED8',
-                                              border: '1px solid #BFDBFE',
-                                              whiteSpace: 'nowrap',
-                                              flexShrink: 0,
-                                              cursor: 'default'
-                                            }}
-                                          >
-                                            <span>⚡</span>
-                                            <span>Draft</span>
-                                          </span>
-                                        );
-                                      }
-                                      return null;
-                                    })()}
-                                  </div>
-                                </td>
-                              )}
+                              {/* 4. Current Queue Cell */}
+                              <td style={{ padding: '10px 14px', verticalAlign: 'middle' }}>
+                                {renderCurrentQueuePill(wf.queue, wf.queueVariant, wf.queueList)}
+                              </td>
+
+                              {/* 5. Current Owner Cell */}
+                              <td style={{ padding: '10px 14px', verticalAlign: 'middle' }}>
+                                {renderCurrentOwnerCell(wf.owners, wf.isPendingBusiness, wf.queue, wf.ownersByRole)}
+                              </td>
 
                               {viewMode === 'persona-lens' && (
                                 <td style={{ padding: '10px 18px' }}>
@@ -1579,7 +1979,7 @@ export default function MyAuditsView({
 
                               {/* Issue Metric Columns (Total, In-Progress, Completed with IT/FinOps sub-badges) */}
                               {['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) && (() => {
-                                if (job.status === 'Not Started') {
+                                if (wf.status === 'Not Started') {
                                   return (
                                     <>
                                       <td style={{ textAlign: 'center', padding: '5px 8px' }}>
@@ -4751,6 +5151,9 @@ export default function MyAuditsView({
         defaultFunction={selectedJobForIssue?.tech || 'IT'}
         initialData={editingIssueData}
         isReadOnly={isViewOnlyDrawerMode}
+        jobId={selectedJobForIssue?.id || selectedJobForIssue?.jobId}
+        engagementId={selectedJobForIssue?.id}
+        job={selectedJobForIssue}
       />
 
       {/* Confirmation Dialog: Preparing Summary Report for Not Started Audit */}

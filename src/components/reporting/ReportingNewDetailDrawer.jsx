@@ -2,8 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   ArrowLeft, FileText, Download, GitBranch, History, PlayCircle,
   MessageSquare, Calendar, CheckCircle2, Clock, ShieldCheck, ArrowRight, X,
-  Cpu, TrendingUp, AlertOctagon, ChevronDown, Shield
+  Cpu, TrendingUp, AlertOctagon, ChevronDown, ChevronUp, Shield, Users, UserCheck, Sparkles, Layers
 } from 'lucide-react';
+import { getAssignmentsByEngagement } from '../../data/assignmentsData';
+import { getEngagementWorkflowState } from '../../utils/auditWorkflowEngine.js';
 
 const formatUSDateTime = (dateTimeStr) => {
   if (!dateTimeStr) return '-';
@@ -129,6 +131,10 @@ export default function ReportingNewDetailDrawer({
   const auditMenuRef = useRef(null);
   const execMenuRef = useRef(null);
 
+  // Engagement Team Assignments filter & expanded state
+  const [assignmentFilter, setAssignmentFilter] = useState('All');
+  const [isAssignmentsExpanded, setIsAssignmentsExpanded] = useState(true);
+
   useEffect(() => {
     function handleClickOutside(event) {
       if (auditMenuRef.current && !auditMenuRef.current.contains(event.target)) {
@@ -201,11 +207,70 @@ export default function ReportingNewDetailDrawer({
               <ArrowLeft style={{ width: '18px', height: '18px' }} />
             </button>
 
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: '14px', fontWeight: '800', letterSpacing: '0.2px', color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {job.fileName}
-              </div>
-            </div>
+            {(() => {
+              const wf = getEngagementWorkflowState(job);
+              return (
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '14px', fontWeight: '800', letterSpacing: '0.2px', color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {job.fileName}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
+                    <span style={{
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      color: '#93C5FD',
+                      backgroundColor: 'rgba(59, 130, 246, 0.18)',
+                      padding: '1px 7px',
+                      borderRadius: '10px',
+                      border: '1px solid rgba(147, 197, 253, 0.3)'
+                    }}>
+                      {job.assessmentName || (job.id?.startsWith('2025') ? '2025 Internal Audit Assessments' : job.id?.startsWith('2027') ? '2027 Internal Audit Assessments' : '2026 Internal Audit Assessments')}
+                    </span>
+                    <span style={{
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      color: (job.assessmentStatus === 'Closed' || job.id?.startsWith('2025')) ? '#CBD5E1' : (job.assessmentStatus === 'Re-Opened') ? '#FCD34D' : '#6EE7B7',
+                      backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                      padding: '1px 6px',
+                      borderRadius: '8px'
+                    }}>
+                      ● {job.assessmentStatus || (job.id?.startsWith('2025') ? 'Closed' : 'Open')}
+                    </span>
+                    <span style={{
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      color: '#ffffff',
+                      backgroundColor: wf.status === 'Completed' ? '#15803D' : wf.status.includes('Audit') ? '#1D4ED8' : '#B45309',
+                      padding: '1px 6px',
+                      borderRadius: '8px'
+                    }}>
+                      {wf.status}
+                    </span>
+                    <span style={{
+                      fontSize: '10px',
+                      fontWeight: '700',
+                      color: '#FEF08A',
+                      backgroundColor: 'rgba(254, 240, 138, 0.15)',
+                      padding: '1px 6px',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(254, 240, 138, 0.3)'
+                    }}>
+                      Queue: {wf.queue}
+                    </span>
+                    <span style={{
+                      fontSize: '10px',
+                      fontWeight: '600',
+                      color: '#ffffff',
+                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                      padding: '1px 6px',
+                      borderRadius: '8px'
+                    }}>
+                      Owner: {wf.ownerText}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 
@@ -742,6 +807,290 @@ export default function ReportingNewDetailDrawer({
               </div>
             </div>
           )}
+
+          {/* SECTION 4: ENGAGEMENT TEAM ASSIGNMENTS */}
+          {(() => {
+            const currentAssignments = getAssignmentsByEngagement(job.id || job.reportId);
+            const isSpecialRotation = Boolean(
+              job.id === '20260884' ||
+              job.reportId === 'REP-2026-004' ||
+              currentAssignments.some(a => a.isRoleRotated)
+            );
+
+            const filteredAssignments = currentAssignments.filter(asg => {
+              if (assignmentFilter === 'All') return true;
+              if (assignmentFilter === 'IT') return asg.function === 'IT';
+              if (assignmentFilter === 'FinOps') return asg.function === 'FinOps';
+              if (assignmentFilter === 'Business') return asg.function === 'Business';
+              return true;
+            });
+
+            return (
+              <div style={{
+                backgroundColor: '#ffffff',
+                border: 'none',
+                borderRadius: '10px',
+                padding: '16px',
+                boxShadow: '0 6px 20px -2px rgba(15, 23, 42, 0.12), 0 2px 6px -1px rgba(15, 23, 42, 0.07)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '14px'
+              }}>
+                {/* Header Row */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                    <div style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '7px',
+                      backgroundColor: '#FEF2F2',
+                      border: '1px solid #FEE2E2',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#D8001D'
+                    }}>
+                      <Users style={{ width: '16px', height: '16px' }} />
+                    </div>
+                    <div>
+                      <h3 style={{ fontSize: '14px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
+                        Team Assignments
+                      </h3>
+                      <p style={{ fontSize: '11px', color: '#64748B', margin: 0 }}>
+                        Roles & mapped users • {job.assessmentName || (job.id?.startsWith('2025') ? '2025 Internal Audit Assessments' : job.id?.startsWith('2027') ? '2027 Internal Audit Assessments' : '2026 Internal Audit Assessments')} ({job.assessmentStatus || (job.id?.startsWith('2025') ? 'Closed' : 'Open')})
+                      </p>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      backgroundColor: '#F1F5F9',
+                      color: '#475569',
+                      border: '1px solid #E2E8F0'
+                    }}>
+                      {currentAssignments.length} Roles
+                    </span>
+                    <button
+                      onClick={() => setIsAssignmentsExpanded(!isAssignmentsExpanded)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        color: '#64748B'
+                      }}
+                      title={isAssignmentsExpanded ? 'Collapse' : 'Expand'}
+                    >
+                      {isAssignmentsExpanded ? <ChevronUp style={{ width: '16px', height: '16px' }} /> : <ChevronDown style={{ width: '16px', height: '16px' }} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Special Role Rotation Alert Banner if this is the designated rotation engagement */}
+                {isSpecialRotation && (
+                  <div style={{
+                    backgroundColor: '#FDF4FF',
+                    border: '1px solid #F0ABFC',
+                    borderRadius: '8px',
+                    padding: '9px 12px',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '8px'
+                  }}>
+                    <Sparkles style={{ width: '15px', height: '15px', color: '#A21CAF', marginTop: '1.5px', flexShrink: 0 }} />
+                    <div>
+                      <p style={{ fontSize: '11.5px', fontWeight: '700', color: '#86198F', margin: 0 }}>
+                        Cross-Role Rotation Engagement
+                      </p>
+                      <p style={{ fontSize: '11px', color: '#701A75', margin: '2px 0 0 0', lineHeight: '1.35' }}>
+                        In this engagement, auditors and coordinators rotate to play stepped-up roles (e.g. Coordinator → Manager, Auditor → Coordinator).
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {isAssignmentsExpanded && (
+                  <>
+                    {/* Function Level Filter Tabs */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      backgroundColor: '#F8FAFC',
+                      padding: '3px',
+                      borderRadius: '7px',
+                      border: '1px solid #E2E8F0'
+                    }}>
+                      {[
+                        { id: 'All', label: 'All Roles' },
+                        { id: 'IT', label: 'IT' },
+                        { id: 'FinOps', label: 'FinOps' },
+                        { id: 'Business', label: 'Business' }
+                      ].map(tab => (
+                        <button
+                          key={tab.id}
+                          onClick={() => setAssignmentFilter(tab.id)}
+                          style={{
+                            flex: 1,
+                            padding: '4px 6px',
+                            fontSize: '11px',
+                            fontWeight: assignmentFilter === tab.id ? '700' : '500',
+                            color: assignmentFilter === tab.id ? '#0F172A' : '#64748B',
+                            backgroundColor: assignmentFilter === tab.id ? '#ffffff' : 'transparent',
+                            border: 'none',
+                            borderRadius: '5px',
+                            boxShadow: assignmentFilter === tab.id ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Assignments List */}
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                      maxHeight: '340px',
+                      overflowY: 'auto',
+                      paddingRight: '2px'
+                    }}>
+                      {filteredAssignments.map(asg => {
+                        const isIT = asg.function === 'IT';
+                        const isFinOps = asg.function === 'FinOps';
+                        const funcColor = isIT ? '#1D4ED8' : isFinOps ? '#047857' : '#B45309';
+                        const funcBg = isIT ? '#EFF6FF' : isFinOps ? '#ECFDF5' : '#FFFBEB';
+                        const funcBorder = isIT ? '#BFDBFE' : isFinOps ? '#A7F3D0' : '#FDE68A';
+
+                        return (
+                          <div
+                            key={asg.id}
+                            style={{
+                              backgroundColor: '#FAFAFA',
+                              border: '1px solid #E2E8F0',
+                              borderRadius: '8px',
+                              padding: '10px 12px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '8px'
+                            }}
+                          >
+                            {/* Role Title and Function Badge */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '12px', fontWeight: '800', color: '#1E293B' }}>
+                                  {asg.roleName}
+                                </span>
+                              </div>
+
+                              <span style={{
+                                fontSize: '10px',
+                                fontWeight: '700',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                color: funcColor,
+                                backgroundColor: funcBg,
+                                border: `1px solid ${funcBorder}`
+                              }}>
+                                {asg.function}
+                              </span>
+                            </div>
+
+                            {/* Assigned Users List */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              {asg.users.map(u => (
+                                <div
+                                  key={u.id}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: '8px',
+                                    backgroundColor: '#ffffff',
+                                    border: '1px solid #F1F5F9',
+                                    borderRadius: '6px',
+                                    padding: '5px 8px'
+                                  }}
+                                >
+                                  {/* Avatar + Name + Email */}
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: 0, flex: 1 }}>
+                                    <div style={{
+                                      width: '24px',
+                                      height: '24px',
+                                      borderRadius: '50%',
+                                      backgroundColor: isIT ? '#DBEAFE' : isFinOps ? '#D1FAE5' : '#FEF3C7',
+                                      color: isIT ? '#1E40AF' : isFinOps ? '#065F46' : '#92400E',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      fontSize: '10px',
+                                      fontWeight: '800',
+                                      flexShrink: 0
+                                    }}>
+                                      {u.initials || u.name.split(' ').map(p => p[0]).join('')}
+                                    </div>
+                                    <div style={{ minWidth: 0 }}>
+                                      <p style={{
+                                        fontSize: '11.5px',
+                                        fontWeight: '700',
+                                        color: '#0F172A',
+                                        margin: 0,
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis'
+                                      }}>
+                                        {u.name}
+                                      </p>
+                                      <p style={{
+                                        fontSize: '10px',
+                                        color: '#64748B',
+                                        margin: 0,
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis'
+                                      }}>
+                                        {u.email}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  {/* Alternate Role indicator badge if playing a different role in this engagement */}
+                                  {u.isAlternateRole && (
+                                    <span style={{
+                                      fontSize: '9.5px',
+                                      fontWeight: '800',
+                                      padding: '2px 6px',
+                                      borderRadius: '10px',
+                                      backgroundColor: '#FDF4FF',
+                                      color: '#86198F',
+                                      border: '1px solid #F0ABFC',
+                                      whiteSpace: 'nowrap',
+                                      flexShrink: 0
+                                    }} title={`Primary baseline role: ${u.baselineRole}`}>
+                                      ★ Alternate Role
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
 
         </div>
       </aside>
