@@ -40,17 +40,26 @@ export const formatCommentTime = (date = new Date()) => {
 // QUERY METHODS
 // ==========================================
 
+export const isBusinessCommentAuthor = (author) => {
+  if (!author) return false;
+  if (author.isBusinessUser) return true;
+  const roleStr = `${author.role || ''} ${author.baselineRole || ''} ${author.title || ''}`.toLowerCase();
+  return roleStr.includes('business') || roleStr.includes('contact') || roleStr.includes('liaison') || roleStr.includes('owner');
+};
+
 export const getAllComments = () => [...commentsStore];
 
 /**
  * Returns comments for an issue grouped by fieldKey: { [fieldKey]: Comment[] }
  */
-export const getCommentsGroupedByField = (issueId) => {
+export const getCommentsGroupedByField = (issueId, options = {}) => {
   if (!issueId) return {};
   const normalizedId = String(issueId).toUpperCase();
-  const issueComments = commentsStore.filter(c => 
-    c.issueId && String(c.issueId).toUpperCase() === normalizedId
-  );
+  const issueComments = commentsStore.filter(c => {
+    if (!c.issueId || String(c.issueId).toUpperCase() !== normalizedId) return false;
+    if (options.businessOnly && !isBusinessCommentAuthor(c.author)) return false;
+    return true;
+  });
 
   const grouped = {};
   issueComments.forEach(c => {
@@ -62,14 +71,18 @@ export const getCommentsGroupedByField = (issueId) => {
   return grouped;
 };
 
-export const getCommentsForIssueField = (issueId, fieldKey) => {
+export const getCommentsForIssueField = (issueId, fieldKey, options = {}) => {
   if (!issueId || !fieldKey) return [];
   const normalizedId = String(issueId).toUpperCase();
-  return commentsStore.filter(c => 
-    c.issueId && 
-    String(c.issueId).toUpperCase() === normalizedId && 
-    c.fieldKey === fieldKey
-  );
+  return commentsStore.filter(c => {
+    if (!c.issueId || String(c.issueId).toUpperCase() !== normalizedId || c.fieldKey !== fieldKey) {
+      return false;
+    }
+    if (options.businessOnly && !isBusinessCommentAuthor(c.author)) {
+      return false;
+    }
+    return true;
+  });
 };
 
 /**
@@ -186,6 +199,8 @@ export const addComment = ({
       userId: author?.userId || author?.id || 'USR-CURRENT',
       name: author?.name || 'Current User',
       role: author?.role || author?.title || 'Auditor',
+      baselineRole: author?.baselineRole || null,
+      isBusinessUser: !!author?.isBusinessUser || isBusinessCommentAuthor(author),
       avatar: author?.avatar || author?.initials || (author?.name ? author.name.split(' ').map(n=>n[0]).join('') : 'CU'),
       avatarBg: author?.avatarBg || '#2563EB'
     },

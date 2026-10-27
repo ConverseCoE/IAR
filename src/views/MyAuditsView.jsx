@@ -2591,7 +2591,7 @@ export default function MyAuditsView({
                                                         <button
                                                           onClick={(e) => {
                                                             e.stopPropagation();
-                                                            onWorkOnReport && onWorkOnReport(job, 'audit');
+                                                            onWorkOnReport && onWorkOnReport(job, 'business-response', iss.id);
                                                           }}
                                                           style={{
                                                             padding: '5px 12px',
@@ -3286,7 +3286,7 @@ export default function MyAuditsView({
                                                       <button
                                                         onClick={(e) => {
                                                           e.stopPropagation();
-                                                          onWorkOnReport && onWorkOnReport(job, 'audit');
+                                                          onWorkOnReport && onWorkOnReport(job, 'business-response', issue.id);
                                                         }}
                                                         style={{
                                                           padding: '5px 12px',
@@ -3892,7 +3892,7 @@ export default function MyAuditsView({
                                                         <button
                                                           onClick={(e) => {
                                                             e.stopPropagation();
-                                                            onWorkOnReport && onWorkOnReport(job, 'audit');
+                                                            onWorkOnReport && onWorkOnReport(job, 'business-response', iss.id);
                                                           }}
                                                           style={{
                                                             padding: '5px 12px',

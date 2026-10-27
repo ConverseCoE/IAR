@@ -2017,7 +2017,7 @@ export default function AuditReportView({ job, onClose, onUpdateIssues, userRole
 
   // Helper to render Field-Level Comments in Top-Right Space of Input Boxes
   const renderFieldCommentTrigger = (issueId, fieldKey, fieldLabel, isReadOnly) => {
-    const comments = getCommentsForIssueField(issueId, fieldKey);
+    const comments = getCommentsForIssueField(issueId, fieldKey, { businessOnly: isBusinessUser });
     const fieldIdentifier = `${issueId}_${fieldKey}`;
     const isOpen = activeCommentField === fieldIdentifier;
     const unresolvedCount = comments.filter(c => !c.isResolved).length;

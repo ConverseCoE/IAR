@@ -7,6 +7,7 @@ import IssueLogsModal from './components/issues/IssueLogsModal';
 import AuditIssuesView from './views/AuditIssuesView';
 import MyAuditsView from './views/MyAuditsView';
 import AuditReportView from './views/AuditReportView';
+import BusinessResponseView from './views/BusinessResponseView';
 import ExecutiveReportView from './views/ExecutiveReportView';
 import ReportingNewDetailDrawer from './components/reporting/ReportingNewDetailDrawer';
 import CreateIssueDrawerNew from './components/issues/CreateIssueDrawerNew';
@@ -303,7 +304,7 @@ export default function App() {
 
       {/* 2. Main Content View Switcher */}
       {activeWorkOnReportJob ? (
-        /* INTERACTIVE STUDIOS FOR AUDIT REPORT VS EXECUTIVE SUMMARY REPORT */
+        /* INTERACTIVE STUDIOS FOR AUDIT REPORT VS BUSINESS RESPONSE VS EXECUTIVE SUMMARY REPORT */
         activeWorkOnReportJob.type === 'executive' ? (
           <ExecutiveReportView
             key={`exec-${activeWorkOnReportJob.job.id}-${userRole}`}
@@ -311,6 +312,15 @@ export default function App() {
             onClose={() => setActiveWorkOnReportJob(null)}
             userRole={userRole}
             onSwitchToAuditReport={() => setActiveWorkOnReportJob(prev => ({ ...prev, type: 'audit' }))}
+          />
+        ) : (activeWorkOnReportJob.type === 'business-response' || (userRole || '').toLowerCase().includes('business') || (userRole || '').toLowerCase().includes('contact')) ? (
+          <BusinessResponseView
+            key={`biz-${activeWorkOnReportJob.job.id}-${activeWorkOnReportJob.issueId || 'default'}-${userRole}`}
+            job={reportingJobs.find(j => j.id === activeWorkOnReportJob.job.id) || activeWorkOnReportJob.job}
+            initialIssueId={activeWorkOnReportJob.issueId || null}
+            onClose={() => setActiveWorkOnReportJob(null)}
+            onUpdateIssues={(updatedIssues) => handleUpdateJobIssues(activeWorkOnReportJob.job.id, updatedIssues)}
+            userRole={userRole}
           />
         ) : (
           <AuditReportView
@@ -374,7 +384,7 @@ export default function App() {
                     setActiveView('discussion-points');
                   }}
                   onOpenCreateIssue={handleOpenCreateIssue}
-                  onWorkOnReport={(job, type = 'audit') => setActiveWorkOnReportJob({ job, type })}
+                  onWorkOnReport={(job, type = 'audit', issueId = null) => setActiveWorkOnReportJob({ job, type, issueId })}
                   onOpenHistory={(job) => handleOpenHistoryModal({ id: job.id, header: job.engagement })}
                 />
               ) : currentPhase === 'wrap-up' ? (
@@ -410,6 +420,7 @@ export default function App() {
                   setActiveView('discussion-points');
                 }}
                 onOpenCreateIssue={handleOpenCreateIssue}
+                onWorkOnReport={(job, type = 'audit', issueId = null) => setActiveWorkOnReportJob({ job, type, issueId })}
                 onOpenWorkflow={(job) => handleOpenWorkflowModal({
                   title: `${job.id} — Workflow Stages`,
                   job,
