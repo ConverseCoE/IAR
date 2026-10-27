@@ -2170,7 +2170,7 @@ export default function MyAuditsView({
                                         title="Provide Management Response"
                                       >
                                         <MessageSquare style={{ width: '13px', height: '13px' }} />
-                                        <span>Provide Response</span>
+                                        <span>{(job?.fileName || job?.engagement || '').includes('Neurovascular_Stent_Manufacturing_Review') ? 'View' : 'Provide Response'}</span>
                                       </button>
                                     ) : ['issue-cards', 'concept1-edge-to-edge', 'tree-table', 'split-pane'].includes(viewMode) ? (
                                       <>
@@ -2612,7 +2612,7 @@ export default function MyAuditsView({
                                                           title="Provide Management Response"
                                                         >
                                                           <MessageSquare style={{ width: '12px', height: '12px' }} />
-                                                          <span>Provide Response</span>
+                                                          <span>{(job?.fileName || job?.engagement || '').includes('Neurovascular_Stent_Manufacturing_Review') ? 'View' : 'Provide Response'}</span>
                                                         </button>
                                                       ) : !canEditIssue(iss) ? (
                                                         <button
@@ -2941,7 +2941,7 @@ export default function MyAuditsView({
                                           title="Provide Management Response"
                                         >
                                           <MessageSquare style={{ width: '14px', height: '14px' }} />
-                                          <span>Provide Response</span>
+                                          <span>{(job?.fileName || job?.engagement || '').includes('Neurovascular_Stent_Manufacturing_Review') ? 'View' : 'Provide Response'}</span>
                                         </button>
                                       ) : (
                                         <>
@@ -3307,7 +3307,7 @@ export default function MyAuditsView({
                                                         title="Provide Management Response"
                                                       >
                                                         <MessageSquare style={{ width: '12px', height: '12px' }} />
-                                                        <span>Provide Response</span>
+                                                        <span>{(job?.fileName || job?.engagement || '').includes('Neurovascular_Stent_Manufacturing_Review') ? 'View' : 'Provide Response'}</span>
                                                       </button>
                                                     ) : !canEditIssue(iss) ? (
                                                       <button
@@ -3697,7 +3697,7 @@ export default function MyAuditsView({
                                             }}
                                           >
                                             <PlayCircle style={{ width: '14px', height: '14px', color: '#1D4ED8' }} />
-                                            <span>{isBusinessRole ? 'Provide Response' : 'Audit Report'}</span>
+                                            <span>{isBusinessRole ? ((job?.fileName || job?.engagement || '').includes('Neurovascular_Stent_Manufacturing_Review') ? 'View' : 'Provide Response') : 'Audit Report'}</span>
                                           </button>
                                         )}
 
@@ -3913,7 +3913,7 @@ export default function MyAuditsView({
                                                           title="Provide Management Response"
                                                         >
                                                           <MessageSquare style={{ width: '12px', height: '12px' }} />
-                                                          <span>Provide Response</span>
+                                                          <span>{(job?.fileName || job?.engagement || '').includes('Neurovascular_Stent_Manufacturing_Review') ? 'View' : 'Provide Response'}</span>
                                                         </button>
                                                       ) : !canEditIssue(issue) ? (
                                                         <button
@@ -4447,7 +4447,7 @@ export default function MyAuditsView({
                                           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#EFF6FF'}
                                         >
                                           <PlayCircle style={{ width: '13px', height: '13px' }} />
-                                          <span>{isBusinessRole ? 'Provide Response' : 'Work On Report'}</span>
+                                          <span>{isBusinessRole ? ((job?.fileName || job?.engagement || '').includes('Neurovascular_Stent_Manufacturing_Review') ? 'View' : 'Provide Response') : 'Work On Report'}</span>
                                         </button>
                                       </div>
 
@@ -4720,7 +4720,7 @@ export default function MyAuditsView({
                     }}
                   >
                     <PlayCircle style={{ width: '13px', height: '13px', color: '#1D4ED8' }} />
-                    <span>{isBusinessRole ? 'Provide Response' : 'Audit Report'}</span>
+                    <span>{isBusinessRole ? ((selectedJobForPanel?.fileName || selectedJobForPanel?.engagement || '').includes('Neurovascular_Stent_Manufacturing_Review') ? 'View' : 'Provide Response') : 'Audit Report'}</span>
                   </button>
                 )}
 

@@ -74,6 +74,7 @@ export default function DescriptionWithViolations({
   text = '',
   onChange,
   isReadOnly = false,
+  hideReadOnlyBadge = false,
   onOpenViolationDoc,
   label = 'Description',
   commentTrigger = null
@@ -194,7 +195,7 @@ export default function DescriptionWithViolations({
 
         {/* Right side: Comment Trigger and Read-Only lock badge */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {isReadOnly && (
+          {isReadOnly && !hideReadOnlyBadge && (
             <span style={{ fontSize: '10.5px', color: '#B45309', fontWeight: '700' }}>
               🔒 Read Only
             </span>
@@ -521,40 +522,42 @@ export default function DescriptionWithViolations({
                       )}
 
                       {/* AI Confidence / Source Chip */}
-                      <span style={{ marginLeft: '8px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                        {item.source === 'AI_GENERATED' ? (
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '3px',
-                            fontSize: '10px',
-                            fontWeight: '700',
-                            color: '#7C3AED',
-                            backgroundColor: '#F5F3FF',
-                            padding: '1px 6px',
-                            borderRadius: '8px',
-                            border: '1px solid #DDD6FE'
-                          }}>
-                            <Sparkles style={{ width: '10px', height: '10px' }} />
-                            AI Suggested {item.aiConfidence ? `${Math.round(item.aiConfidence * 100)}%` : ''}
-                          </span>
-                        ) : (
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '3px',
-                            fontSize: '10px',
-                            fontWeight: '600',
-                            color: '#047857',
-                            backgroundColor: '#ECFDF5',
-                            padding: '1px 6px',
-                            borderRadius: '8px',
-                            border: '1px solid #A7F3D0'
-                          }}>
-                            Manual Citation
-                          </span>
-                        )}
-                      </span>
+                      {!hideReadOnlyBadge && (
+                        <span style={{ marginLeft: '8px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                          {item.source === 'AI_GENERATED' ? (
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              fontSize: '10px',
+                              fontWeight: '700',
+                              color: '#7C3AED',
+                              backgroundColor: '#F5F3FF',
+                              padding: '1px 6px',
+                              borderRadius: '8px',
+                              border: '1px solid #DDD6FE'
+                            }}>
+                              <Sparkles style={{ width: '10px', height: '10px' }} />
+                              AI Suggested {item.aiConfidence ? `${Math.round(item.aiConfidence * 100)}%` : ''}
+                            </span>
+                          ) : (
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              fontSize: '10px',
+                              fontWeight: '600',
+                              color: '#047857',
+                              backgroundColor: '#ECFDF5',
+                              padding: '1px 6px',
+                              borderRadius: '8px',
+                              border: '1px solid #A7F3D0'
+                            }}>
+                              Manual Citation
+                            </span>
+                          )}
+                        </span>
+                      )}
                     </div>
                   </div>
 

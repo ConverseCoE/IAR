@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  ArrowLeft, Save, Send, Sparkles, Lock, Clock, MessageSquare,
-  CheckCircle2, AlertOctagon, UploadCloud, Paperclip, Calendar, Trash2, FileText
+  ArrowLeft, Send, MessageSquare,
+  CheckCircle2, AlertOctagon, UploadCloud, Paperclip, Trash2
 } from 'lucide-react';
 import { getIssuesByEngagement, getTestProceduresByEngagement } from '../data/assignmentsData';
 import { logIssueEvent } from '../utils/auditLogEngine';
@@ -55,6 +55,7 @@ function normalizeIssueForBusinessResponse(item, job) {
   const accountableContact = item.accountableContact || 'Narasimha, Vinay';
   const agreedRemediationDate = item.agreedRemediationDate || '2026-11-30';
   const managementResponse = item.managementResponse || '';
+  const businessManagementReason = item.businessManagementReason || '';
   const reportRef = item.reportRef || (item.id ? parseInt(item.id.replace(/\D/g, ''), 10) : 5) || 5;
   const accountableFunction = item.accountableFunction || (func === 'IT' ? 'Business IT, Finance' : 'Finance, Operations');
 
@@ -98,6 +99,7 @@ function normalizeIssueForBusinessResponse(item, job) {
     accountableContact,
     agreedRemediationDate,
     managementResponse,
+    businessManagementReason,
     tech: item.tech || func,
     functionType: item.functionType || func,
     criticality: crit,
@@ -390,17 +392,6 @@ export default function BusinessResponseView({
     updateIssuesAndSync(updatedIssues);
   };
 
-  const handleSaveBusinessDraft = (issueId) => {
-    const target = issues.find(i => i.id === issueId);
-    const issueRef = target?.referenceNumber || (target?.id ? `Issue #${target?.id}` : 'Issue');
-    updateIssuesAndSync(issues);
-    setToastNotification({
-      type: 'info',
-      title: 'Draft Saved',
-      description: `Draft response for ${issueRef} saved successfully.`
-    });
-  };
-
   const handleSubmitBusinessResponse = (issueId) => {
     const target = issues.find(i => i.id === issueId);
     if (!target) return;
@@ -435,61 +426,8 @@ export default function BusinessResponseView({
     setToastNotification({
       type: 'success',
       title: 'Response Submitted',
-      description: `Management response for ${issueRef} has been successfully submitted to the Audit Director.`
+      description: `Management response for ${issueRef} has been successfully submitted.`
     });
-  };
-
-  const renderCriticalityBadge = (crit) => {
-    const val = (crit || 'Major').trim();
-    let bg = '#F1B500';
-    let border = '#D97706';
-    if (val === 'Critical') {
-      bg = '#D8001D';
-      border = '#A00014';
-    } else if (val === 'Minor' || val === 'Low') {
-      bg = '#008000';
-      border = '#047857';
-    }
-    return (
-      <span style={{
-        fontSize: '11px',
-        fontWeight: '800',
-        padding: '2.5px 9px',
-        borderRadius: '4px',
-        backgroundColor: bg,
-        color: '#ffffff',
-        border: `1px solid ${border}`,
-        display: 'inline-block',
-        textAlign: 'center',
-        letterSpacing: '0.2px'
-      }}>
-        {val}
-      </span>
-    );
-  };
-
-  const renderFunctionPill = (func) => {
-    const val = (func || '').toString().trim().toLowerCase();
-    const isIT = val.includes('it') || val.includes('tech') || val.includes('cyber') || val.includes('system');
-    return (
-      <span style={{
-        fontSize: '10px',
-        fontWeight: '800',
-        padding: '2px 8px',
-        borderRadius: '9999px',
-        backgroundColor: isIT ? '#EFF6FF' : '#ECFDF5',
-        color: isIT ? '#1D4ED8' : '#047857',
-        border: `1px solid ${isIT ? '#BFDBFE' : '#A7F3D0'}`,
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '4px',
-        letterSpacing: '0.3px',
-        whiteSpace: 'nowrap'
-      }}>
-        <span style={{ width: '5.5px', height: '5.5px', borderRadius: '50%', backgroundColor: isIT ? '#3B82F6' : '#10B981', display: 'inline-block' }} />
-        {isIT ? 'IT' : 'FinOps'}
-      </span>
-    );
   };
 
   // Field-level comment trigger restricted strictly to Business Owner's own comments (audit team comments hidden)
@@ -625,8 +563,10 @@ export default function BusinessResponseView({
     );
   };
 
+  const isNeurovascularEngagement = (job?.fileName || job?.engagement || '').includes('Neurovascular_Stent_Manufacturing_Review');
+
   // Left Section: All Issue Fields in Read-Only Mode with Field-Level Comment Option
-  const renderReadOnlyIssueFields = (item) => {
+  const renderReadOnlyIssueFields = (item, isMultiColumn = false) => {
     const isReadOnly = true;
 
     const inputBaseStyle = {
@@ -683,224 +623,602 @@ export default function BusinessResponseView({
       marginBottom: '4px'
     };
 
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        {/* 1. TOP SECTION: MANUAL IMPORTANT FIELDS */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {/* Field 1: Test Procedure */}
-          <div>
-            <label style={labelStyle}>
-              <span style={{ fontWeight: '700' }}>Test Procedure</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
+    if (isMultiColumn) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Row 1 (3 Columns): Test Procedure, Criticality, Issue Title */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Test Procedure</span>
                 {renderFieldCommentTrigger(item.id, 'testProcedure', 'Test Procedure')}
-              </div>
-            </label>
-            <select disabled={isReadOnly} value={item.testProcedure || ''} style={selectBaseStyle}>
-              <option value="" disabled>Select Test Procedure...</option>
-              {item.testProcedure && !activeTestProcedures.includes(item.testProcedure) && (
-                <option value={item.testProcedure}>{item.testProcedure}</option>
-              )}
-              {activeTestProcedures.map(opt => (
-                <option key={opt} value={opt}>{opt}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Field 2: Original Issue */}
-          <div>
-            <label style={labelStyle}>
-              <span style={{ fontWeight: '700' }}>Original Issue</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-                {renderFieldCommentTrigger(item.id, 'originalIssue', 'Original Issue')}
-              </div>
-            </label>
-            <textarea
-              rows={3}
-              disabled={isReadOnly}
-              readOnly={isReadOnly}
-              value={item.originalIssue || item.issue || ''}
-              style={textareaBaseStyle}
-            />
-          </div>
-
-          {/* Field 3: Criticality */}
-          <div>
-            <label style={labelStyle}>
-              <span style={{ fontWeight: '700' }}>Criticality</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-                {renderFieldCommentTrigger(item.id, 'criticality', 'Criticality')}
-              </div>
-            </label>
-            <select disabled={isReadOnly} value={item.criticality} style={selectBaseStyle}>
-              <option value="Critical">Critical</option>
-              <option value="Major">Major</option>
-              <option value="Minor">Minor</option>
-            </select>
-          </div>
-        </div>
-
-        {/* 2. MIDDLE SECTION: AI GENERATED FIELDS */}
-        <div style={{
-          marginTop: '6px',
-          backgroundColor: '#F8FAFC',
-          border: '1.5px solid #E2E8F0',
-          borderRadius: '10px',
-          padding: '16px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '14px',
-          boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)'
-        }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderBottom: '1px solid #E2E8F0',
-            paddingBottom: '10px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{
-                width: '26px',
-                height: '26px',
-                borderRadius: '6px',
-                backgroundColor: '#EFF6FF',
-                border: '1px solid #BFDBFE',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <Sparkles style={{ width: '14px', height: '14px', color: '#2563EB' }} />
-              </div>
-              <div>
-                <h4 style={{ fontSize: '13px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
-                  AI Generated Fields
-                </h4>
-                <span style={{ fontSize: '10.5px', color: '#64748B' }}>
-                  AI Synthesized title, observation, root cause, impact &amp; recommendation
-                </span>
-              </div>
+              </label>
+              <select disabled={isReadOnly} value={item.testProcedure || ''} style={selectBaseStyle}>
+                <option value="" disabled>Select Test Procedure...</option>
+                {item.testProcedure && !activeTestProcedures.includes(item.testProcedure) && (
+                  <option value={item.testProcedure}>{item.testProcedure}</option>
+                )}
+                {activeTestProcedures.map(opt => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
             </div>
 
-            <span style={{
-              fontSize: '10px',
-              fontWeight: '800',
-              color: '#64748B',
-              backgroundColor: '#F1F5F9',
-              border: '1px solid #CBD5E1',
-              padding: '2px 8px',
-              borderRadius: '12px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}>
-              <Lock style={{ width: '10px', height: '10px' }} />
-              <span>Read-Only</span>
-            </span>
-          </div>
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Criticality</span>
+                {renderFieldCommentTrigger(item.id, 'criticality', 'Criticality')}
+              </label>
+              <select disabled={isReadOnly} value={item.criticality} style={selectBaseStyle}>
+                <option value="Critical">Critical</option>
+                <option value="Major">Major</option>
+                <option value="Minor">Minor</option>
+              </select>
+            </div>
 
-          {/* AI Field 1: Issue Title */}
-          <div>
-            <label style={labelStyle}>
-              <span style={{ fontWeight: '700' }}>Issue Title</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: '700' }}>🔒 Read Only</span>
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Issue Title</span>
                 {renderFieldCommentTrigger(item.id, 'title', 'Issue Title')}
-              </div>
-            </label>
-            <input
-              type="text"
-              disabled={isReadOnly}
-              readOnly={isReadOnly}
-              value={item.title}
-              style={inputBaseStyle}
-            />
+              </label>
+              <input
+                type="text"
+                disabled={isReadOnly}
+                readOnly={isReadOnly}
+                value={item.title}
+                style={inputBaseStyle}
+              />
+            </div>
           </div>
 
-          {/* AI Field 2: Description */}
+          {/* Row 2 (2 Columns): Original Issue & Root Cause */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Original Issue</span>
+                {renderFieldCommentTrigger(item.id, 'originalIssue', 'Original Issue')}
+              </label>
+              <textarea
+                rows={3}
+                disabled={isReadOnly}
+                readOnly={isReadOnly}
+                value={item.originalIssue || item.issue || ''}
+                style={textareaBaseStyle}
+              />
+            </div>
+
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Root Cause</span>
+                {renderFieldCommentTrigger(item.id, 'rootCause', 'Root Cause')}
+              </label>
+              <textarea
+                rows={3}
+                disabled={isReadOnly}
+                readOnly={isReadOnly}
+                value={item.rootCause}
+                style={textareaBaseStyle}
+              />
+            </div>
+          </div>
+
+          {/* Row 3: Description with Violation Reference */}
           <DescriptionWithViolations
             issueId={item.id}
             label="Description"
             value={item.issue || ''}
             isReadOnly={true}
+            hideReadOnlyBadge={true}
             onOpenViolationDoc={handleOpenViolationDoc}
             commentTrigger={renderFieldCommentTrigger(item.id, 'issue', 'Description')}
           />
 
-          {/* AI Field 3: Root Cause */}
-          <div>
-            <label style={labelStyle}>
-              <span style={{ fontWeight: '700' }}>Root Cause</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: '700' }}>🔒 Read Only</span>
-                {renderFieldCommentTrigger(item.id, 'rootCause', 'Root Cause')}
-              </div>
-            </label>
-            <textarea
-              rows={3}
-              disabled={isReadOnly}
-              readOnly={isReadOnly}
-              value={item.rootCause}
-              style={textareaBaseStyle}
-            />
-          </div>
-
-          {/* AI Field 4: Impact */}
-          <div>
-            <label style={labelStyle}>
-              <span style={{ fontWeight: '700' }}>Impact</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: '700' }}>🔒 Read Only</span>
+          {/* Row 4 (2 Columns): Impact & Recommendation */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Impact</span>
                 {renderFieldCommentTrigger(item.id, 'impact', 'Impact')}
-              </div>
-            </label>
-            <textarea
-              rows={3}
-              disabled={isReadOnly}
-              readOnly={isReadOnly}
-              value={item.impact}
-              style={textareaBaseStyle}
-            />
+              </label>
+              <textarea
+                rows={3}
+                disabled={isReadOnly}
+                readOnly={isReadOnly}
+                value={item.impact}
+                style={textareaBaseStyle}
+              />
+            </div>
+
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Recommendation</span>
+                {renderFieldCommentTrigger(item.id, 'recommendation', 'Recommendation')}
+              </label>
+              <textarea
+                rows={3}
+                disabled={isReadOnly}
+                readOnly={isReadOnly}
+                value={item.recommendation}
+                style={textareaBaseStyle}
+              />
+            </div>
           </div>
 
-          {/* AI Field 5: Recommendation */}
+          {/* Row 5 (4 Columns): Process Area, Issue Cause Type, SOX Reportable, Repeat Finding */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '16px' }}>
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Process Area</span>
+                {renderFieldCommentTrigger(item.id, 'processArea', 'Process Area')}
+              </label>
+              <select disabled={isReadOnly} value={item.processArea} style={selectBaseStyle}>
+                {item.processArea && !PROCESS_AREA_OPTIONS.includes(item.processArea) && (
+                  <option value={item.processArea}>{item.processArea.replace(/_/g, ' ')}</option>
+                )}
+                {PROCESS_AREA_OPTIONS.map(opt => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Issue Cause Type</span>
+                {renderFieldCommentTrigger(item.id, 'issueCauseType', 'Cause Type')}
+              </label>
+              <input type="text" disabled={isReadOnly} readOnly={isReadOnly} value={item.issueCauseType} style={inputBaseStyle} />
+            </div>
+
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>SOX Reportable</span>
+                {renderFieldCommentTrigger(item.id, 'soxReportable', 'SOX Reportable')}
+              </label>
+              <select disabled={isReadOnly} value={item.soxReportable} style={selectBaseStyle}>
+                <option value="No">No</option>
+                <option value="Yes">Yes</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Repeat Finding</span>
+                {renderFieldCommentTrigger(item.id, 'repeatFinding', 'Repeat Finding')}
+              </label>
+              <select disabled={isReadOnly} value={item.repeatFinding} style={selectBaseStyle}>
+                <option value="No">No</option>
+                <option value="Yes">Yes</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Row 6 (2 Columns): Accountable Contact & Agreed Remediation Date */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Accountable Contact</span>
+                {renderFieldCommentTrigger(item.id, 'accountableContact', 'Accountable Contact')}
+              </label>
+              <input type="text" disabled={isReadOnly} readOnly={isReadOnly} value={item.accountableContact || ''} style={inputBaseStyle} />
+            </div>
+
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Agreed Remediation Date</span>
+                {renderFieldCommentTrigger(item.id, 'agreedRemediationDate', 'Agreed Remediation Date')}
+              </label>
+              <input type="text" disabled={isReadOnly} readOnly={isReadOnly} value={item.agreedRemediationDate || ''} style={inputBaseStyle} />
+            </div>
+          </div>
+
+          {/* Row 7 (2 Columns): Management Response & Summary Finding */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Management Response</span>
+                {renderFieldCommentTrigger(item.id, 'managementResponse', 'Management Response')}
+              </label>
+              <textarea
+                rows={3}
+                disabled={isReadOnly}
+                readOnly={isReadOnly}
+                value={item.managementResponse || ''}
+                placeholder="No management response recorded yet..."
+                style={textareaBaseStyle}
+              />
+            </div>
+
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Summary Finding (Executive Summary)</span>
+                {renderFieldCommentTrigger(item.id, 'summaryFinding', 'Summary Finding')}
+              </label>
+              <textarea
+                rows={3}
+                disabled={isReadOnly}
+                readOnly={isReadOnly}
+                value={item.summaryFinding || ''}
+                placeholder="No summary finding..."
+                style={textareaBaseStyle}
+              />
+            </div>
+          </div>
+
+          {/* Row 8 (3 Columns): Auditor Response, Mitigating Control, Exception Remed Comments */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Auditor Response</span>
+                {renderFieldCommentTrigger(item.id, 'auditorResponse', 'Auditor Response')}
+              </label>
+              <textarea
+                rows={3}
+                disabled={isReadOnly}
+                readOnly={isReadOnly}
+                value={item.auditorResponse || ''}
+                placeholder="No auditor response..."
+                style={textareaBaseStyle}
+              />
+            </div>
+
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Mitigating Control</span>
+                {renderFieldCommentTrigger(item.id, 'mitigatingControl', 'Mitigating Control')}
+              </label>
+              <textarea
+                rows={3}
+                disabled={isReadOnly}
+                readOnly={isReadOnly}
+                value={item.mitigatingControl || ''}
+                placeholder="No mitigating control..."
+                style={textareaBaseStyle}
+              />
+            </div>
+
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Exception Remed Comments</span>
+                {renderFieldCommentTrigger(item.id, 'exceptionRemedComments', 'Exception Remed Comments')}
+              </label>
+              <textarea
+                rows={3}
+                disabled={isReadOnly}
+                readOnly={isReadOnly}
+                value={item.exceptionRemedComments || ''}
+                placeholder="No exception remediation comments..."
+                style={textareaBaseStyle}
+              />
+            </div>
+          </div>
+
+          {/* Row 9 (4 Columns): Issue Type, Issue Source, Key Theme, Technology Related */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '16px' }}>
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Issue Type</span>
+                {renderFieldCommentTrigger(item.id, 'issueType', 'Issue Type')}
+              </label>
+              <select disabled={isReadOnly} value={item.issueType || ''} style={selectBaseStyle}>
+                <option value="" disabled>Select Issue Type...</option>
+                {item.issueType && !ISSUE_TYPE_OPTIONS.includes(item.issueType) && (
+                  <option value={item.issueType}>{item.issueType}</option>
+                )}
+                {ISSUE_TYPE_OPTIONS.map(opt => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Issue Source</span>
+                {renderFieldCommentTrigger(item.id, 'issueSource', 'Issue Source')}
+              </label>
+              <select disabled={isReadOnly} value={item.issueSource || ''} style={selectBaseStyle}>
+                <option value="" disabled>Select Issue Source...</option>
+                {item.issueSource && !ISSUE_SOURCE_OPTIONS.includes(item.issueSource) && (
+                  <option value={item.issueSource}>{item.issueSource}</option>
+                )}
+                {ISSUE_SOURCE_OPTIONS.map(opt => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Key Theme</span>
+                {renderFieldCommentTrigger(item.id, 'keyTheme', 'Key Theme')}
+              </label>
+              <select disabled={isReadOnly} value={item.keyTheme || ''} style={selectBaseStyle}>
+                <option value="" disabled>Select Key Theme...</option>
+                {item.keyTheme && !KEY_THEME_OPTIONS.includes(item.keyTheme) && (
+                  <option value={item.keyTheme}>{item.keyTheme}</option>
+                )}
+                {KEY_THEME_OPTIONS.map(opt => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Technology Related</span>
+                {renderFieldCommentTrigger(item.id, 'technologyRelated', 'Technology Related')}
+              </label>
+              <select disabled={isReadOnly} value={item.technologyRelated || 'No'} style={selectBaseStyle}>
+                <option value="No">No</option>
+                <option value="Yes">Yes</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Row 10 (4 Columns): IT Asset Accountable Sector, Impacted Region, Impacted Sector, Impacted MRC */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '16px' }}>
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>IT Asset Accountable Sector</span>
+                {renderFieldCommentTrigger(item.id, 'itAssetAccountableSector', 'IT Asset Accountable Sector')}
+              </label>
+              <select disabled={isReadOnly} value={item.itAssetAccountableSector || ''} style={selectBaseStyle}>
+                <option value="" disabled>Select Sector...</option>
+                {item.itAssetAccountableSector && !IT_ASSET_ACCOUNTABLE_SECTOR_OPTIONS.includes(item.itAssetAccountableSector) && (
+                  <option value={item.itAssetAccountableSector}>{item.itAssetAccountableSector}</option>
+                )}
+                {IT_ASSET_ACCOUNTABLE_SECTOR_OPTIONS.map(opt => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Impacted Region</span>
+                {renderFieldCommentTrigger(item.id, 'impactedRegion', 'Impacted Region')}
+              </label>
+              <select disabled={isReadOnly} value={item.impactedRegion || ''} style={selectBaseStyle}>
+                <option value="" disabled>Select Region...</option>
+                {item.impactedRegion && !IMPACTED_REGION_OPTIONS.includes(item.impactedRegion) && (
+                  <option value={item.impactedRegion}>{item.impactedRegion}</option>
+                )}
+                {IMPACTED_REGION_OPTIONS.map(opt => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Impacted Sector</span>
+                {renderFieldCommentTrigger(item.id, 'impactedSector', 'Impacted Sector')}
+              </label>
+              <select disabled={isReadOnly} value={item.impactedSector || ''} style={selectBaseStyle}>
+                <option value="" disabled>Select Sector...</option>
+                {item.impactedSector && !IMPACTED_SECTOR_OPTIONS.includes(item.impactedSector) && (
+                  <option value={item.impactedSector}>{item.impactedSector}</option>
+                )}
+                {IMPACTED_SECTOR_OPTIONS.map(opt => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Impacted MRC</span>
+                {renderFieldCommentTrigger(item.id, 'impactedMrc', 'Impacted MRC')}
+              </label>
+              <select disabled={isReadOnly} value={item.impactedMrc || ''} style={selectBaseStyle}>
+                <option value="" disabled>Select MRC...</option>
+                {item.impactedMrc && !IMPACTED_MRC_OPTIONS.includes(item.impactedMrc) && (
+                  <option value={item.impactedMrc}>{item.impactedMrc}</option>
+                )}
+                {IMPACTED_MRC_OPTIONS.map(opt => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Row 11 (5 Columns): Quarter Impacted, Sales (USD), IBT (USD), Net Income (USD), Total Assets (USD) */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: '16px' }}>
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Quarter Impacted</span>
+                {renderFieldCommentTrigger(item.id, 'quarterImpacted', 'Quarter Impacted')}
+              </label>
+              <select disabled={isReadOnly} value={item.quarterImpacted || ''} style={selectBaseStyle}>
+                <option value="" disabled>Select Quarter Impacted...</option>
+                {item.quarterImpacted && !QUARTER_IMPACTED_OPTIONS.includes(item.quarterImpacted) && (
+                  <option value={item.quarterImpacted}>{item.quarterImpacted}</option>
+                )}
+                {QUARTER_IMPACTED_OPTIONS.map(opt => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Sales (USD)</span>
+                {renderFieldCommentTrigger(item.id, 'salesUsd', 'Sales (USD)')}
+              </label>
+              <input type="text" disabled={isReadOnly} readOnly={isReadOnly} value={item.salesUsd || ''} style={inputBaseStyle} />
+            </div>
+
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>IBT (USD)</span>
+                {renderFieldCommentTrigger(item.id, 'ibtUsd', 'IBT (USD)')}
+              </label>
+              <input type="text" disabled={isReadOnly} readOnly={isReadOnly} value={item.ibtUsd || ''} style={inputBaseStyle} />
+            </div>
+
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Net Income (USD)</span>
+                {renderFieldCommentTrigger(item.id, 'netIncomeUsd', 'Net Income (USD)')}
+              </label>
+              <input type="text" disabled={isReadOnly} readOnly={isReadOnly} value={item.netIncomeUsd || ''} style={inputBaseStyle} />
+            </div>
+
+            <div>
+              <label style={labelStyle}>
+                <span style={{ fontWeight: '700' }}>Total Assets (USD)</span>
+                {renderFieldCommentTrigger(item.id, 'totalAssetsUsd', 'Total Assets (USD)')}
+              </label>
+              <input type="text" disabled={isReadOnly} readOnly={isReadOnly} value={item.totalAssetsUsd || ''} style={inputBaseStyle} />
+            </div>
+          </div>
+
+          {/* Row 12: Exception - Remed Date */}
           <div>
-            <label style={labelStyle}>
-              <span style={{ fontWeight: '700' }}>Recommendation</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '10px', color: '#64748B', fontWeight: '700' }}>🔒 Read Only</span>
-                {renderFieldCommentTrigger(item.id, 'recommendation', 'Recommendation')}
+                <input
+                  type="checkbox"
+                  disabled={isReadOnly}
+                  checked={!!item.hasExceptionRemedDate}
+                  readOnly
+                  style={{ width: '15px', height: '15px', accentColor: '#D8001D', cursor: 'not-allowed' }}
+                />
+                <label style={{ fontSize: '11px', fontWeight: '700', color: '#475569' }}>
+                  Exception - Remed Date
+                </label>
               </div>
-            </label>
-            <textarea
-              rows={3}
-              disabled={isReadOnly}
-              readOnly={isReadOnly}
-              value={item.recommendation}
-              style={textareaBaseStyle}
-            />
+              {renderFieldCommentTrigger(item.id, 'exceptionRemedDate', 'Exception - Remed Date')}
+            </div>
+            {item.hasExceptionRemedDate && (
+              <input
+                type="date"
+                disabled={isReadOnly}
+                readOnly={isReadOnly}
+                value={item.exceptionRemedDate || ''}
+                style={{ ...inputBaseStyle, marginTop: '4px', maxWidth: '300px' }}
+              />
+            )}
           </div>
         </div>
+      );
+    }
 
-        {/* 3. BOTTOM SECTION: ALL OTHER AUDIT & GOVERNANCE FIELDS */}
-        <div style={{
-          marginTop: '8px',
-          paddingTop: '14px',
-          borderTop: '1px solid #E2E8F0',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between'
-        }}>
-          <div>
-            <h4 style={{ fontSize: '13px', fontWeight: '800', color: '#1E293B', margin: 0 }}>
-              Other Audit &amp; Governance Fields
-            </h4>
-            <span style={{ fontSize: '10.5px', color: '#64748B' }}>
-              Process categorization, contacts, remediation &amp; extended attributes
-            </span>
-          </div>
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        {/* Field 1: Test Procedure */}
+        <div>
+          <label style={labelStyle}>
+            <span style={{ fontWeight: '700' }}>Test Procedure</span>
+            {renderFieldCommentTrigger(item.id, 'testProcedure', 'Test Procedure')}
+          </label>
+          <select disabled={isReadOnly} value={item.testProcedure || ''} style={selectBaseStyle}>
+            <option value="" disabled>Select Test Procedure...</option>
+            {item.testProcedure && !activeTestProcedures.includes(item.testProcedure) && (
+              <option value={item.testProcedure}>{item.testProcedure}</option>
+            )}
+            {activeTestProcedures.map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Field 2: Original Issue */}
+        <div>
+          <label style={labelStyle}>
+            <span style={{ fontWeight: '700' }}>Original Issue</span>
+            {renderFieldCommentTrigger(item.id, 'originalIssue', 'Original Issue')}
+          </label>
+          <textarea
+            rows={3}
+            disabled={isReadOnly}
+            readOnly={isReadOnly}
+            value={item.originalIssue || item.issue || ''}
+            style={textareaBaseStyle}
+          />
+        </div>
+
+        {/* Field 3: Criticality */}
+        <div>
+          <label style={labelStyle}>
+            <span style={{ fontWeight: '700' }}>Criticality</span>
+            {renderFieldCommentTrigger(item.id, 'criticality', 'Criticality')}
+          </label>
+          <select disabled={isReadOnly} value={item.criticality} style={selectBaseStyle}>
+            <option value="Critical">Critical</option>
+            <option value="Major">Major</option>
+            <option value="Minor">Minor</option>
+          </select>
+        </div>
+
+        {/* AI Field 1: Issue Title */}
+        <div>
+          <label style={labelStyle}>
+            <span style={{ fontWeight: '700' }}>Issue Title</span>
+            {renderFieldCommentTrigger(item.id, 'title', 'Issue Title')}
+          </label>
+          <input
+            type="text"
+            disabled={isReadOnly}
+            readOnly={isReadOnly}
+            value={item.title}
+            style={inputBaseStyle}
+          />
+        </div>
+
+        {/* AI Field 2: Description */}
+        <DescriptionWithViolations
+          issueId={item.id}
+          label="Description"
+          value={item.issue || ''}
+          isReadOnly={true}
+          hideReadOnlyBadge={true}
+          onOpenViolationDoc={handleOpenViolationDoc}
+          commentTrigger={renderFieldCommentTrigger(item.id, 'issue', 'Description')}
+        />
+
+        {/* AI Field 3: Root Cause */}
+        <div>
+          <label style={labelStyle}>
+            <span style={{ fontWeight: '700' }}>Root Cause</span>
+            {renderFieldCommentTrigger(item.id, 'rootCause', 'Root Cause')}
+          </label>
+          <textarea
+            rows={3}
+            disabled={isReadOnly}
+            readOnly={isReadOnly}
+            value={item.rootCause}
+            style={textareaBaseStyle}
+          />
+        </div>
+
+        {/* AI Field 4: Impact */}
+        <div>
+          <label style={labelStyle}>
+            <span style={{ fontWeight: '700' }}>Impact</span>
+            {renderFieldCommentTrigger(item.id, 'impact', 'Impact')}
+          </label>
+          <textarea
+            rows={3}
+            disabled={isReadOnly}
+            readOnly={isReadOnly}
+            value={item.impact}
+            style={textareaBaseStyle}
+          />
+        </div>
+
+        {/* AI Field 5: Recommendation */}
+        <div>
+          <label style={labelStyle}>
+            <span style={{ fontWeight: '700' }}>Recommendation</span>
+            {renderFieldCommentTrigger(item.id, 'recommendation', 'Recommendation')}
+          </label>
+          <textarea
+            rows={3}
+            disabled={isReadOnly}
+            readOnly={isReadOnly}
+            value={item.recommendation}
+            style={textareaBaseStyle}
+          />
         </div>
 
         {/* Process Area & Issue Cause Type */}
@@ -908,10 +1226,7 @@ export default function BusinessResponseView({
           <div>
             <label style={labelStyle}>
               <span style={{ fontWeight: '700' }}>Process Area</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-                {renderFieldCommentTrigger(item.id, 'processArea', 'Process Area')}
-              </div>
+              {renderFieldCommentTrigger(item.id, 'processArea', 'Process Area')}
             </label>
             <select disabled={isReadOnly} value={item.processArea} style={selectBaseStyle}>
               {item.processArea && !PROCESS_AREA_OPTIONS.includes(item.processArea) && (
@@ -926,10 +1241,7 @@ export default function BusinessResponseView({
           <div>
             <label style={labelStyle}>
               <span style={{ fontWeight: '700' }}>Issue Cause Type</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-                {renderFieldCommentTrigger(item.id, 'issueCauseType', 'Cause Type')}
-              </div>
+              {renderFieldCommentTrigger(item.id, 'issueCauseType', 'Cause Type')}
             </label>
             <input type="text" disabled={isReadOnly} readOnly={isReadOnly} value={item.issueCauseType} style={inputBaseStyle} />
           </div>
@@ -940,10 +1252,7 @@ export default function BusinessResponseView({
           <div>
             <label style={labelStyle}>
               <span style={{ fontWeight: '700' }}>SOX Reportable</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-                {renderFieldCommentTrigger(item.id, 'soxReportable', 'SOX Reportable')}
-              </div>
+              {renderFieldCommentTrigger(item.id, 'soxReportable', 'SOX Reportable')}
             </label>
             <select disabled={isReadOnly} value={item.soxReportable} style={selectBaseStyle}>
               <option value="No">No</option>
@@ -954,10 +1263,7 @@ export default function BusinessResponseView({
           <div>
             <label style={labelStyle}>
               <span style={{ fontWeight: '700' }}>Repeat Finding</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-                {renderFieldCommentTrigger(item.id, 'repeatFinding', 'Repeat Finding')}
-              </div>
+              {renderFieldCommentTrigger(item.id, 'repeatFinding', 'Repeat Finding')}
             </label>
             <select disabled={isReadOnly} value={item.repeatFinding} style={selectBaseStyle}>
               <option value="No">No</option>
@@ -970,10 +1276,7 @@ export default function BusinessResponseView({
         <div>
           <label style={labelStyle}>
             <span style={{ fontWeight: '700' }}>Management Response</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-              {renderFieldCommentTrigger(item.id, 'managementResponse', 'Management Response')}
-            </div>
+            {renderFieldCommentTrigger(item.id, 'managementResponse', 'Management Response')}
           </label>
           <textarea
             rows={2}
@@ -990,10 +1293,7 @@ export default function BusinessResponseView({
           <div>
             <label style={labelStyle}>
               <span style={{ fontWeight: '700' }}>Accountable Contact</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-                {renderFieldCommentTrigger(item.id, 'accountableContact', 'Accountable Contact')}
-              </div>
+              {renderFieldCommentTrigger(item.id, 'accountableContact', 'Accountable Contact')}
             </label>
             <input type="text" disabled={isReadOnly} readOnly={isReadOnly} value={item.accountableContact || ''} style={inputBaseStyle} />
           </div>
@@ -1001,10 +1301,7 @@ export default function BusinessResponseView({
           <div>
             <label style={labelStyle}>
               <span style={{ fontWeight: '700' }}>Agreed Remediation Date</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-                {renderFieldCommentTrigger(item.id, 'agreedRemediationDate', 'Agreed Remediation Date')}
-              </div>
+              {renderFieldCommentTrigger(item.id, 'agreedRemediationDate', 'Agreed Remediation Date')}
             </label>
             <input type="text" disabled={isReadOnly} readOnly={isReadOnly} value={item.agreedRemediationDate || ''} style={inputBaseStyle} />
           </div>
@@ -1014,10 +1311,7 @@ export default function BusinessResponseView({
         <div>
           <label style={labelStyle}>
             <span style={{ fontWeight: '700' }}>Summary Finding (Executive Summary)</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-              {renderFieldCommentTrigger(item.id, 'summaryFinding', 'Summary Finding')}
-            </div>
+            {renderFieldCommentTrigger(item.id, 'summaryFinding', 'Summary Finding')}
           </label>
           <textarea
             rows={3}
@@ -1033,10 +1327,7 @@ export default function BusinessResponseView({
         <div>
           <label style={labelStyle}>
             <span style={{ fontWeight: '700' }}>Auditor Response</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-              {renderFieldCommentTrigger(item.id, 'auditorResponse', 'Auditor Response')}
-            </div>
+            {renderFieldCommentTrigger(item.id, 'auditorResponse', 'Auditor Response')}
           </label>
           <textarea
             rows={3}
@@ -1052,10 +1343,7 @@ export default function BusinessResponseView({
         <div>
           <label style={labelStyle}>
             <span style={{ fontWeight: '700' }}>Mitigating Control</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-              {renderFieldCommentTrigger(item.id, 'mitigatingControl', 'Mitigating Control')}
-            </div>
+            {renderFieldCommentTrigger(item.id, 'mitigatingControl', 'Mitigating Control')}
           </label>
           <textarea
             rows={3}
@@ -1071,10 +1359,7 @@ export default function BusinessResponseView({
         <div>
           <label style={labelStyle}>
             <span style={{ fontWeight: '700' }}>Exception Remed Comments</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-              {renderFieldCommentTrigger(item.id, 'exceptionRemedComments', 'Exception Remed Comments')}
-            </div>
+            {renderFieldCommentTrigger(item.id, 'exceptionRemedComments', 'Exception Remed Comments')}
           </label>
           <textarea
             rows={3}
@@ -1091,10 +1376,7 @@ export default function BusinessResponseView({
           <div>
             <label style={labelStyle}>
               <span style={{ fontWeight: '700' }}>Issue Type</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-                {renderFieldCommentTrigger(item.id, 'issueType', 'Issue Type')}
-              </div>
+              {renderFieldCommentTrigger(item.id, 'issueType', 'Issue Type')}
             </label>
             <select disabled={isReadOnly} value={item.issueType || ''} style={selectBaseStyle}>
               <option value="" disabled>Select Issue Type...</option>
@@ -1110,10 +1392,7 @@ export default function BusinessResponseView({
           <div>
             <label style={labelStyle}>
               <span style={{ fontWeight: '700' }}>Issue Source</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-                {renderFieldCommentTrigger(item.id, 'issueSource', 'Issue Source')}
-              </div>
+              {renderFieldCommentTrigger(item.id, 'issueSource', 'Issue Source')}
             </label>
             <select disabled={isReadOnly} value={item.issueSource || ''} style={selectBaseStyle}>
               <option value="" disabled>Select Issue Source...</option>
@@ -1132,10 +1411,7 @@ export default function BusinessResponseView({
           <div>
             <label style={labelStyle}>
               <span style={{ fontWeight: '700' }}>Key Theme</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-                {renderFieldCommentTrigger(item.id, 'keyTheme', 'Key Theme')}
-              </div>
+              {renderFieldCommentTrigger(item.id, 'keyTheme', 'Key Theme')}
             </label>
             <select disabled={isReadOnly} value={item.keyTheme || ''} style={selectBaseStyle}>
               <option value="" disabled>Select Key Theme...</option>
@@ -1151,10 +1427,7 @@ export default function BusinessResponseView({
           <div>
             <label style={labelStyle}>
               <span style={{ fontWeight: '700' }}>Technology Related</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-                {renderFieldCommentTrigger(item.id, 'technologyRelated', 'Technology Related')}
-              </div>
+              {renderFieldCommentTrigger(item.id, 'technologyRelated', 'Technology Related')}
             </label>
             <select disabled={isReadOnly} value={item.technologyRelated || 'No'} style={selectBaseStyle}>
               <option value="No">No</option>
@@ -1168,10 +1441,7 @@ export default function BusinessResponseView({
           <div>
             <label style={labelStyle}>
               <span style={{ fontWeight: '700' }}>IT Asset Accountable Sector</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-                {renderFieldCommentTrigger(item.id, 'itAssetAccountableSector', 'IT Asset Accountable Sector')}
-              </div>
+              {renderFieldCommentTrigger(item.id, 'itAssetAccountableSector', 'IT Asset Accountable Sector')}
             </label>
             <select disabled={isReadOnly} value={item.itAssetAccountableSector || ''} style={selectBaseStyle}>
               <option value="" disabled>Select Sector...</option>
@@ -1187,10 +1457,7 @@ export default function BusinessResponseView({
           <div>
             <label style={labelStyle}>
               <span style={{ fontWeight: '700' }}>Impacted Region</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-                {renderFieldCommentTrigger(item.id, 'impactedRegion', 'Impacted Region')}
-              </div>
+              {renderFieldCommentTrigger(item.id, 'impactedRegion', 'Impacted Region')}
             </label>
             <select disabled={isReadOnly} value={item.impactedRegion || ''} style={selectBaseStyle}>
               <option value="" disabled>Select Region...</option>
@@ -1209,10 +1476,7 @@ export default function BusinessResponseView({
           <div>
             <label style={labelStyle}>
               <span style={{ fontWeight: '700' }}>Impacted Sector</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-                {renderFieldCommentTrigger(item.id, 'impactedSector', 'Impacted Sector')}
-              </div>
+              {renderFieldCommentTrigger(item.id, 'impactedSector', 'Impacted Sector')}
             </label>
             <select disabled={isReadOnly} value={item.impactedSector || ''} style={selectBaseStyle}>
               <option value="" disabled>Select Sector...</option>
@@ -1228,10 +1492,7 @@ export default function BusinessResponseView({
           <div>
             <label style={labelStyle}>
               <span style={{ fontWeight: '700' }}>Impacted MRC</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-                {renderFieldCommentTrigger(item.id, 'impactedMrc', 'Impacted MRC')}
-              </div>
+              {renderFieldCommentTrigger(item.id, 'impactedMrc', 'Impacted MRC')}
             </label>
             <select disabled={isReadOnly} value={item.impactedMrc || ''} style={selectBaseStyle}>
               <option value="" disabled>Select MRC...</option>
@@ -1249,10 +1510,7 @@ export default function BusinessResponseView({
         <div>
           <label style={labelStyle}>
             <span style={{ fontWeight: '700' }}>Quarter Impacted</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-              {renderFieldCommentTrigger(item.id, 'quarterImpacted', 'Quarter Impacted')}
-            </div>
+            {renderFieldCommentTrigger(item.id, 'quarterImpacted', 'Quarter Impacted')}
           </label>
           <select disabled={isReadOnly} value={item.quarterImpacted || ''} style={selectBaseStyle}>
             <option value="" disabled>Select Quarter Impacted...</option>
@@ -1270,10 +1528,7 @@ export default function BusinessResponseView({
           <div>
             <label style={labelStyle}>
               <span style={{ fontWeight: '700' }}>Sales (USD)</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-                {renderFieldCommentTrigger(item.id, 'salesUsd', 'Sales (USD)')}
-              </div>
+              {renderFieldCommentTrigger(item.id, 'salesUsd', 'Sales (USD)')}
             </label>
             <input type="text" disabled={isReadOnly} readOnly={isReadOnly} value={item.salesUsd || ''} style={inputBaseStyle} />
           </div>
@@ -1281,10 +1536,7 @@ export default function BusinessResponseView({
           <div>
             <label style={labelStyle}>
               <span style={{ fontWeight: '700' }}>IBT (USD)</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-                {renderFieldCommentTrigger(item.id, 'ibtUsd', 'IBT (USD)')}
-              </div>
+              {renderFieldCommentTrigger(item.id, 'ibtUsd', 'IBT (USD)')}
             </label>
             <input type="text" disabled={isReadOnly} readOnly={isReadOnly} value={item.ibtUsd || ''} style={inputBaseStyle} />
           </div>
@@ -1294,10 +1546,7 @@ export default function BusinessResponseView({
           <div>
             <label style={labelStyle}>
               <span style={{ fontWeight: '700' }}>Net Income (USD)</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-                {renderFieldCommentTrigger(item.id, 'netIncomeUsd', 'Net Income (USD)')}
-              </div>
+              {renderFieldCommentTrigger(item.id, 'netIncomeUsd', 'Net Income (USD)')}
             </label>
             <input type="text" disabled={isReadOnly} readOnly={isReadOnly} value={item.netIncomeUsd || ''} style={inputBaseStyle} />
           </div>
@@ -1305,10 +1554,7 @@ export default function BusinessResponseView({
           <div>
             <label style={labelStyle}>
               <span style={{ fontWeight: '700' }}>Total Assets (USD)</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-                {renderFieldCommentTrigger(item.id, 'totalAssetsUsd', 'Total Assets (USD)')}
-              </div>
+              {renderFieldCommentTrigger(item.id, 'totalAssetsUsd', 'Total Assets (USD)')}
             </label>
             <input type="text" disabled={isReadOnly} readOnly={isReadOnly} value={item.totalAssetsUsd || ''} style={inputBaseStyle} />
           </div>
@@ -1329,10 +1575,7 @@ export default function BusinessResponseView({
                 Exception - Remed Date
               </label>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Lock style={{ width: '10px', height: '10px', color: '#94A3B8' }} />
-              {renderFieldCommentTrigger(item.id, 'exceptionRemedDate', 'Exception - Remed Date')}
-            </div>
+            {renderFieldCommentTrigger(item.id, 'exceptionRemedDate', 'Exception - Remed Date')}
           </div>
           {item.hasExceptionRemedDate && (
             <input
@@ -1348,83 +1591,17 @@ export default function BusinessResponseView({
     );
   };
 
-  // Right Section: Business Response Inputs (Response, Date, Attachment)
+  // Right Section: Simple Label and Input Boxes for Business Response
   const renderBusinessResponseInputs = (item) => {
     const attachments = Array.isArray(item.attachments) ? item.attachments : [];
-    const isSubmitted = item.status === 'Submitted to Director' || item.currentLevel === 'Director Review';
 
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-        {/* Business Response Status Banner */}
-        <div style={{
-          padding: '14px 16px',
-          borderRadius: '8px',
-          backgroundColor: isSubmitted ? '#ECFDF5' : '#EFF6FF',
-          border: isSubmitted ? '1px solid #A7F3D0' : '1px solid #BFDBFE',
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: '12px'
-        }}>
-          <div style={{
-            width: '34px',
-            height: '34px',
-            borderRadius: '8px',
-            backgroundColor: isSubmitted ? '#10B981' : '#0284C7',
-            color: '#ffffff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }}>
-            {isSubmitted ? (
-              <CheckCircle2 style={{ width: '18px', height: '18px' }} />
-            ) : (
-              <MessageSquare style={{ width: '18px', height: '18px' }} />
-            )}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px', marginBottom: '4px' }}>
-              <span style={{ fontSize: '13.5px', fontWeight: '800', color: isSubmitted ? '#065F46' : '#1E40AF' }}>
-                {isSubmitted ? 'Response Submitted to Audit Director' : 'Business Management Response Required'}
-              </span>
-              <span style={{
-                fontSize: '11px',
-                fontWeight: '800',
-                color: isSubmitted ? '#047857' : '#B45309',
-                backgroundColor: isSubmitted ? '#D1FAE5' : '#FEF3C7',
-                border: isSubmitted ? '1px solid #6EE7B7' : '1px solid #FDE68A',
-                padding: '2px 8px',
-                borderRadius: '9999px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}>
-                <Clock style={{ width: '11px', height: '11px' }} />
-                {item.status || 'Pending with Business'}
-              </span>
-            </div>
-            <p style={{ fontSize: '12px', color: isSubmitted ? '#047857' : '#1E3A8A', margin: 0, lineHeight: '1.45' }}>
-              {isSubmitted
-                ? 'Your response and supporting evidence have been submitted to the Audit Director for review.'
-                : 'Review the read-only issue fields on the left, then enter your Management Response, Agreed Remediation Date, and supporting attachments below.'}
-            </p>
-          </div>
-        </div>
-
-        {/* Input 1: Management Response & Corrective Action Plan */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {/* Input 1: Management Response */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label style={{ fontSize: '12.5px', fontWeight: '800', color: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <MessageSquare style={{ width: '14px', height: '14px', color: '#0284C7' }} />
-              Management Response &amp; Corrective Action Plan <span style={{ color: '#DC2626' }}>*</span>
-            </span>
-            <span style={{ fontSize: '11px', fontWeight: '600', color: '#64748B' }}>
-              {(item.managementResponse || '').length} characters
-            </span>
+          <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
+            Management Response <span style={{ color: '#DC2626' }}>*</span>
           </label>
-          <p style={{ fontSize: '11.5px', color: '#64748B', margin: 0 }}>
-            Specify the corrective actions agreed upon by management, systemic fixes, ownership, and milestones.
-          </p>
           <textarea
             rows={6}
             value={item.managementResponse || ''}
@@ -1432,13 +1609,13 @@ export default function BusinessResponseView({
               if (businessResponseError) setBusinessResponseError('');
               handleBusinessFieldChange(item.id, 'managementResponse', e.target.value);
             }}
-            placeholder="Enter detailed management response, corrective action plan, and accountability details..."
+            placeholder="Enter management response..."
             style={{
               width: '100%',
               padding: '10px 12px',
               fontSize: '12.5px',
-              borderRadius: '8px',
-              border: '1.5px solid #CBD5E1',
+              borderRadius: '6px',
+              border: '1px solid #CBD5E1',
               backgroundColor: '#ffffff',
               color: '#0F172A',
               fontFamily: 'inherit',
@@ -1450,77 +1627,68 @@ export default function BusinessResponseView({
           />
         </div>
 
-        {/* Input 2: Agreed Remediation Date */}
+        {/* Input 2: Business management Reason (Single-line text input) */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label style={{ fontSize: '12.5px', fontWeight: '800', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Calendar style={{ width: '14px', height: '14px', color: '#0284C7' }} />
-            Agreed Remediation Date <span style={{ color: '#DC2626' }}>*</span>
+          <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
+            Business management Reason
           </label>
-          <p style={{ fontSize: '11.5px', color: '#64748B', margin: 0 }}>
-            Target completion date agreed upon with Internal Audit for full closure of corrective actions.
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <input
-              type="date"
-              value={item.agreedRemediationDate || ''}
-              onChange={(e) => {
-                if (businessResponseError) setBusinessResponseError('');
-                handleBusinessFieldChange(item.id, 'agreedRemediationDate', e.target.value);
-              }}
-              style={{
-                height: '38px',
-                padding: '0 12px',
-                fontSize: '12.5px',
-                fontWeight: '600',
-                borderRadius: '8px',
-                border: '1.5px solid #CBD5E1',
-                backgroundColor: '#ffffff',
-                color: '#0F172A',
-                outline: 'none',
-                cursor: 'pointer'
-              }}
-            />
-            {['2026-10-31', '2026-11-30', '2026-12-31', '2027-01-31'].map(presetDate => (
-              <button
-                key={presetDate}
-                type="button"
-                onClick={() => {
-                  if (businessResponseError) setBusinessResponseError('');
-                  handleBusinessFieldChange(item.id, 'agreedRemediationDate', presetDate);
-                }}
-                style={{
-                  height: '34px',
-                  padding: '0 10px',
-                  fontSize: '11.5px',
-                  fontWeight: '700',
-                  borderRadius: '6px',
-                  border: item.agreedRemediationDate === presetDate ? '1.5px solid #0284C7' : '1px solid #CBD5E1',
-                  backgroundColor: item.agreedRemediationDate === presetDate ? '#EFF6FF' : '#F8FAFC',
-                  color: item.agreedRemediationDate === presetDate ? '#0284C7' : '#475569',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                {presetDate}
-              </button>
-            ))}
-          </div>
+          <input
+            type="text"
+            value={item.businessManagementReason || ''}
+            onChange={(e) => {
+              if (businessResponseError) setBusinessResponseError('');
+              handleBusinessFieldChange(item.id, 'businessManagementReason', e.target.value);
+            }}
+            placeholder="Enter business management reason..."
+            style={{
+              width: '100%',
+              height: '38px',
+              padding: '0 12px',
+              fontSize: '12.5px',
+              borderRadius: '6px',
+              border: '1px solid #CBD5E1',
+              backgroundColor: '#ffffff',
+              color: '#0F172A',
+              fontFamily: 'inherit',
+              outline: 'none',
+              boxSizing: 'border-box'
+            }}
+          />
         </div>
 
-        {/* Input 3: Upload Attachments & Evidence Files */}
+        {/* Input 3: Agreed Remediation Date */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label style={{ fontSize: '12.5px', fontWeight: '800', color: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Paperclip style={{ width: '14px', height: '14px', color: '#0284C7' }} />
-              Upload Attachments &amp; Evidence Files
-            </span>
-            <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748B' }}>
-              {attachments.length} {attachments.length === 1 ? 'file' : 'files'} attached
-            </span>
+          <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
+            Agreed Remediation Date <span style={{ color: '#DC2626' }}>*</span>
           </label>
-          <p style={{ fontSize: '11.5px', color: '#64748B', margin: 0 }}>
-            Upload supporting artifacts such as ticket extracts, vendor agreements, architecture diagrams, or sign-off emails.
-          </p>
+          <input
+            type="date"
+            value={item.agreedRemediationDate || ''}
+            onChange={(e) => {
+              if (businessResponseError) setBusinessResponseError('');
+              handleBusinessFieldChange(item.id, 'agreedRemediationDate', e.target.value);
+            }}
+            style={{
+              width: '100%',
+              height: '38px',
+              padding: '0 12px',
+              fontSize: '12.5px',
+              borderRadius: '6px',
+              border: '1px solid #CBD5E1',
+              backgroundColor: '#ffffff',
+              color: '#0F172A',
+              outline: 'none',
+              cursor: 'pointer',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
+
+        {/* Input 4: Attachment */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
+            Attachment
+          </label>
 
           <input
             type="file"
@@ -1550,37 +1718,22 @@ export default function BusinessResponseView({
               }
             }}
             style={{
-              padding: '24px 20px',
-              border: uploadDragOver ? '2px dashed #0284C7' : '2px dashed #CBD5E1',
-              backgroundColor: uploadDragOver ? '#EFF6FF' : '#F8FAFC',
-              borderRadius: '8px',
+              padding: '16px',
+              border: uploadDragOver ? '1.5px dashed #0284C7' : '1px dashed #CBD5E1',
+              backgroundColor: uploadDragOver ? '#EFF6FF' : '#ffffff',
+              borderRadius: '6px',
               display: 'flex',
-              flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '6px',
+              gap: '8px',
               cursor: 'pointer',
-              transition: 'all 0.15s ease'
+              fontSize: '12px',
+              fontWeight: '600',
+              color: '#475569'
             }}
           >
-            <div style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '50%',
-              backgroundColor: uploadDragOver ? '#DBEAFE' : '#E2E8F0',
-              color: uploadDragOver ? '#0284C7' : '#64748B',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <UploadCloud style={{ width: '20px', height: '20px' }} />
-            </div>
-            <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#0F172A' }}>
-              Click to upload or drag and drop files here
-            </div>
-            <div style={{ fontSize: '11px', color: '#64748B' }}>
-              Supports PDF, DOCX, XLSX, PNG, JPG (up to 25 MB per file)
-            </div>
+            <UploadCloud style={{ width: '16px', height: '16px', color: '#0284C7' }} />
+            <span>Click to upload or drag and drop files</span>
           </div>
 
           {attachments.length > 0 && (
@@ -1592,7 +1745,7 @@ export default function BusinessResponseView({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: '8px 12px',
+                    padding: '6px 10px',
                     borderRadius: '6px',
                     backgroundColor: '#ffffff',
                     border: '1px solid #CBD5E1',
@@ -1600,36 +1753,20 @@ export default function BusinessResponseView({
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                    <div style={{
-                      width: '28px',
-                      height: '28px',
-                      borderRadius: '4px',
-                      backgroundColor: '#EFF6FF',
-                      color: '#0284C7',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0
-                    }}>
-                      <Paperclip style={{ width: '13px', height: '13px' }} />
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: '700', color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '320px' }}>
-                        {att.name}
-                      </div>
-                      <div style={{ fontSize: '10px', color: '#64748B', display: 'flex', gap: '8px' }}>
-                        <span>{att.size}</span>
-                        <span>•</span>
-                        <span>{att.uploadedAt}</span>
-                      </div>
-                    </div>
+                    <Paperclip style={{ width: '13px', height: '13px', color: '#0284C7', flexShrink: 0 }} />
+                    <span style={{ fontWeight: '600', color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {att.name}
+                    </span>
+                    <span style={{ fontSize: '10.5px', color: '#64748B', flexShrink: 0 }}>
+                      ({att.size})
+                    </span>
                   </div>
                   <button
                     type="button"
                     onClick={() => handleRemoveAttachment(item.id, att.id)}
                     title="Remove attachment"
                     style={{
-                      padding: '4px 8px',
+                      padding: '3px 6px',
                       borderRadius: '4px',
                       border: '1px solid #FECACA',
                       backgroundColor: '#FEF2F2',
@@ -1639,11 +1776,10 @@ export default function BusinessResponseView({
                       alignItems: 'center',
                       gap: '4px',
                       fontSize: '10.5px',
-                      fontWeight: '700'
+                      fontWeight: '600'
                     }}
                   >
                     <Trash2 style={{ width: '11px', height: '11px' }} />
-                    <span>Remove</span>
                   </button>
                 </div>
               ))}
@@ -1670,44 +1806,20 @@ export default function BusinessResponseView({
           </div>
         )}
 
-        {/* Submit & Save Draft Action Bar */}
+        {/* Submit Response Button */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingTop: '14px',
-          borderTop: '1px solid #E2E8F0',
-          gap: '10px',
-          flexWrap: 'wrap'
+          justifyContent: 'flex-end',
+          paddingTop: '10px'
         }}>
-          <button
-            type="button"
-            onClick={() => handleSaveBusinessDraft(item.id)}
-            style={{
-              padding: '9px 16px',
-              fontSize: '12px',
-              fontWeight: '700',
-              borderRadius: '6px',
-              border: '1px solid #CBD5E1',
-              backgroundColor: '#F8FAFC',
-              color: '#334155',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <Save style={{ width: '14px', height: '14px', color: '#64748B' }} />
-            <span>Save Draft</span>
-          </button>
-
           <button
             type="button"
             onClick={() => handleSubmitBusinessResponse(item.id)}
             style={{
               padding: '9px 20px',
               fontSize: '12.5px',
-              fontWeight: '800',
+              fontWeight: '700',
               borderRadius: '6px',
               border: 'none',
               backgroundColor: '#0284C7',
@@ -1715,13 +1827,11 @@ export default function BusinessResponseView({
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              boxShadow: '0 2px 4px rgba(2, 132, 199, 0.25)',
-              transition: 'all 0.15s ease'
+              gap: '6px'
             }}
           >
             <Send style={{ width: '14px', height: '14px' }} />
-            <span>Submit Response to Director</span>
+            <span>Submit Response</span>
           </button>
         </div>
       </div>
@@ -1743,235 +1853,77 @@ export default function BusinessResponseView({
         borderBottom: '1px solid #E2E8F0',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '16px',
-        flexWrap: 'wrap',
+        gap: '12px',
         flexShrink: 0
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '6px 10px',
-              borderRadius: '6px',
-              border: '1px solid #CBD5E1',
-              backgroundColor: '#F8FAFC',
-              color: '#475569',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '12px',
-              fontWeight: '700'
-            }}
-            title="Back to My Audits"
-          >
-            <ArrowLeft style={{ width: '16px', height: '16px', color: '#D8001D' }} />
-            <span>Back</span>
-          </button>
-
-          <h1 style={{ fontSize: '18px', fontWeight: '900', color: '#0F172A', margin: 0 }}>
-            Provide Business Response — {job?.fileName || job?.engagement || job?.id || 'Audit Engagement'}
-          </h1>
-
-          <span style={{
-            fontSize: '11px',
-            fontWeight: '700',
-            color: '#0369A1',
-            backgroundColor: '#F0F9FF',
-            padding: '3px 10px',
+        <button
+          onClick={onClose}
+          style={{
+            padding: '6px 10px',
             borderRadius: '6px',
-            border: '1px solid #BAE6FD',
-            display: 'inline-flex',
+            border: '1px solid #CBD5E1',
+            backgroundColor: '#F8FAFC',
+            color: '#475569',
+            cursor: 'pointer',
+            display: 'flex',
             alignItems: 'center',
-            gap: '4px'
-          }}>
-            <span style={{ color: '#0284C7' }}>Role:</span>
-            <strong style={{ color: '#0C4A6E' }}>{activeRoleObj.label}</strong>
-          </span>
-        </div>
+            gap: '6px',
+            fontSize: '12px',
+            fontWeight: '700'
+          }}
+          title="Back to My Audits"
+        >
+          <ArrowLeft style={{ width: '16px', height: '16px', color: '#D8001D' }} />
+          <span>Back</span>
+        </button>
 
-        {/* Issue Selector Tabs if engagement has issues */}
-        {businessIssues.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '11.5px', fontWeight: '700', color: '#64748B' }}>
-              {businessIssues.length > 1 ? `Select Issue (${businessIssues.length}):` : 'Active Issue:'}
-            </span>
-            {businessIssues.map((iss, idx) => {
-              const isSelected = selectedIssue?.id === iss.id;
-              return (
-                <button
-                  key={iss.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedIssueId(iss.id);
-                    setBusinessResponseError('');
-                  }}
-                  style={{
-                    padding: '5px 12px',
-                    fontSize: '11.5px',
-                    fontWeight: '800',
-                    borderRadius: '6px',
-                    border: isSelected ? '1.5px solid #0284C7' : '1px solid #CBD5E1',
-                    backgroundColor: isSelected ? '#EFF6FF' : '#F8FAFC',
-                    color: isSelected ? '#0369A1' : '#475569',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  <span>Ref #{iss.reportRef || idx + 1} ({iss.id})</span>
-                  {iss.status === 'Submitted to Director' && (
-                    <CheckCircle2 style={{ width: '12px', height: '12px', color: '#10B981' }} />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
+        <h1 style={{ fontSize: '18px', fontWeight: '900', color: '#0F172A', margin: 0 }}>
+          {job?.fileName || job?.engagement || job?.id || 'Audit Engagement'}
+        </h1>
       </div>
 
-      {/* Main Two-Section Workspace */}
+      {/* Main Workspace */}
       {selectedIssue ? (
         <div style={{
           flex: 1,
           display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
+          gridTemplateColumns: isNeurovascularEngagement ? '1fr' : '1fr 1fr',
           overflow: 'hidden'
         }}>
           {/* LEFT SECTION: All Issue Fields in Read-Only Mode with Field-Level Comment Option */}
           <div style={{
-            borderRight: '1px solid #CBD5E1',
-            backgroundColor: '#FAFAFA',
+            borderRight: isNeurovascularEngagement ? 'none' : '1px solid #E2E8F0',
+            backgroundColor: '#ffffff',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden'
           }}>
             <div style={{
-              padding: '12px 20px',
-              backgroundColor: '#ffffff',
-              borderBottom: '1px solid #E2E8F0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '10px',
-              flexWrap: 'wrap',
-              flexShrink: 0
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <FileText style={{ width: '15px', height: '15px', color: '#1E40AF' }} />
-                <h2 style={{ fontSize: '13.5px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
-                  Issue Details &amp; Fields — {selectedIssue.id}
-                </h2>
-                {renderFunctionPill(selectedIssue.function)}
-                {renderCriticalityBadge(selectedIssue.criticality)}
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{
-                  fontSize: '10.5px',
-                  fontWeight: '700',
-                  color: '#0369A1',
-                  backgroundColor: '#F0F9FF',
-                  border: '1px solid #BAE6FD',
-                  padding: '2px 8px',
-                  borderRadius: '6px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}>
-                  <MessageSquare style={{ width: '11px', height: '11px' }} />
-                  <span>My Comments Only</span>
-                </span>
-                <span style={{
-                  fontSize: '10.5px',
-                  fontWeight: '800',
-                  color: '#475569',
-                  backgroundColor: '#F1F5F9',
-                  border: '1px solid #CBD5E1',
-                  padding: '2px 8px',
-                  borderRadius: '6px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}>
-                  <Lock style={{ width: '10.5px', height: '10.5px' }} />
-                  <span>Read-Only Mode</span>
-                </span>
-              </div>
-            </div>
-
-            <div style={{
               flex: 1,
               overflowY: 'auto',
-              padding: '18px 20px'
+              padding: '20px 24px'
             }}>
-              <div style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid #CBD5E1',
-                borderRadius: '10px',
-                padding: '18px',
-                boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)'
-              }}>
-                {renderReadOnlyIssueFields(selectedIssue)}
-              </div>
+              {renderReadOnlyIssueFields(selectedIssue, isNeurovascularEngagement)}
             </div>
           </div>
 
-          {/* RIGHT SECTION: Business Response Inputs (Response, Date, Attachment) */}
-          <div style={{
-            backgroundColor: '#F8FAFC',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden'
-          }}>
+          {/* RIGHT SECTION: Business Response Inputs (Hidden for Neurovascular_Stent_Manufacturing_Review) */}
+          {!isNeurovascularEngagement && (
             <div style={{
-              padding: '12px 20px',
-              backgroundColor: '#ffffff',
-              borderBottom: '1px solid #E2E8F0',
+              backgroundColor: '#FDFDFD',
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '10px',
-              flexShrink: 0
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <MessageSquare style={{ width: '15px', height: '15px', color: '#0284C7' }} />
-                <h2 style={{ fontSize: '13.5px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
-                  Business Response Inputs — {selectedIssue.id}
-                </h2>
-              </div>
-              <span style={{
-                fontSize: '10.5px',
-                fontWeight: '800',
-                color: '#0284C7',
-                backgroundColor: '#F0F9FF',
-                border: '1px solid #BAE6FD',
-                padding: '2px 8px',
-                borderRadius: '6px'
-              }}>
-                Response • Date • Attachments
-              </span>
-            </div>
-
-            <div style={{
-              flex: 1,
-              overflowY: 'auto',
-              padding: '18px 20px'
+              flexDirection: 'column',
+              overflow: 'hidden'
             }}>
               <div style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid #CBD5E1',
-                borderRadius: '10px',
-                padding: '20px',
-                boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)'
+                flex: 1,
+                overflowY: 'auto',
+                padding: '20px 24px'
               }}>
                 {renderBusinessResponseInputs(selectedIssue)}
               </div>
             </div>
-          </div>
+          )}
         </div>
       ) : (
         <div style={{
@@ -2010,4 +1962,3 @@ export default function BusinessResponseView({
     </div>
   );
 }
-
