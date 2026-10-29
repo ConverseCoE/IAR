@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   ArrowLeft, Send, MessageSquare,
-  CheckCircle2, AlertOctagon, UploadCloud, Paperclip, Trash2
+  CheckCircle2, AlertOctagon
 } from 'lucide-react';
 import { getIssuesByEngagement, getTestProceduresByEngagement } from '../data/assignmentsData';
 import { logIssueEvent } from '../utils/auditLogEngine';
@@ -55,7 +55,6 @@ function normalizeIssueForBusinessResponse(item, job) {
   const accountableContact = item.accountableContact || 'Narasimha, Vinay';
   const agreedRemediationDate = item.agreedRemediationDate || '2026-11-30';
   const managementResponse = item.managementResponse || '';
-  const businessManagementReason = item.businessManagementReason || '';
   const reportRef = item.reportRef || (item.id ? parseInt(item.id.replace(/\D/g, ''), 10) : 5) || 5;
   const accountableFunction = item.accountableFunction || (func === 'IT' ? 'Business IT, Finance' : 'Finance, Operations');
 
@@ -99,7 +98,6 @@ function normalizeIssueForBusinessResponse(item, job) {
     accountableContact,
     agreedRemediationDate,
     managementResponse,
-    businessManagementReason,
     tech: item.tech || func,
     functionType: item.functionType || func,
     criticality: crit,
@@ -302,8 +300,6 @@ export default function BusinessResponseView({
   }, [selectedIssueId]);
 
   // Business Response State
-  const businessFileInputRef = useRef(null);
-  const [uploadDragOver, setUploadDragOver] = useState(false);
   const [businessResponseError, setBusinessResponseError] = useState('');
   const [toastNotification, setToastNotification] = useState(null);
 
@@ -341,67 +337,12 @@ export default function BusinessResponseView({
     }
   };
 
-  const handleFileUpload = (issueId, files) => {
-    if (!files || files.length === 0) return;
-    const fileList = Array.from(files);
-    const newAttachments = fileList.map(f => {
-      const sizeKB = (f.size / 1024).toFixed(1);
-      const sizeMB = (f.size / (1024 * 1024)).toFixed(2);
-      const formattedSize = f.size > 1024 * 1024 ? `${sizeMB} MB` : `${sizeKB} KB`;
-      return {
-        id: `att-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-        name: f.name,
-        size: formattedSize,
-        type: f.type || 'document',
-        uploadedAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-      };
-    });
-
-    const updatedIssues = issues.map(item => {
-      if (item.id === issueId) {
-        const existing = Array.isArray(item.attachments) ? item.attachments : [];
-        return {
-          ...item,
-          attachments: [...existing, ...newAttachments]
-        };
-      }
-      return item;
-    });
-
-    updateIssuesAndSync(updatedIssues);
-
-    setToastNotification({
-      type: 'success',
-      title: 'Attachment Added',
-      description: `${newAttachments.length} file(s) attached successfully.`
-    });
-  };
-
-  const handleRemoveAttachment = (issueId, attachmentId) => {
-    const updatedIssues = issues.map(item => {
-      if (item.id === issueId) {
-        const existing = Array.isArray(item.attachments) ? item.attachments : [];
-        return {
-          ...item,
-          attachments: existing.filter(a => a.id !== attachmentId)
-        };
-      }
-      return item;
-    });
-
-    updateIssuesAndSync(updatedIssues);
-  };
-
   const handleSubmitBusinessResponse = (issueId) => {
     const target = issues.find(i => i.id === issueId);
     if (!target) return;
 
     if (!target.managementResponse || !target.managementResponse.trim()) {
       setBusinessResponseError('Please enter a Management Response before submitting.');
-      return;
-    }
-    if (!target.agreedRemediationDate) {
-      setBusinessResponseError('Please select an Agreed Remediation Date before submitting.');
       return;
     }
 
@@ -1591,13 +1532,11 @@ export default function BusinessResponseView({
     );
   };
 
-  // Right Section: Simple Label and Input Boxes for Business Response
+  // Right Section: Only Management Response Field & Submit Response Button
   const renderBusinessResponseInputs = (item) => {
-    const attachments = Array.isArray(item.attachments) ? item.attachments : [];
-
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        {/* Input 1: Management Response */}
+        {/* Management Response */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
             Management Response <span style={{ color: '#DC2626' }}>*</span>
@@ -1625,166 +1564,6 @@ export default function BusinessResponseView({
               boxSizing: 'border-box'
             }}
           />
-        </div>
-
-        {/* Input 2: Business management Reason (Single-line text input) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
-            Business management Reason
-          </label>
-          <input
-            type="text"
-            value={item.businessManagementReason || ''}
-            onChange={(e) => {
-              if (businessResponseError) setBusinessResponseError('');
-              handleBusinessFieldChange(item.id, 'businessManagementReason', e.target.value);
-            }}
-            placeholder="Enter business management reason..."
-            style={{
-              width: '100%',
-              height: '38px',
-              padding: '0 12px',
-              fontSize: '12.5px',
-              borderRadius: '6px',
-              border: '1px solid #CBD5E1',
-              backgroundColor: '#ffffff',
-              color: '#0F172A',
-              fontFamily: 'inherit',
-              outline: 'none',
-              boxSizing: 'border-box'
-            }}
-          />
-        </div>
-
-        {/* Input 3: Agreed Remediation Date */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
-            Agreed Remediation Date <span style={{ color: '#DC2626' }}>*</span>
-          </label>
-          <input
-            type="date"
-            value={item.agreedRemediationDate || ''}
-            onChange={(e) => {
-              if (businessResponseError) setBusinessResponseError('');
-              handleBusinessFieldChange(item.id, 'agreedRemediationDate', e.target.value);
-            }}
-            style={{
-              width: '100%',
-              height: '38px',
-              padding: '0 12px',
-              fontSize: '12.5px',
-              borderRadius: '6px',
-              border: '1px solid #CBD5E1',
-              backgroundColor: '#ffffff',
-              color: '#0F172A',
-              outline: 'none',
-              cursor: 'pointer',
-              boxSizing: 'border-box'
-            }}
-          />
-        </div>
-
-        {/* Input 4: Attachment */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155' }}>
-            Attachment
-          </label>
-
-          <input
-            type="file"
-            ref={businessFileInputRef}
-            onChange={(e) => {
-              if (e.target.files && e.target.files.length > 0) {
-                handleFileUpload(item.id, e.target.files);
-                e.target.value = '';
-              }
-            }}
-            multiple
-            style={{ display: 'none' }}
-          />
-
-          <div
-            onClick={() => businessFileInputRef.current?.click()}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setUploadDragOver(true);
-            }}
-            onDragLeave={() => setUploadDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setUploadDragOver(false);
-              if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                handleFileUpload(item.id, e.dataTransfer.files);
-              }
-            }}
-            style={{
-              padding: '16px',
-              border: uploadDragOver ? '1.5px dashed #0284C7' : '1px dashed #CBD5E1',
-              backgroundColor: uploadDragOver ? '#EFF6FF' : '#ffffff',
-              borderRadius: '6px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              cursor: 'pointer',
-              fontSize: '12px',
-              fontWeight: '600',
-              color: '#475569'
-            }}
-          >
-            <UploadCloud style={{ width: '16px', height: '16px', color: '#0284C7' }} />
-            <span>Click to upload or drag and drop files</span>
-          </div>
-
-          {attachments.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
-              {attachments.map(att => (
-                <div
-                  key={att.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '6px 10px',
-                    borderRadius: '6px',
-                    backgroundColor: '#ffffff',
-                    border: '1px solid #CBD5E1',
-                    fontSize: '11.5px'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                    <Paperclip style={{ width: '13px', height: '13px', color: '#0284C7', flexShrink: 0 }} />
-                    <span style={{ fontWeight: '600', color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {att.name}
-                    </span>
-                    <span style={{ fontSize: '10.5px', color: '#64748B', flexShrink: 0 }}>
-                      ({att.size})
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveAttachment(item.id, att.id)}
-                    title="Remove attachment"
-                    style={{
-                      padding: '3px 6px',
-                      borderRadius: '4px',
-                      border: '1px solid #FECACA',
-                      backgroundColor: '#FEF2F2',
-                      color: '#DC2626',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      fontSize: '10.5px',
-                      fontWeight: '600'
-                    }}
-                  >
-                    <Trash2 style={{ width: '11px', height: '11px' }} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Validation Error Message */}
